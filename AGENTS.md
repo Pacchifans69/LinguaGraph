@@ -20,13 +20,19 @@ Before planning, modifying files, installing dependencies, or writing implementa
 
 The project is currently in:
 
-**M0 Pre-Implementation**
+**M0.1 — Repository Foundation (implementation in progress)**
 
-The current task is architectural reconnaissance and specification refinement.
+The pre-implementation baseline is closed: `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md`
+ends with `ARCHITECTURE READY FOR BASELINE CLOSURE`, and ADR-001…ADR-009 are
+accepted and frozen.
 
-Do not begin M0.1 implementation unless the pre-implementation work explicitly ends with:
+Do not begin M0.2 before the M0.1 checkpoint ends with:
 
-`READY FOR M0.1 IMPLEMENTATION`
+`M0.1 READY FOR HUMAN REVIEW`
+
+Do not reopen frozen architecture decisions; if repository reality conflicts
+with the specification, stop the affected implementation and report the
+conflict.
 
 ## Scope discipline
 
