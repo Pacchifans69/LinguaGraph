@@ -19,7 +19,11 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # PostgreSQL 18+ official image layout: data lives under
+      # /var/lib/postgresql/<major>/docker, so the persistent volume must be
+      # mounted at /var/lib/postgresql (NOT /var/lib/postgresql/data, which is
+      # the pre-18 layout). Do not override PGDATA to the legacy layout.
+      - postgres_data:/var/lib/postgresql
       # Runs only on first initialization of an empty data volume:
       # creates the disposable integration-test database.
       - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
