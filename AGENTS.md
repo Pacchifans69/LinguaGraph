@@ -20,15 +20,15 @@ Before planning, modifying files, installing dependencies, or writing implementa
 
 The project is currently in:
 
-**M0.1 — Repository Foundation (implementation in progress)**
+**M0.1 — Repository Foundation (HUMAN REVIEW)**
 
-The pre-implementation baseline is closed: `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md`
-ends with `ARCHITECTURE READY FOR BASELINE CLOSURE`, and ADR-001…ADR-009 are
-accepted and frozen.
+The M0.1 implementation is complete and under human review (PR #1, branch
+`m0.1-foundation`). The pre-implementation baseline is closed:
+`docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` ends with
+`ARCHITECTURE READY FOR BASELINE CLOSURE`, and ADR-001…ADR-009 are accepted
+and frozen.
 
-Do not begin M0.2 before the M0.1 checkpoint ends with:
-
-`M0.1 READY FOR HUMAN REVIEW`
+Do not begin M0.2 until M0.1 has been human-approved and merged into main.
 
 Do not reopen frozen architecture decisions; if repository reality conflicts
 with the specification, stop the affected implementation and report the

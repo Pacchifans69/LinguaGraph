@@ -9,7 +9,9 @@ language-neutral via BCP-47 `language_tag`).
 
 ## Current milestone
 
-**M0 — Manual Alignment Workbench**, checkpoint **M0.1 — Repository Foundation** (in progress).
+**M0 — Manual Alignment Workbench**, checkpoint **M0.1 — Repository Foundation**
+(implemented; **under human review** — M0.2 must not begin until M0.1 is
+human-approved and merged into `main`).
 
 M0 proves the closed loop: *create project → create parallel document → add
 arbitrary-language text versions → select spans → create alignment group →
@@ -45,26 +47,49 @@ Verify with:
 
 ```bash
 uv --version
-node --version   # must be v24.x
-python3 --version  # may be 3.12 — uv provides the pinned 3.13
+node --version            # must be v24.x (see .nvmrc)
+uv run python --version   # prints the pinned 3.13.x, independent of system python3
 ```
 
 ## Setup from a clean checkout
 
 ### 1. Backend
 
+Create `apps/api/.env` from the example (never commit `.env`; adjust
+`DATABASE_URL` if needed):
+
 ```bash
+# POSIX / WSL / Git Bash
 cd apps/api
-cp .env.example .env      # adjust DATABASE_URL if needed (never commit .env)
-uv sync                   # creates .venv, installs pinned 3.13 + deps (uv.lock committed)
+cp .env.example .env
+
+# Windows CMD
+cd apps/api
+copy .env.example .env
+
+# Windows PowerShell
+cd apps/api
+Copy-Item .env.example .env
+```
+
+Then synchronize dependencies (creates `.venv`, installs the pinned Python
+3.13 and dependencies from the committed `uv.lock`):
+
+```bash
+uv sync
 ```
 
 ### 2. Frontend
 
 ```bash
 cd apps/web
-npm install               # installs from package-lock.json (committed)
+npm ci                    # exact install from the committed package-lock.json
 ```
+
+`npm ci` is preferred when the lockfile exists (it installs the exact
+committed tree and never rewrites the lockfile). Use `npm install` only when
+you intentionally change `package.json` dependencies. Dependencies are
+resolved from the official npm registry (see `apps/web/.npmrc`).
 
 ### 3. PostgreSQL 18
 
@@ -139,7 +164,7 @@ Open <http://localhost:5173>. The Vite dev server proxies `/api` to
 Backend (from `apps/api`):
 
 ```bash
-uv sync                                  # dependency synchronization
+uv sync --frozen                         # dependency synchronization (lockfile must be current)
 uv run pytest                            # unit + integration tests
 uv run alembic upgrade head              # migrate (against configured DB)
 ```
@@ -147,15 +172,17 @@ uv run alembic upgrade head              # migrate (against configured DB)
 Frontend (from `apps/web`):
 
 ```bash
+npm ci                                   # exact install from the committed lockfile
 npm run lint                             # ESLint
 npm run typecheck                        # tsc -b (strict, noEmit)
 npm run test                             # Vitest + React Testing Library
 npm run build                            # production build (typecheck + vite build)
 ```
 
-Integration tests are skipped with an explicit message when
-`TEST_DATABASE_URL`/`DATABASE_URL` is not set; they always use a disposable
-database.
+Integration tests are skipped with an explicit message when no PostgreSQL
+server is configured (`TEST_DATABASE_URL`, falling back to `DATABASE_URL`;
+both may come from `apps/api/.env`); they always operate on disposable
+databases.
 
 ## Configuration
 
