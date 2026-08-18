@@ -16,5 +16,6 @@ All persisted and API-visible text offsets are Unicode code-point offsets: zero-
 
 ## Consequences
 - Frontend needs a well-tested conversion layer and Unicode regression suite.
+- JavaScript `String.length` and `String.slice` use UTF-16 code-unit indices and must never be given code-point offsets directly; frontend code must use `codePointLength`/`sliceByCodePoints` utilities (or an equivalent single conversion strategy).
 - Selection boundaries that split a surrogate pair are invalid and must be rejected.
 - M0 enforces code-point boundaries; full grapheme-aware editing is deferred.

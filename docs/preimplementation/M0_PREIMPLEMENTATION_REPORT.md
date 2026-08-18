@@ -1,6 +1,6 @@
 # LinguaGraph M0 Pre-Implementation Report
 
-Status: **FINAL — NOT READY FOR M0.1 IMPLEMENTATION** (environment decisions remain)
+Status: **ARCHITECTURE READY FOR BASELINE CLOSURE** (environment provisioning is a separate track)
 
 This document is the authoritative pre-implementation deliverable for LinguaGraph M0. It was produced from `docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md` and `AGENTS.md` without beginning M0.1 implementation.
 
@@ -75,15 +75,15 @@ Legend: `CONFIRMED` = frozen decision is sound as written; `NEEDS REFINEMENT` = 
 | Atomic alignment transaction | CONFIRMED | Single request/transaction creates spans/group/members; rollback on failure. |
 | Overlapping span rendering | CONFIRMED | Boundary segmentation into minimal runs; no one-char DOM elements. |
 | Frontend/backend state boundaries | CONFIRMED | TanStack Query for server state; local reducer/Context for ephemeral UI. |
-| Same-version multi-span overlap rule | NEEDS REFINEMENT | Confirm: duplicate and overlap prohibited inside one group/version; separated and adjacent allowed. |
-| Span reuse | NEEDS REFINEMENT | Unique index on `(text_version_id, start_offset, end_offset)`; service get-or-create with IntegrityError fallback. |
-| Deletion semantics | NEEDS REFINEMENT | Must define TextVersion deletion with annotations, orphan span cleanup, and document/project cascade. |
-| Grapheme cluster policy | NEEDS REFINEMENT | M0 enforces code-point boundaries only; grapheme-aware editing deferred; document explicitly. |
-| Content hash timing | NEEDS REFINEMENT | Hash after canonicalization (canonical content), not raw input. |
-| Text size limits | NEEDS REFINEMENT | Define max code points and max request body. |
-| Connector geometry | NEEDS REFINEMENT | Define anchor model, recomputation triggers, hidden/offscreen handling. |
-| API error contract | NEEDS REFINEMENT | Standard `code/message/details` envelope; domain error codes enumerated. |
-| Environment versions | NEEDS REFINEMENT | Mismatch with baseline; mark `DECISION REQUIRED` (see Decision Register). |
+| Same-version multi-span overlap rule | CONFIRMED | Duplicate and overlap prohibited inside one group/version; separated and adjacent allowed; service-enforced. |
+| Span reuse | CONFIRMED | Unique index on `(text_version_id, start_offset, end_offset)`; concurrency-safe get-or-create via PostgreSQL `ON CONFLICT` or SAVEPOINT inside the single alignment transaction. |
+| Deletion semantics | CONFIRMED | Defined: force-delete revalidates all affected AlignmentGroups against all M0 invariants and deletes invalid groups atomically. |
+| Grapheme cluster policy | CONFIRMED | M0 enforces code-point boundaries only; grapheme-aware editing deferred; documented explicitly. |
+| Content hash timing | CONFIRMED | Hash after canonicalization (canonical content), not raw input. |
+| Text size limits | CONFIRMED | Max 1,000,000 code points and 4,000,000 request body bytes. |
+| Connector geometry | CONFIRMED | `RenderedSpanRegistry` + recompute triggers, hidden/offscreen handling defined. |
+| API error contract | CONFIRMED | Standard `code/message/details` envelope; domain error codes enumerated. |
+| Environment versions | CONFIRMED | ADR-009 fixes the baseline (Python 3.13, uv, Node 24, PostgreSQL 18); provisioning is a separate execution track, not an architecture blocker. |
 
 No `BLOCKING` architecture problems were found.
 
@@ -136,8 +136,9 @@ No `BLOCKING` architecture problems were found.
 | updated_at | timestamptz | not null | |
 
 Notes:
-- `UNIQUE(document_id, label)` to prevent confusing duplicate labels in the same document.
-- `UNIQUE(document_id, sort_order)` is **not** used; reordering would require updating many rows. Instead `sort_order` is a non-unique integer; UI ordering uses `(sort_order, created_at, id)`.
+- `UNIQUE(document_id, label)` is kept: it prevents ambiguous user-facing version labels within the same document. If a user needs two identical labels, they must disambiguate them.
+- `UNIQUE(document_id, sort_order)` is **not** used; reordering would require updating many rows. `sort_order` is a non-unique server-side stable ordering integer; document-level ordering uses `(sort_order, created_at, id)`.
+- `sort_order` is **not** the workspace panel order. Workspace panel order is an ephemeral, per-document frontend preference stored in `localStorage` (see Frontend Architecture). Server `sort_order` may be updated through metadata `PATCH`, but it is not intended to track frequent UI drag-reorder operations.
 - There is **no** unique constraint on `(document_id, language_tag)`; multiple versions of the same language are allowed.
 
 #### Span
@@ -226,7 +227,7 @@ Service/application-enforced:
 | DELETE ParallelDocument | Cascade delete all text versions, spans, alignment groups/members. Explicit destructive operation. |
 | DELETE TextVersion (no spans) | Allowed; deletes the version. |
 | DELETE TextVersion (has spans, no alignment memberships) | Allowed; deletes all its spans and the version (orphan cleanup). |
-| DELETE TextVersion (has spans with alignment memberships) | Blocked by default with `TEXT_HAS_ANNOTATIONS`. Allowed only with `?force=true`; force deletes all spans, removes affected AlignmentMembers, then deletes any AlignmentGroup left with fewer than 2 members, then deletes the version, all in one transaction. |
+| DELETE TextVersion (has spans with alignment memberships) | Blocked by default with `TEXT_HAS_ANNOTATIONS`. Allowed only with `?force=true`; force deletes all spans and affected AlignmentMembers, then **revalidates every affected AlignmentGroup against all M0 alignment invariants**, deleting any group that no longer satisfies them (fewer than 2 members, fewer than 2 distinct TextVersions, or any other required invariant), then deletes the version, all in one transaction. |
 | DELETE AlignmentGroup | Deletes members; then deletes Spans that no longer have any AlignmentMember (orphan cleanup) in the same transaction. |
 | DELETE Span | No public API in M0. Spans are managed through alignment operations. |
 
@@ -234,11 +235,12 @@ Rationale: default block prevents accidental alignment loss; `force=true` is the
 
 ### Span Reuse and Transaction Behavior
 
-- Creating an alignment uses `get-or-create` for each member span:
+- Creating an alignment uses concurrency-safe `get-or-create` for each member span:
   1. Look up `Span` by `(text_version_id, start_offset, end_offset)`.
   2. If found, reuse it.
-  3. If not found, create it.
-- A unique database index is the final backstop. In the unlikely single-user race, `IntegrityError` triggers a rollback/retry of the lookup once.
+  3. If not found, insert it using PostgreSQL `INSERT ... ON CONFLICT (text_version_id, start_offset, end_offset) DO NOTHING RETURNING id`; if no row is returned because a concurrent transaction inserted first, select the existing row.
+- This strategy keeps the operation inside the **same outer Alignment transaction** without aborting it. It does **not** use a bare `IntegrityError` rollback followed by continuation in the same outer transaction.
+- If the implementation prefers SQLAlchemy ORM over Core insert, use a **SAVEPOINT/nested transaction** around each insert: attempt insert, on unique violation roll back only to the savepoint, then select the existing row. The outer Alignment transaction remains atomic.
 - All span creation, group creation, member creation, and validation occur in one database transaction. Any failure rolls back the whole operation.
 
 ---
@@ -364,22 +366,23 @@ Input bytes / string
 | `hello world` | `hello world` | 11 |
 | `café français` | `café français` | 13 |
 | `mañana` | `mañana` | 6 |
-| `für größere Häuser` | `für größere Häuser` | 19 |
+| `für größere Häuser` | `für größere Häuser` | 18 |
 | `Cafe\u0301` (decomposed) | `Café` | 4 |
 | `A🙂B` | `A🙂B` | 3 |
-| `Café 🙂 mañana für français` | `Café 🙂 mañana für français` | 25 |
+| `Café 🙂 mañana für français` | `Café 🙂 mañana für français` | 26 |
 | `line1\r\nline2\rline3` | `line1\nline2\nline3` | 17 |
 | `\uFEFFBOM text` | `BOM text` | 8 |
 | `a\x00b` | reject | — |
 | invalid UTF-8 bytes | reject | — |
 
-Note: code-point lengths above are for canonical strings; exact lengths should be asserted by backend tests, not relied on from this table if punctuation/space count differs.
+Note: these expected code-point lengths are exact and **must** be asserted verbatim by backend/frontend regression tests. They are not approximate.
 
 ### Offset Semantics
 
 - All persisted/API offsets are **Unicode code-point offsets** into `TextVersion.content`.
 - JavaScript UTF-16 code-unit offsets are converted by the frontend utility layer only; they are never sent to the API.
 - Python `len(str)` counts code points, matching the database semantics.
+- Frontend code must use `codePointLength`/`sliceByCodePoints` when working with code-point offsets; it must not pass code-point offsets to `String.length`, `String.slice`, or similar UTF-16-based APIs.
 
 ---
 
@@ -405,26 +408,37 @@ native Selection / Range
 - Each run element contains exactly one text node whose `data` is the run's canonical substring.
 - Runs are contiguous and cover the entire canonical content with no inserted whitespace, no separators, and no nested text nodes.
 - The rendered DOM text is exactly `TextVersion.content`; therefore `textContent` of the panel equals canonical content.
+- The TextPanel root uses `white-space: pre-wrap` so whitespace and newlines in canonical content are preserved visually.
 
 ### Core Mapping Algorithm
 
 Given a DOM `Range` whose start and end are both inside the same TextPanel root:
 
-1. Identify the run element(s) containing `range.startContainer` and `range.endContainer`.
-2. For each endpoint:
-   - If the endpoint container is a text node, its parent element must be a run element.
-   - Let `runStartCP` be the run's `data-start` attribute (canonical code-point start).
-   - Let `nodeText` be `textNode.data` (UTF-16 string).
-   - Let `utf16Offset` be `range.startOffset` / `range.endOffset`.
-   - Convert `utf16Offset` to a code-point offset:
-     - `codePointsBefore = Array.from(nodeText.slice(0, utf16Offset)).length`
-     - `canonicalOffset = runStartCP + codePointsBefore`
-   - If `utf16Offset` splits a surrogate pair (i.e., `utf16Offset > 0 && utf16Offset < nodeText.length` and the code unit at `utf16Offset - 1` is a high surrogate while the code unit at `utf16Offset` is a low surrogate), the boundary is invalid. Reject with `INVALID_SELECTION_BOUNDARY`.
-3. Normalize the two canonical offsets into `start = min(...)`, `end = max(...)`.
-4. Validate:
+1. For each endpoint (`startContainer`/`startOffset`, `endContainer`/`endOffset`), resolve it to a canonical code-point offset using `resolveEndpoint(container, offset)`:
+   - **Text node container:** the parent element must be a run element.
+     - Let `runStartCP` be the run's `data-start` attribute (canonical code-point start).
+     - Let `nodeText` be `textNode.data` (UTF-16 string).
+     - Convert `utf16Offset` to a code-point offset using `utf16OffsetToCodePointOffset(nodeText, offset)`.
+     - If `utf16Offset` splits a surrogate pair (i.e., `utf16Offset > 0 && utf16Offset < nodeText.length` and the code unit at `utf16Offset - 1` is a high surrogate while the code unit at `utf16Offset` is a low surrogate), reject with `INVALID_SELECTION_BOUNDARY`.
+     - `canonicalOffset = runStartCP + convertedOffset`.
+   - **Element container at a child boundary:**
+     - If the element is the TextPanel root:
+       - offset `0` maps to canonical `0`.
+       - offset equal to the number of child nodes maps to `codePointLength(canonicalContent)`.
+       - any other offset is unsupported; reject with `UNSUPPORTED_SELECTION_BOUNDARY`.
+     - If the element is a run element:
+       - offset `0` maps to the run's `data-start` (code-point offset).
+       - offset `1` maps to the run's `data-end` (code-point offset), because each run element has exactly one child text node.
+       - any other offset is unsupported; reject with `UNSUPPORTED_SELECTION_BOUNDARY`.
+     - Any other element container is unsupported; reject with `UNSUPPORTED_SELECTION_BOUNDARY`.
+   - **Any other container type** (e.g., `DocumentFragment`, `Document`, non-run element with nested children): reject with `UNSUPPORTED_SELECTION_BOUNDARY`.
+2. Normalize the two canonical offsets into `start = min(...)`, `end = max(...)`.
+3. Validate:
    - `0 <= start < end <= codePointLength(canonicalContent)`
    - Both endpoints belong to the same TextVersion root.
-5. Return `PendingSpan { textVersionId, start, end, direction }`.
+4. Return `PendingSpan { textVersionId, start, end, direction }`.
+
+This explicitly supports Range endpoints whose container is a Text node, a run element at a child boundary, or the TextPanel root at a child boundary. All unsupported boundary shapes are rejected rather than guessed.
 
 For selection direction:
 
@@ -449,13 +463,25 @@ For selection direction:
 |---|---|
 | Empty selection | Reject with `EMPTY_SELECTION`. |
 | Backward selection | Normalize offsets; keep `direction` for UI affordance. |
-| Selection ending at run boundary | Normal mapping; run boundaries are exact. |
+| Selection ending at run boundary | If the endpoint container is a run element with offset `0`/`1`, map to `data-start`/`data-end`; if it is a text node ending at the last code point, map through text-node conversion. |
+| Endpoint exactly between rendered runs | Supported: container is the following run element at offset `0`, or the preceding run element at offset `1`, or the panel root at a child boundary. |
+| Element container with unsupported offset | Reject with `UNSUPPORTED_SELECTION_BOUNDARY`. |
+| Non-text/non-run/non-panel container | Reject with `UNSUPPORTED_SELECTION_BOUNDARY`. |
 | Surrogate pair split | Reject with `INVALID_SELECTION_BOUNDARY` (do not guess). |
 | Combining mark boundary | Allowed; M0 enforces code-point boundaries only. |
 | Selection across nested rendered spans | Not possible in M0 DOM model: runs are flat inline spans; no nested span wrappers inside a run. |
 | Overlapping annotation runs | Overlap is represented by membership sets on runs, not by duplicate DOM text; mapping remains per-run. |
 | Panel boundary | Reject if endpoints cross panels. |
 | Composed/decomposed text | Canonical text is NFC; DOM text is canonical; no decomposed text is rendered. |
+
+### Unit-Test Cases for Boundary-Point Handling
+
+- `A🙂B` with a run boundary between `A` and `🙂`: a Range whose `startContainer` is the second run element at offset `0` must resolve to canonical `start = 1`.
+- `A🙂B` with a run boundary between `🙂` and `B`: a Range whose `endContainer` is the third run element at offset `0` must resolve to canonical `end = 2`.
+- A Range whose `startContainer` is the TextPanel root at offset `0` must resolve to canonical `start = 0`.
+- A Range whose `endContainer` is the TextPanel root at offset equal to child count must resolve to canonical `end = codePointLength(content)`.
+- A Range whose endpoint container is an unknown element or a run element at an offset other than `0`/`1` must be rejected with `UNSUPPORTED_SELECTION_BOUNDARY`.
+- Mixed BMP/non-BMP content (`Café 🙂 mañana für français`) must produce exact code-point offsets at boundaries around the emoji and accented characters.
 
 ### TypeScript-Level Interfaces
 
@@ -487,6 +513,11 @@ export interface OffsetConverter {
   utf16OffsetToCodePointOffset(text: string, utf16Offset: number): CodePointOffset;
   codePointOffsetToUtf16Offset(text: string, codePointOffset: number): number;
 }
+
+export interface CodePointStringUtils {
+  codePointLength(text: string): number;
+  sliceByCodePoints(text: string, start: CodePointOffset, end: CodePointOffset): string;
+}
 ```
 
 ### Utility Placement
@@ -506,33 +537,60 @@ Inputs:
 
 Algorithm:
 
-1. Collect all boundaries from spans: for each span add `start` and `end`.
-2. Add `0` and `content.length`.
+1. Collect all boundaries from spans: for each span add `start` and `end`. All persisted/run boundaries are **Unicode code-point offsets**.
+2. Add `0` and `codePointLength(content)`.
 3. Sort unique boundaries.
 4. For each adjacent pair `(b[i], b[i+1])`, create a run:
-   - `start = b[i]`
-   - `end = b[i+1]`
-   - `text = content.slice(start, end)`
+   - `start = b[i]` (code-point offset)
+   - `end = b[i+1]` (code-point offset)
+   - `text = sliceByCodePoints(content, start, end)` — never `String.prototype.slice(start, end)`, because JS slice indices are UTF-16 code units.
    - `spanIds = [span.id for each span where span.start <= start && span.end >= end]`
    - `alignmentGroupIds = unique group ids from those spans' memberships`
 5. Output an ordered array of runs.
 
-Complexity: `O(S log S + T)` where `S` is the number of spans and `T` is the number of resulting runs (`T <= 2S + 1`).
+Canonical utility contract:
+
+```ts
+// apps/web/src/shared/text/offset.ts
+export function codePointLength(s: string): number {
+  return Array.from(s).length;
+}
+
+export function sliceByCodePoints(s: string, start: number, end: number): string {
+  return Array.from(s).slice(start, end).join('');
+}
+
+export function utf16OffsetToCodePointOffset(s: string, utf16Offset: number): number {
+  return Array.from(s.slice(0, utf16Offset)).length;
+}
+
+export function codePointOffsetToUtf16Offset(s: string, codePointOffset: number): number {
+  return Array.from(s).slice(0, codePointOffset).join('').length;
+}
+```
+
+These utilities are the single conversion strategy for code-point-safe slicing and length in the frontend.
+
+Complexity: `O(S log S + T + N)` where `S` is the number of spans, `T` is the number of resulting runs (`T <= 2S + 1`), and `N` is the canonical text length (run extraction via `sliceByCodePoints` touches the text once overall when implemented efficiently; a naive `Array.from` per run can be optimized in M0.4).
 
 ### React Representation
 
 ```tsx
 // Pseudo-code
-function TextPanel({ version, runs, onSelect }) {
+function TextPanel({ version, runs, onSelect, spanRegistry }) {
   return (
-    <div data-text-version-id={version.id} className="text-panel">
+    <div
+      data-text-version-id={version.id}
+      className="text-panel"
+      style={{ whiteSpace: 'pre-wrap' }}
+    >
       {runs.map(run => (
         <span
           key={`${run.start}-${run.end}`}
+          ref={el => spanRegistry.setRunElements(run.spanIds, el)}
           data-run-id={run.id}
           data-start={run.start}
           data-end={run.end}
-          data-span-ids={run.spanIds.join(',')}
           data-alignment-group-ids={run.alignmentGroupIds.join(',')}
           className={runClasses(run)}
         >
@@ -547,12 +605,14 @@ function TextPanel({ version, runs, onSelect }) {
 - Stable keys: `"${run.start}-${run.end}"` is stable because canonical text is immutable and run boundaries are derived from spans.
 - No `dangerouslySetInnerHTML`; text is rendered as React text nodes.
 - Highlighting uses CSS classes/`data-*` attributes; active/hover state is not color-only (also uses outline/underline and text labels).
+- **Canonical span-to-DOM contract:** `spanRegistry` is an explicit `RenderedSpanRegistry` (`Map<spanId, HTMLElement[]>`). Each run element registers itself for every `spanId` in `run.spanIds`. Connector geometry reads this registry; it must **not** parse `data-span-ids` or query `data-span-id`. `data-span-ids` is intentionally not used as a canonical mechanism.
+- The panel root must preserve whitespace and newlines with `white-space: pre-wrap` so canonical content is rendered faithfully.
 
 ### Selection Compatibility
 
 - Runs are inline elements; they do not alter the underlying text.
 - Native selection can start/end inside any run or at run boundaries.
-- The Selection Engine maps endpoints using `data-start` and text node content.
+- The Selection Engine maps endpoints using `data-start`/`data-end`, text node content, and the explicit element child-boundary rules for run/panel roots.
 
 ### Hover / Active / Render Invalidation
 
@@ -561,6 +621,26 @@ function TextPanel({ version, runs, onSelect }) {
 - Segmentation is recomputed only when spans/alignments change (server data invalidation), not on hover/scroll.
 
 ### Connector Geometry
+
+#### RenderedSpanRegistry
+
+```ts
+class RenderedSpanRegistry {
+  private elements = new Map<string, HTMLElement[]>();
+
+  setRunElements(spanIds: string[], el: HTMLElement | null): void {
+    // Called from each run element ref callback.
+    // On mount, append el to each spanId bucket.
+    // On unmount/null, remove el from each bucket.
+  }
+
+  getElements(spanId: string): HTMLElement[] {
+    return this.elements.get(spanId) ?? [];
+  }
+}
+```
+
+This registry is the canonical bridge from persisted `spanId` to rendered DOM elements. It avoids selector parsing and stays correct when one run element belongs to multiple spans.
 
 #### State Model
 
@@ -579,7 +659,7 @@ interface ConnectorState {
 
 #### Anchor Model
 
-- For each member, obtain all `ClientRect`s of the DOM elements carrying `data-span-id` for that span (usually one or more run elements).
+- For each member, obtain all run elements for that span from `RenderedSpanRegistry.getElements(spanId)`; then read their `getClientRects()`. No `data-span-id` selectors are used.
 - Convert each rect to overlay coordinates: `left = rect.left - overlayRect.left`, `top = rect.top - overlayRect.top`.
 - Use the member's first/last visible rect to compute an anchor point (e.g., middle of the rect edge closest to the group hub).
 - Draw a simple straight/quadratic connector from each member anchor to a single group hub (centroid of visible member anchors). No complex edge routing.
@@ -709,7 +789,7 @@ Example POST:
 | POST | `/api/v1/documents/{document_id}/text-versions` | Create/import text version |
 | GET | `/api/v1/text-versions/{text_version_id}` | Get text version |
 | PATCH | `/api/v1/text-versions/{text_version_id}` | Update **metadata only** (`label`, `sort_order`) |
-| DELETE | `/api/v1/text-versions/{text_version_id}` | Delete version; `?force=true` for destructive reset when annotated |
+| DELETE | `/api/v1/text-versions/{text_version_id}` | Delete version; `?force=true` for destructive reset when annotated; revalidates affected AlignmentGroups against all M0 invariants |
 
 Example POST (paste):
 
@@ -952,7 +1032,7 @@ State is managed with `useReducer`; actions are explicit (`ADD_PENDING_MEMBER`, 
 
 ### localStorage
 
-Persist only local preferences:
+Persist only local preferences, namespaced by `documentId` so different documents do not share panel state:
 
 ```ts
 interface WorkspacePreferences {
@@ -960,15 +1040,20 @@ interface WorkspacePreferences {
   visiblePanels: string[];
   density: 'comfortable' | 'compact';
 }
+
+function preferenceKey(documentId: string): string {
+  return `linguagraph.workspace.preferences.v1.${documentId}`;
+}
 ```
 
-Key: `linguagraph.workspace.preferences.v1`.
+Key format: `linguagraph.workspace.preferences.v1.<documentId>`.
 
 ### Shared Text Utilities
 
-- `shared/text/offset.ts` — UTF-16 ↔ code-point conversion.
+- `shared/text/offset.ts` — UTF-16 ↔ code-point conversion plus `codePointLength`/`sliceByCodePoints`.
 - `shared/text/selection.ts` — DOM Range/Selection → PendingSpan.
 - `shared/text/segmentation.ts` — canonical text + spans → runs.
+- `shared/rendering/spanRegistry.ts` — `RenderedSpanRegistry` for connector geometry.
 - `shared/text/types.ts` — shared types.
 
 These are framework-light and unit-tested independently of React.
@@ -988,7 +1073,7 @@ These are framework-light and unit-tested independently of React.
 
 ### Stack
 
-- Python 3.13.x (baseline; see Decision Register for environment mismatch).
+- Python 3.13.x (baseline; see ADR-009 for environment provisioning).
 - FastAPI + Pydantic v2.
 - SQLAlchemy 2.0 (typed ORM).
 - Alembic for migrations.
@@ -1065,7 +1150,7 @@ apps/api/
 
 ### Transaction Ownership
 
-- `AlignmentService.create` is the canonical example: load document, load versions, validate, derive quotes, get-or-create spans, create group/members, validate final state, commit. Any exception triggers rollback.
+- `AlignmentService.create` is the canonical example: load document, load versions, validate, derive quotes, get-or-create spans (PostgreSQL `ON CONFLICT` or SAVEPOINT), create group/members, validate final state, commit. Any exception triggers rollback.
 - `AlignmentService.update_members` and `AlignmentService.delete` similarly own atomic transactions.
 - `TextVersionService.delete(force=True)` owns the destructive-reset transaction.
 
@@ -1095,6 +1180,7 @@ apps/api/
 
 - Services accept a `Session` argument, making them testable with a real PostgreSQL test database.
 - Canonical text/offset utilities are pure functions and unit-tested without DB.
+- Migration/destructive migration tests must run against a **disposable test PostgreSQL database**, never the normal development database.
 
 ---
 
@@ -1119,7 +1205,8 @@ LinguaGraph/
 │   │   ├── ADR-005-annotated-text-immutability.md
 │   │   ├── ADR-006-alignment-group-nm-hyperedge.md
 │   │   ├── ADR-007-pending-selections-client-side.md
-│   │   └── ADR-008-modular-monolith.md
+│   │   ├── ADR-008-modular-monolith.md
+│   │   └── ADR-009-m0-environment-baseline.md
 │   ├── api/
 │   │   └── api-contract.md
 │   ├── architecture/
@@ -1199,6 +1286,9 @@ LinguaGraph/
 │       ├── tsconfig.json
 │       ├── vite.config.ts
 │       ├── index.html
+│       ├── e2e/
+│       │   ├── golden-path.spec.ts
+│       │   └── unicode.spec.ts
 │       └── src/
 │           ├── main.tsx
 │           ├── app/
@@ -1234,16 +1324,14 @@ LinguaGraph/
 │               ├── api/
 │               │   ├── client.ts
 │               │   └── errors.ts
+│               ├── rendering/
+│               │   └── spanRegistry.ts
 │               ├── text/
 │               │   ├── offset.ts
 │               │   ├── selection.ts
 │               │   ├── segmentation.ts
 │               │   └── types.ts
 │               └── ui/
-└── tests/
-    └── e2e/
-        ├── golden-path.spec.ts
-        └── unicode.spec.ts
 ```
 
 ### Directory Responsibilities
@@ -1254,7 +1342,8 @@ LinguaGraph/
 | `apps/web` | React frontend, selection engine, rendering, connectors |
 | `docs` | Architecture, ADRs, API contract, testing strategy, pre-implementation records |
 | `infra` | PostgreSQL init/container support files |
-| `tests/e2e` | Playwright E2E tests (can also live under `apps/web/e2e`) |
+| `apps/web/e2e` | Single Playwright E2E test location for the web app |
+| `apps/web/src/shared/rendering` | RenderedSpanRegistry and rendering support utilities |
 | `compose.yml` | Local PostgreSQL service for development/integration tests |
 
 ---
@@ -1264,10 +1353,10 @@ LinguaGraph/
 ### Test Levels
 
 - **Backend unit tests**: canonicalization, offsets, BCP-47 validation, alignment invariants, span reuse, deletion policy helpers.
-- **Backend integration tests**: real PostgreSQL through API → service → ORM; migrations; transaction rollback; FK/cascade; uniqueness.
-- **Frontend unit tests**: offset conversion, DOM selection mapping, boundary segmentation, tray reducer, hover/active state, invalid selection rejection.
-- **Component tests**: TextPanel rendering, AlignmentTray, Inspector, ConnectorOverlay geometry helpers.
-- **E2E**: Playwright golden path and Unicode scenario against the full stack.
+- **Backend integration tests**: real PostgreSQL through API → service → ORM; migrations; transaction rollback; FK/cascade; uniqueness; all migration/destructive tests use a disposable test PostgreSQL database, never the normal development DB.
+- **Frontend unit tests**: offset conversion, `codePointLength`/`sliceByCodePoints`, DOM selection mapping including exact run-boundary endpoints, boundary segmentation, tray reducer, hover/active state, invalid selection rejection, `RenderedSpanRegistry`.
+- **Component tests**: TextPanel rendering (including `white-space: pre-wrap`), AlignmentTray, Inspector, ConnectorOverlay geometry helpers.
+- **E2E**: Playwright golden path and Unicode scenario against the full stack, located in `apps/web/e2e`.
 
 ### Requirements → Tests Traceability Matrix
 
@@ -1277,6 +1366,8 @@ LinguaGraph/
 | CRLF/CR → LF | yes | yes | no |
 | NFC normalization | yes | yes | yes |
 | Code-point offsets | yes | yes | yes |
+| Code-point slicing utilities (`codePointLength`/`sliceByCodePoints`) | yes | no | yes |
+| Run-boundary endpoint handling | yes | no | yes |
 | Surrogate pair safety | yes | optional | yes |
 | Span exact_text invariant | yes | yes | yes |
 | Prefix/suffix derivation | yes | yes | no |
@@ -1336,12 +1427,9 @@ The following ADR files are provided under `docs/adr/`:
 - **ADR-006** AlignmentGroup as N:M hyperedge
 - **ADR-007** Pending selections remain client-side
 - **ADR-008** Modular monolith
+- **ADR-009** M0 environment baseline (Accepted)
 
 Each ADR contains Context, Decision, Alternatives Considered, Consequences.
-
-### Optional New ADR
-
-- **ADR-009** (proposed) M0 environment baseline for local execution: use Node 24 via `/usr/bin/node`, install uv, and require PostgreSQL via Docker/Compose. Marked `DECISION REQUIRED` in the Decision Register.
 
 ---
 
@@ -1363,6 +1451,10 @@ These are settled and must not be re-litigated by coding agents:
 10. State ownership: TanStack Query for server state; local reducer/Context for ephemeral UI; no Redux/Zustand.
 11. Repository is a simple monorepo without Nx/Turborepo/Bazel.
 12. M0 does not implement pagination, virtualization, NLP, LLM, auth, collaboration, or graph DB.
+13. JavaScript must use `codePointLength`/`sliceByCodePoints` (or equivalent) for code-point offsets; `String.length`/`String.slice` must never receive code-point offsets directly.
+14. Connector geometry uses an explicit `RenderedSpanRegistry`; `data-span-id` selector parsing is not used.
+15. Force-deleting a TextVersion revalidates all affected AlignmentGroups against all M0 alignment invariants and deletes invalid groups.
+16. Playwright E2E tests live in `apps/web/e2e`.
 
 ### Deferred Decisions
 
@@ -1382,19 +1474,24 @@ These were open design choices; this pre-implementation adopts the recommended a
 
 | Question | Decision | Reason |
 |---|---|---|
-| TextVersion sort_order semantics | Non-unique integer; ordering uses `(sort_order, created_at, id)` | Avoids reorder churn |
+| `UNIQUE(document_id, label)` | Keep the unique constraint | Prevents ambiguous user-facing labels within a document; duplicates can be disambiguated by the user |
+| TextVersion `sort_order` semantics | Non-unique server-side stable ordering integer; ordering uses `(sort_order, created_at, id)` | Avoids reorder churn; does not conflate server ordering with UI panel order |
+| Workspace panel order | Ephemeral per-document frontend preference in `localStorage` (`panelOrder`), separate from server `sort_order` | Panel arrangement is a UI concern, not domain data |
 | Span orphan cleanup on alignment delete | Delete orphan spans in the same transaction | Keeps TextVersion deletable and avoids junk data |
-| TextVersion delete force semantics | Block by default + explicit `?force=true` | Prevents accidental alignment loss |
+| TextVersion delete force semantics | Block by default + explicit `?force=true`; revalidate all affected AlignmentGroups against all M0 invariants | Prevents accidental alignment loss and preserves invariants |
 
-### Open Decisions (require approval before M0.1)
+### Environment Provisioning (separate from architecture readiness)
 
-| Question | Options | Recommended answer | Reason | Risk if delayed |
-|---|---|---|---|---|
-| Python version for M0.1 | (a) Install Python 3.13.x; (b) use Python 3.12.3 available | Install Python 3.13.x to match baseline; if not feasible, approve Python 3.12.3 as explicit deviation | Baseline says 3.13.x; 3.12 is close but must be approved | M0.1 environment setup stalls |
-| Node version on PATH | (a) Use Node 24 at `/usr/bin/node`; (b) use Node 22.22.3 currently first on PATH | Use Node 24 LTS; adjust PATH/aliases in M0.1 | Baseline says Node 24 LTS; Node 24 is already installed | Frontend tooling may use wrong major |
-| uv installation | (a) Install uv; (b) use another Python env manager | Install uv before M0.1 | Baseline says uv | Backend setup cannot follow documented commands |
-| PostgreSQL provisioning | (a) Docker/Compose; (b) native PostgreSQL install | Use Docker/Compose when available; otherwise native PostgreSQL | Integration tests require real PostgreSQL | M0.2 integration tests blocked |
-| Git initialization | (a) `git init` in M0.1; (b) initialize now | Initialize in M0.1 as part of foundation | No repo currently exists | No version control during planning |
+These are provisioning tasks, not architectural open decisions. ADR-009 fixes the environment baseline; M0.1 must provision the environment accordingly.
+
+| Task | Baseline requirement |
+|---|---|
+| Python | Use Python 3.13.x via `uv python install 3.13` / `uv python pin 3.13` |
+| Python manager | Install `uv` |
+| Node | Use Node 24 LTS; adjust PATH/version manager so Node 24 is active |
+| PostgreSQL | Provision PostgreSQL 18 (Docker Compose preferred; native fallback allowed) |
+| Test database | Use a disposable PostgreSQL test database for migration/destructive tests; never the normal development DB |
+| Git | Initialize Git in M0.1 (deferred by this errata closure) |
 
 ---
 
@@ -1420,7 +1517,7 @@ The following rules bind every coding agent during M0.1–M0.7:
 
 ## 16B. Git Strategy
 
-- Initialize Git in M0.1 (pending open decision).
+- Initialize Git in M0.1 (deferred by this errata closure; do not initialize Git or create the baseline commit during pre-implementation).
 - Use conventional, checkpoint-aligned commits. Avoid giant `initial implementation` commits.
 - Suggested commit sequence:
 
@@ -1441,6 +1538,7 @@ docs: finalize M0 documentation
 
 - Each commit should keep the repository green (lint/typecheck/tests/build pass where applicable).
 - Do not split into meaningless micro-commits; group by cohesive checkpoint deliverable.
+- Commit generated lockfiles (`uv.lock`, `package-lock.json`) as soon as dependencies are initialized.
 
 ## 17. Refined M0.1–M0.7 Execution Contracts
 
@@ -1453,26 +1551,28 @@ docs: finalize M0 documentation
 **Files/areas allowed to change:** Root config files, `apps/api`, `apps/web`, `compose.yml`, `README.md`, `.gitignore`, `.env.example`, `infra/`.
 
 **Required implementation:**
-- Git init (if approved), `.gitignore`, README.
+- Git init (deferred until M0.1 starts; **do not initialize now**), `.gitignore`, README.
 - `apps/api` FastAPI app with `/api/v1/health`, SQLAlchemy/Alembic wiring, empty migration chain, pytest setup.
 - `apps/web` Vite React TS app with TanStack Query, Vitest, lint/typecheck.
 - `compose.yml` PostgreSQL 18 service (or approved alternative).
 - Env configuration.
+- Generate dependency lockfiles (`uv.lock` for backend, `package-lock.json` for frontend) and commit them as part of M0.1.
 
 **Required tests:**
 - Backend health endpoint test.
 - Frontend smoke/unit test (e.g., app renders).
-- Migration from zero to HEAD (integration).
+- Migration from zero to HEAD against a **disposable test PostgreSQL database**, never the normal development DB.
 
 **Commands:**
-- Backend: `uv sync`, `uv run pytest`, `uv run alembic upgrade head`.
-- Frontend: `npm install`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`.
+- From `apps/api`: `uv sync`, `uv run pytest`, `uv run alembic upgrade head`
+- From `apps/web`: `npm install`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`
 
 **Acceptance criteria:**
 - `GET /api/v1/health` returns 200.
-- `alembic upgrade head` succeeds on clean DB.
+- `alembic upgrade head` succeeds on a disposable clean DB.
 - Frontend production build succeeds.
 - Lint/typecheck/unit tests pass.
+- `uv.lock` and `package-lock.json` are generated and committed.
 
 **Explicit non-goals:** No domain models/endpoints beyond health; no UI features.
 
@@ -1480,7 +1580,7 @@ docs: finalize M0 documentation
 
 ### M0.2 — Persistence Model
 
-**Scope:** Implement all domain tables, constraints, migrations, service-level invariants.
+**Scope:** Own schema, constraints, canonicalization, domain validation, and persistence foundations. The complete atomic Alignment create/update/delete service and HTTP endpoints belong to M0.5.
 
 **Inputs:** M0.1 foundation; Final Domain Model in this report.
 
@@ -1489,18 +1589,29 @@ docs: finalize M0 documentation
 **Required implementation:**
 - SQLAlchemy models: Project, ParallelDocument, TextVersion, Span, AlignmentGroup, AlignmentMember.
 - Alembic migration with all constraints/indexes.
-- Service methods for create/list/get/update/delete with deletion semantics.
-- Canonical text utility (can be M0.2 or M0.3; prefer M0.2 because TextVersion create needs it).
+- Canonical text utility in `apps/api/app/text/canonical.py` (required now because TextVersion creation depends on it).
+- Domain validation helpers for offset ranges, BCP-47 syntax, and alignment invariant predicates (pure functions).
+- Basic persistence foundations for all entities, including direct ORM create/read/delete tests; this is **not** the full alignment service.
+- Deletion semantics helpers for Project/Document/TextVersion, including the destructive-reset revalidation rule, implemented enough to test the policy; the HTTP endpoint may be completed in M0.3/M0.5.
 
 **Required tests:**
-- Backend unit: canonicalization vectors, offset validation, invariants.
-- Backend integration: real PostgreSQL migrations, FK/cascade/uniqueness, atomic alignment transaction (can be M0.5; at least span/group/member persistence now).
+- Backend unit: canonicalization vectors (including corrected `18` and `26` code-point lengths), offset validation, invariants, deletion-policy predicates.
+- Backend integration: real PostgreSQL migrations, FK/cascade/uniqueness, and direct persistence of each entity.
+- Migration downgrade/destructive migration tests must use a **disposable test PostgreSQL database**, never the normal development DB.
 
-**Commands:** `uv run pytest`, `uv run alembic upgrade head`, `uv run alembic downgrade base` (rollback check).
+**Commands:**
+- From `apps/api`: `uv run pytest`
+- From `apps/api`: `uv run alembic upgrade head`
+- From `apps/api`: `uv run alembic downgrade base` against the disposable test database only.
 
-**Acceptance criteria:** All tables exist; constraints verified; CRUD for Project/Document/TextVersion; alignment transaction creates/reuses spans atomically.
+**Acceptance criteria:**
+- All tables exist and constraints are verified.
+- CRUD for Project/Document/TextVersion works.
+- Canonicalization and domain validation tests pass.
+- Span/AlignmentGroup/AlignmentMember ORM persistence foundations exist.
+- Complete atomic Alignment create/update/delete service is **not** required in M0.2.
 
-**Explicit non-goals:** API routes beyond minimal smoke; no selection/UI.
+**Explicit non-goals:** Full AlignmentService transaction, alignment HTTP endpoints, selection/UI.
 
 ### M0.3 — Document Workspace
 
@@ -1521,7 +1632,10 @@ docs: finalize M0 documentation
 - Frontend component: panel reorder/hide, workspace query hook.
 - E2E: create project/document/versions (no alignment yet).
 
-**Commands:** backend pytest; frontend lint/typecheck/test/build.
+**Commands:**
+- From `apps/api`: `uv run pytest`
+- From `apps/web`: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`
+- From `apps/web`: `npx playwright test e2e/golden-path.spec.ts` (E2E location is `apps/web/e2e`)
 
 **Acceptance criteria:** User can create project/doc/versions and open panels; workspace API returns complete snapshot.
 
@@ -1544,33 +1658,43 @@ docs: finalize M0 documentation
 
 **Required tests:**
 - Frontend unit: all Unicode vectors, surrogate split, backward selection, cross-panel rejection, segmentation overlap.
+- Frontend unit: `codePointLength`/`sliceByCodePoints` on `A🙂B` and mixed BMP/non-BMP content (`Café 🙂 mañana für français`).
+- Frontend unit: Range endpoints exactly between rendered runs and unsupported boundary shapes are rejected.
 - Component: tray reducer, invalid selection rejection.
 
-**Commands:** `npm run test`, `npm run lint`, `npm run typecheck`, `npm run build`.
+**Commands:**
+- From `apps/web`: `npm run test`, `npm run lint`, `npm run typecheck`, `npm run build`
 
-**Acceptance criteria:** Pending spans use code-point offsets; no UTF-16 offsets leak to API; overlapping spans render correctly.
+**Acceptance criteria:** Pending spans use code-point offsets; no UTF-16 offsets leak to API; overlapping spans render correctly; boundary handling is fully specified and tested.
 
 **Explicit non-goals:** persistence of alignments; connectors.
 
 ### M0.5 — Manual Alignment
 
-**Scope:** Create alignment from tray → atomic API; edit/delete alignment; span reuse.
+**Scope:** Own the **complete atomic Alignment create/update/delete service and HTTP endpoints**, including concurrency-safe Span get-or-create and orphan cleanup.
 
-**Inputs:** M0.4 selection; M0.2 persistence; API contract.
+**Inputs:** M0.4 selection; M0.2 persistence foundations; API contract.
 
-**Files/areas allowed to change:** `apps/api/app/services/alignment_service.py`, routes, schemas; `apps/web/src/features/alignments`, tray actions.
+**Files/areas allowed to change:** `apps/api/app/services/alignment_service.py`, alignment routes/schemas; `apps/web/src/features/alignments`, tray actions.
 
 **Required implementation:**
-- POST/PATCH/DELETE alignment endpoints.
-- Atomic create/update/delete with span reuse/orphan cleanup.
+- `AlignmentService.create/update/delete` implementing the full atomic transaction, Span get-or-create via PostgreSQL `ON CONFLICT` or SAVEPOINT, validation of all alignment invariants, and orphan cleanup.
+- POST/PATCH/DELETE alignment HTTP endpoints.
 - Frontend Create Alignment action and alignment list/inspector basics.
 
 **Required tests:**
-- Backend unit/integration: invariants, rollback, span reuse, same-version multi-span, N:M.
+- Backend unit: alignment invariants, same-version multi-span, N:M, deletion revalidation.
+- Backend integration against disposable PostgreSQL: atomic transaction, rollback, span reuse, concurrency-safe get-or-create, orphan cleanup, endpoint behavior.
 - Frontend unit: mutation invalidation, duplicate prevention.
 - E2E: create alignment, reload, verify persistence.
 
-**Acceptance criteria:** Golden path create/reload works for 1:1, 1:N, N:M, same-version multi-span.
+**Commands:**
+- From `apps/api`: `uv run pytest`
+- From `apps/web`: `npm run test`, `npm run lint`, `npm run typecheck`, `npm run build`
+
+**Acceptance criteria:**
+- Golden path create/reload works for 1:1, 1:N, N:M, same-version multi-span.
+- Atomic Alignment create/update/delete service and HTTP endpoints are complete and tested.
 
 **Explicit non-goals:** hover connectors, full Inspector editing.
 
@@ -1580,19 +1704,25 @@ docs: finalize M0 documentation
 
 **Inputs:** M0.5 alignments; Rendering & Connector Specification.
 
-**Files/areas allowed to change:** `apps/web/src/features/workspace` (ConnectorOverlay, Inspector), `shared/text/segmentation` if needed.
+**Files/areas allowed to change:** `apps/web/src/features/workspace` (ConnectorOverlay, Inspector), `apps/web/src/shared/rendering/spanRegistry.ts`, `shared/text/segmentation` if needed.
 
 **Required implementation:**
 - Hover/active state propagation.
 - Run highlighting with non-color cues.
+- `RenderedSpanRegistry` and ConnectorOverlay using registry lookups (no `data-span-id` selectors).
 - ConnectorOverlay with recompute on scroll/resize/reorder.
 - Inspector shows members and note; edit note/remove member/delete alignment.
 
 **Required tests:**
 - Frontend unit: hover propagation, connector geometry helpers.
-- E2E: hover/click highlights counterparts; remove member; delete alignment.
+- Frontend unit: `RenderedSpanRegistry` registration/unregistration and `getElements(spanId)`.
+- E2E from `apps/web/e2e`: hover/click highlights counterparts; remove member; delete alignment.
 
-**Acceptance criteria:** M0 golden path complete through step 16.
+**Commands:**
+- From `apps/web`: `npm run test`, `npm run lint`, `npm run typecheck`, `npm run build`
+- From `apps/web`: `npx playwright test e2e`
+
+**Acceptance criteria:** M0 golden path complete through step 16; connectors use the explicit span registry.
 
 **Explicit non-goals:** complex edge routing; synchronized scrolling.
 
@@ -1612,9 +1742,13 @@ docs: finalize M0 documentation
 - Migration-from-zero check.
 - Documentation finalization.
 
-**Required tests:** All commands: backend pytest (unit+integration), frontend lint/typecheck/test/build, Playwright e2e, migration up/down.
+**Required tests:**
+- From `apps/api`: `uv run pytest` (unit + integration against disposable PostgreSQL)
+- From `apps/api`: `uv run alembic upgrade head` and `uv run alembic downgrade base` against disposable test PostgreSQL only
+- From `apps/web`: `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`
+- From `apps/web`: `npx playwright test e2e`
 
-**Acceptance criteria:** All M0 Definition of Done items pass.
+**Acceptance criteria:** All M0 Definition of Done items pass; migration/destructive tests never touch the normal development DB.
 
 **Explicit non-goals:** new features beyond M0 scope.
 
@@ -1665,8 +1799,8 @@ Why this order:
 - [x] Produced decision register.
 - [x] Refined M0.1–M0.7 execution contracts.
 - [x] Produced implementation order.
-- [ ] Resolve environment baseline decisions (Python 3.13/3.12, uv, PostgreSQL/Docker, Node PATH, Git init).
-- [ ] No unresolved architecture blockers.
+- [x] No unresolved architecture blockers remain after errata closure.
+- [ ] Provision environment baseline before M0.1 execution (Python 3.13, uv, Node 24, PostgreSQL 18, disposable test DB, Git init) — this is a separate environment track, not an architecture blocker.
 
 ---
 
@@ -1697,14 +1831,6 @@ Why this order:
 
 ### Final Status
 
-**NOT READY FOR IMPLEMENTATION**
+**ARCHITECTURE READY FOR BASELINE CLOSURE**
 
-Reason: all architecture-level concerns are resolved, but M0.1 cannot begin with the current environment mismatches and unresolved environment decisions. Specifically:
-
-1. Python 3.13.x baseline is not available (Python 3.12.3 is installed); decision required.
-2. `uv` is not installed; decision required.
-3. PostgreSQL/Docker are not available; integration test environment decision required.
-4. Node 24 exists at `/usr/bin/node` but Node 22.22.3 is first on `PATH`; PATH decision required.
-5. Repository is not yet a Git repository; Git initialization decision required.
-
-Once these are resolved and the open decisions in the Decision Register are closed, this document should be updated to `READY FOR M0.1 IMPLEMENTATION`.
+All architectural defects from the errata closure are resolved. Environment readiness is a separate track: before M0.1 execution, the environment must be provisioned to the ADR-009 baseline (Python 3.13, uv, Node 24, PostgreSQL 18, disposable test DB, Git init). That provisioning does not block architectural closure.

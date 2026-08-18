@@ -15,4 +15,4 @@ Pending selections are ephemeral frontend state in an Alignment Tray. Nothing is
 
 ## Consequences
 - Frontend tray reducer must manage pending members and duplicate prevention.
-- Backend create-alignment endpoint owns a single atomic transaction with span get-or-create.
+- Backend create-alignment endpoint owns a single atomic transaction with concurrency-safe span get-or-create (PostgreSQL `ON CONFLICT` or SAVEPOINT), preserving the single-transaction invariant.
