@@ -82,10 +82,14 @@ disposable `linguagraph_test` integration-test database on first init
 Native fallback (no Docker): install PostgreSQL 18, start the cluster, then:
 
 ```bash
-sudo -u postgres psql -c "CREATE ROLE linguagraph LOGIN PASSWORD 'linguagraph'"
+sudo -u postgres psql -c "CREATE ROLE linguagraph LOGIN CREATEDB PASSWORD 'linguagraph'"
 sudo -u postgres psql -c "CREATE DATABASE linguagraph OWNER linguagraph"
 sudo -u postgres psql -c "CREATE DATABASE linguagraph_test OWNER linguagraph"
 ```
+
+`CREATEDB` is required so integration tests can create and drop their own
+disposable databases (with Docker Compose the `POSTGRES_USER` is the
+container superuser, so no extra step is needed there).
 
 ## Database migrations (Alembic)
 
