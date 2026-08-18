@@ -32,6 +32,16 @@ class Settings(BaseSettings):
         """Parsed CORS origins (comma-separated in the env var)."""
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
 
+    @property
+    def integration_server_url(self) -> str | None:
+        """Server used by integration/migration tests to create disposable databases.
+
+        ``TEST_DATABASE_URL`` wins when set; otherwise falls back to
+        ``DATABASE_URL``. The server is only ever used to create uniquely
+        named disposable databases — never the normal development database.
+        """
+        return self.test_database_url or self.database_url
+
 
 @lru_cache
 def get_settings() -> Settings:
