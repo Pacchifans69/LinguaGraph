@@ -149,8 +149,15 @@ def validate_language_tag(tag: str) -> str:
         ):
             pos += 1
 
-    # *("-" variant)
+    # *("-" variant); RFC 5646: the same variant subtag MUST NOT be used more
+    # than once in one tag (subtags are lowercased above, so this check is
+    # inherently case-insensitive).
+    variants_seen: set[str] = set()
     while pos < len(subtags) and _is_variant_subtag(subtags[pos]):
+        variant = subtags[pos]
+        if variant in variants_seen:
+            raise _invalid(tag, f"duplicate variant subtag '{variant}'")
+        variants_seen.add(variant)
         pos += 1
 
     # *("-" extension); each extension singleton must be unique.

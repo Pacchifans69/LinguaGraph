@@ -22,7 +22,8 @@ VALID_TAGS: list[str] = [
     "zh-Hant",  # script
     "sr-Latn-RS",  # language-script-region
     "de-AT-1996",  # variant (DIGIT 3alphanum)
-    "sl-rozaj-biske",  # multiple variants
+    "de-DE-1901",  # single variant
+    "sl-rozaj-biske",  # multiple DISTINCT variants
     "en-US-u-co-phonebk",  # extension (u extension)
     "en-a-foo",  # extension with generic singleton
     "en-a-foo-x-bar",  # extension + private use
@@ -74,6 +75,8 @@ INVALID_TAGS: list[tuple[str, str]] = [
     ("en-a", "extension needs a 2-8 char subtag"),
     ("en-a-b", "extension subtag too short"),
     ("en-a-foo-a-bar", "duplicate extension singleton"),
+    ("de-DE-1901-1901", "duplicate variant subtag"),
+    ("sl-rozaj-ROZAJ", "duplicate variant subtag (case-insensitive)"),
 ]
 
 

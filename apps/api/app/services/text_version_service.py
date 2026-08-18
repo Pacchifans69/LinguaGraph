@@ -256,26 +256,39 @@ def delete_text_version(
             if not alignment_group_is_valid(remaining, group.document_id):
                 deleted_group_ids.add(group_id)
 
-        # Orphan cleanup: spans of OTHER versions whose last membership was in
-        # a deleted group are removed (Decision Register: "Span orphan cleanup
-        # on alignment delete"). Pre-existing bare spans are left untouched.
+        # Orphan cleanup (Decision Register: "Span orphan cleanup on alignment
+        # delete"). Candidate orphan spans are spans of OTHER TextVersions
+        # whose memberships are removed because an AlignmentGroup is scheduled
+        # for deletion. A candidate is deleted ONLY if it will have ZERO
+        # AlignmentMembers across the ENTIRE database after the scheduled group
+        # deletions: memberships in unaffected groups (groups not being
+        # deleted, including groups outside the affected set) always count as
+        # surviving memberships. Pre-existing bare spans are left untouched.
         if deleted_group_ids:
-            at_risk_span_ids = {
+            candidate_span_ids = {
                 member.span_id
                 for member, _span, _version in member_rows
                 if member.alignment_group_id in deleted_group_ids
                 and member.span_id not in version_span_ids
             }
-            surviving_member_span_ids = {
-                member.span_id
-                for member, _span, _version in member_rows
-                if member.alignment_group_id not in deleted_group_ids
-                and member.span_id not in version_span_ids
-            }
-            for span_id in at_risk_span_ids - surviving_member_span_ids:
-                span = db.get(Span, span_id)
-                if span is not None:
-                    db.delete(span)
+            for span_id in candidate_span_ids:
+                survives = (
+                    db.scalars(
+                        select(AlignmentMember.id)
+                        .where(
+                            AlignmentMember.span_id == span_id,
+                            AlignmentMember.alignment_group_id.not_in(
+                                deleted_group_ids
+                            ),
+                        )
+                        .limit(1)
+                    ).first()
+                    is not None
+                )
+                if not survives:
+                    span = db.get(Span, span_id)
+                    if span is not None:
+                        db.delete(span)
 
         for group_id in deleted_group_ids:
             group = db.get(AlignmentGroup, group_id)

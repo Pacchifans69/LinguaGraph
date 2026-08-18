@@ -270,3 +270,95 @@ def test_delete_missing_version_raises_not_found(db_session) -> None:
     with pytest.raises(DomainError) as excinfo:
         text_version_service.delete_text_version(db_session, uuid.uuid4())
     assert excinfo.value.code == "NOT_FOUND"
+
+
+def test_force_delete_shared_span_survives_in_unaffected_group(db_session) -> None:
+    """P0 regression (human review): orphan-span detection must consult the
+    ENTIRE database, not only groups directly affected by the deleted version.
+
+    G1 = {EN_span, DE_span}
+    G2 = {DE_span, FR_span}   (unaffected by the EN deletion)
+
+    Force-delete EN. Expected: G1 becomes invalid and is deleted; DE_span
+    MUST survive because it is still a member of the untouched G2; G2 remains
+    valid with DE + FR; only the EN version/span are removed.
+    """
+    project = make_project(db_session)
+    document = make_document(db_session, project.id)
+    en = make_version(db_session, document.id, language_tag="en", label="EN", content="english text here")
+    de = make_version(db_session, document.id, language_tag="de", label="DE", content="deutscher text hier")
+    fr = make_version(db_session, document.id, language_tag="fr", label="FR", content="texte français ici")
+    span_en = span_service.create_span(db_session, text_version_id=en.id, start_offset=0, end_offset=7)
+    span_de = span_service.create_span(db_session, text_version_id=de.id, start_offset=0, end_offset=8)
+    span_fr = span_service.create_span(db_session, text_version_id=fr.id, start_offset=0, end_offset=7)
+
+    g1 = make_group(db_session, document.id)
+    add_member(db_session, g1.id, span_en.id)
+    add_member(db_session, g1.id, span_de.id)
+    g2 = make_group(db_session, document.id)
+    add_member(db_session, g2.id, span_de.id)
+    add_member(db_session, g2.id, span_fr.id)
+
+    text_version_service.delete_text_version(db_session, en.id, force=True)
+
+    # Only EN was removed.
+    assert count(db_session, TextVersion) == 2
+    assert db_session.get(TextVersion, en.id) is None
+    assert span_en.id not in {s.id for s in db_session.scalars(select(Span)).all()}
+
+    # G1 died, G2 survived untouched.
+    assert count(db_session, AlignmentGroup) == 1
+    assert db_session.get(AlignmentGroup, g1.id) is None
+    assert db_session.get(AlignmentGroup, g2.id) is not None
+
+    # G2 still has exactly DE + FR memberships; both spans survive.
+    members = list(db_session.scalars(select(AlignmentMember)).all())
+    assert {m.alignment_group_id for m in members} == {g2.id}
+    assert {m.span_id for m in members} == {span_de.id, span_fr.id}
+    assert {s.id for s in db_session.scalars(select(Span)).all()} == {
+        span_de.id,
+        span_fr.id,
+    }
+
+
+def test_force_delete_shared_span_survives_in_multiple_unaffected_groups(
+    db_session,
+) -> None:
+    """P0 regression, multiple unaffected groups: the shared DE_span belongs
+    to G2 AND G3 (both unaffected). Force-delete EN: G1 dies; G2 and G3 both
+    survive with their DE memberships intact.
+    """
+    project = make_project(db_session)
+    document = make_document(db_session, project.id)
+    en = make_version(db_session, document.id, language_tag="en", label="EN", content="english text here")
+    de = make_version(db_session, document.id, language_tag="de", label="DE", content="deutscher text hier")
+    fr = make_version(db_session, document.id, language_tag="fr", label="FR", content="texte français ici")
+    span_en = span_service.create_span(db_session, text_version_id=en.id, start_offset=0, end_offset=7)
+    span_de = span_service.create_span(db_session, text_version_id=de.id, start_offset=0, end_offset=8)
+    span_fr = span_service.create_span(db_session, text_version_id=fr.id, start_offset=0, end_offset=7)
+
+    g1 = make_group(db_session, document.id)
+    add_member(db_session, g1.id, span_en.id)
+    add_member(db_session, g1.id, span_de.id)
+    g2 = make_group(db_session, document.id)
+    add_member(db_session, g2.id, span_de.id)
+    add_member(db_session, g2.id, span_fr.id)
+    g3 = make_group(db_session, document.id)
+    add_member(db_session, g3.id, span_de.id)
+    add_member(db_session, g3.id, span_fr.id)
+
+    text_version_service.delete_text_version(db_session, en.id, force=True)
+
+    assert count(db_session, AlignmentGroup) == 2
+    assert {g.id for g in db_session.scalars(select(AlignmentGroup)).all()} == {
+        g2.id,
+        g3.id,
+    }
+    assert span_de.id in {s.id for s in db_session.scalars(select(Span)).all()}
+    de_memberships = [
+        m
+        for m in db_session.scalars(select(AlignmentMember)).all()
+        if m.span_id == span_de.id
+    ]
+    assert {m.alignment_group_id for m in de_memberships} == {g2.id, g3.id}
+    assert count(db_session, TextVersion) == 2
