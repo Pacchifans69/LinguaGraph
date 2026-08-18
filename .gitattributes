@@ -1,0 +1,20 @@
+# Normalize line endings: LF is the canonical form in the repository;
+# Git converts to platform-native endings on checkout where appropriate.
+* text=auto
+
+# Force LF for text formats so lockfiles and sources stay byte-stable across OSes.
+*.md    text eol=lf
+*.py    text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.json  text eol=lf
+*.toml  text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.ini   text eol=lf
+*.sql   text eol=lf
+*.html  text eol=lf
+*.css   text eol=lf
+*.lock  text eol=lf
