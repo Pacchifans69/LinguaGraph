@@ -12,7 +12,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.session import write_transaction
+from app.db.session import read_transaction, write_transaction
 
 from app.api.errors import DomainError
 from app.db.models import Project
@@ -48,19 +48,23 @@ def _validate_description(description: str | None) -> None:
 def create_project(
     db: Session, *, name: str, description: str | None = None
 ) -> Project:
-    """Create and commit a project."""
+    """Create and commit a project (one atomic write unit)."""
     _validate_name(name)
     _validate_description(description)
     with write_transaction(db):
         project = Project(name=name, description=description)
         db.add(project)
-    db.refresh(project)
     return project
 
 
 def get_project(db: Session, project_id: uuid.UUID) -> Project:
-    """Fetch a project by id; raises ``NOT_FOUND``."""
-    project = db.get(Project, project_id)
+    """Fetch a project by id; raises ``NOT_FOUND``.
+
+    Executes within its own read transaction, which is closed before
+    returning so the Session is transaction-clean for the next service call.
+    """
+    with read_transaction(db):
+        project = db.get(Project, project_id)
     if project is None:
         raise DomainError(
             "NOT_FOUND", "project not found", {"project_id": str(project_id)}
@@ -69,10 +73,13 @@ def get_project(db: Session, project_id: uuid.UUID) -> Project:
 
 
 def list_projects(db: Session) -> list[Project]:
-    """All projects in stable creation order."""
-    return list(
-        db.scalars(select(Project).order_by(Project.created_at, Project.id)).all()
-    )
+    """All projects in stable creation order (own read transaction)."""
+    with read_transaction(db):
+        return list(
+            db.scalars(
+                select(Project).order_by(Project.created_at, Project.id)
+            ).all()
+        )
 
 
 def update_project(
@@ -99,7 +106,6 @@ def update_project(
         if description is not _UNSET:
             _validate_description(description)  # type: ignore[arg-type]
             project.description = description  # type: ignore[assignment]
-    db.refresh(project)
     return project
 
 

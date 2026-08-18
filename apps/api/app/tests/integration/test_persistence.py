@@ -65,7 +65,6 @@ def make_group(db, document_id: uuid.UUID, note: str | None = None) -> Alignment
     group = AlignmentGroup(document_id=document_id, note=note)
     db.add(group)
     db.commit()
-    db.refresh(group)
     return group
 
 
@@ -73,12 +72,21 @@ def add_member(db, group_id: uuid.UUID, span_id: uuid.UUID) -> AlignmentMember:
     member = AlignmentMember(alignment_group_id=group_id, span_id=span_id)
     db.add(member)
     db.commit()
-    db.refresh(member)
     return member
 
 
 def count(db, model) -> int:
-    return len(db.scalars(select(model)).all())
+    """Count rows of ``model``, leaving the Session transaction-clean.
+
+    Callers must not hold an open transaction between service calls, so this
+    helper closes the read-only transaction its own SELECT autobegins with a
+    no-op commit (unlike rollback, commit does not expire loaded instances
+    under ``expire_on_commit=False``).
+    """
+    n = len(db.scalars(select(model)).all())
+    if db.in_transaction():
+        db.commit()
+    return n
 
 
 # --- Project -------------------------------------------------------------------
@@ -310,10 +318,14 @@ def test_span_out_of_range_rejected(db_session) -> None:
     project = make_project(db_session)
     document = make_document(db_session, project.id)
     version = make_version(db_session, document.id, content="short")
+    # Capture the id while the instance is fresh: after the first rejected
+    # span attempt the instance is expired by the transaction rollback, and
+    # reading its attributes would auto-begin a new transaction.
+    version_id = version.id
     for start, end in [(-1, 2), (2, 2), (3, 1), (0, 99)]:
         with pytest.raises(DomainError) as excinfo:
             span_service.create_span(
-                db_session, text_version_id=version.id, start_offset=start, end_offset=end
+                db_session, text_version_id=version_id, start_offset=start, end_offset=end
             )
         assert excinfo.value.code == "SPAN_OUT_OF_RANGE"
 

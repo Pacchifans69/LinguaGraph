@@ -63,5 +63,4 @@ def create_span(
             suffix=suffix,
         )
         db.add(span)
-    db.refresh(span)
     return span

@@ -12,7 +12,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.session import write_transaction
+from app.db.session import read_transaction, write_transaction
 
 from app.api.errors import DomainError
 from app.core.config import get_settings
@@ -85,13 +85,17 @@ def create_text_version(
             sort_order=sort_order,
         )
         db.add(version)
-    db.refresh(version)
     return version
 
 
 def get_text_version(db: Session, text_version_id: uuid.UUID) -> TextVersion:
-    """Fetch a text version by id; raises ``NOT_FOUND``."""
-    version = db.get(TextVersion, text_version_id)
+    """Fetch a text version by id; raises ``NOT_FOUND``.
+
+    Executes within its own read transaction, which is closed before
+    returning so the Session is transaction-clean for the next service call.
+    """
+    with read_transaction(db):
+        version = db.get(TextVersion, text_version_id)
     if version is None:
         raise DomainError(
             "NOT_FOUND",
@@ -128,7 +132,6 @@ def update_text_version_metadata(
             version.label = label  # type: ignore[assignment]
         if sort_order is not _UNSET:
             version.sort_order = sort_order  # type: ignore[assignment]
-    db.refresh(version)
     return version
 
 
@@ -167,7 +170,6 @@ def replace_content(
             )
         version.content = canonical.content
         version.content_hash = canonical.content_hash
-    db.refresh(version)
     return version
 
 

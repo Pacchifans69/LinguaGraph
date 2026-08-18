@@ -7,7 +7,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.session import write_transaction
+from app.db.session import read_transaction, write_transaction
 
 from app.api.errors import DomainError
 from app.db.models import ParallelDocument, Project
@@ -63,13 +63,17 @@ def create_document(
             project_id=project_id, title=title, description=description
         )
         db.add(document)
-    db.refresh(document)
     return document
 
 
 def get_document(db: Session, document_id: uuid.UUID) -> ParallelDocument:
-    """Fetch a document by id; raises ``NOT_FOUND``."""
-    document = db.get(ParallelDocument, document_id)
+    """Fetch a document by id; raises ``NOT_FOUND``.
+
+    Executes within its own read transaction, which is closed before
+    returning so the Session is transaction-clean for the next service call.
+    """
+    with read_transaction(db):
+        document = db.get(ParallelDocument, document_id)
     if document is None:
         raise DomainError(
             "NOT_FOUND", "document not found", {"document_id": str(document_id)}
@@ -78,14 +82,16 @@ def get_document(db: Session, document_id: uuid.UUID) -> ParallelDocument:
 
 
 def list_documents(db: Session, project_id: uuid.UUID) -> list[ParallelDocument]:
-    """All documents of one project in stable creation order."""
-    return list(
-        db.scalars(
-            select(ParallelDocument)
-            .where(ParallelDocument.project_id == project_id)
-            .order_by(ParallelDocument.created_at, ParallelDocument.id)
-        ).all()
-    )
+    """All documents of one project in stable creation order (own read
+    transaction)."""
+    with read_transaction(db):
+        return list(
+            db.scalars(
+                select(ParallelDocument)
+                .where(ParallelDocument.project_id == project_id)
+                .order_by(ParallelDocument.created_at, ParallelDocument.id)
+            ).all()
+        )
 
 
 def update_document(
@@ -108,7 +114,6 @@ def update_document(
         if description is not _UNSET:
             _validate_description(description)  # type: ignore[arg-type]
             document.description = description  # type: ignore[assignment]
-    db.refresh(document)
     return document
 
 
