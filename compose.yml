@@ -1,0 +1,38 @@
+# LinguaGraph — local development services.
+#
+# Start PostgreSQL 18 with:  docker compose up -d postgres
+# Stop with:                 docker compose down
+# The data volume persists across restarts; `docker compose down -v` destroys it.
+#
+# Example values are non-secret development defaults (see .env.example).
+
+name: linguagraph
+
+services:
+  postgres:
+    image: postgres:18
+    container_name: linguagraph-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-linguagraph}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-linguagraph}
+      POSTGRES_DB: ${POSTGRES_DB:-linguagraph}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # PostgreSQL 18+ official image layout: data lives under
+      # /var/lib/postgresql/<major>/docker, so the persistent volume must be
+      # mounted at /var/lib/postgresql (NOT /var/lib/postgresql/data, which is
+      # the pre-18 layout). Do not override PGDATA to the legacy layout.
+      - postgres_data:/var/lib/postgresql
+      # Runs only on first initialization of an empty data volume:
+      # creates the disposable integration-test database.
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-linguagraph} -d ${POSTGRES_DB:-linguagraph}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

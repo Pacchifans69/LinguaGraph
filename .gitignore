@@ -1,0 +1,27 @@
+# ---- Secrets / environment ----
+.env
+.env.*
+!.env.example
+
+# ---- Python (apps/api) ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# ---- Node (apps/web) ----
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# ---- Editors / OS ----
+.idea/
+.DS_Store
+Thumbs.db
+
+# ---- Logs ----
+*.log

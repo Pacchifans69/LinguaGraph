@@ -16,7 +16,8 @@ Annotated text can only be removed via an explicit destructive reset flow (`DELE
 - After the deletion, **revalidates all `AlignmentGroup`s** that were affected by the removal (i.e., groups that previously contained members from the deleted version);
 - **Deletes any group** that no longer satisfies the M0 alignment invariants, specifically:
   - groups with fewer than 2 total `AlignmentMember`s, or
-  - groups whose remaining members originate from fewer than 2 distinct `TextVersion`s (i.e., all remaining members belong to the same text version);
+  - groups whose remaining members originate from fewer than 2 distinct `TextVersion`s (i.e., all remaining members belong to the same text version), or
+  - groups that violate any other M0 alignment invariant after the removal (revalidation is against ALL M0 alignment invariants, not only cardinality);
 - The entire operation – deletion of version, spans, members, and cleanup of invalid groups – is performed **atomically in a single database transaction**.
 
 This ensures that after a forced deletion, the remaining alignment data remains consistent with the invariant defined in ADR-006.

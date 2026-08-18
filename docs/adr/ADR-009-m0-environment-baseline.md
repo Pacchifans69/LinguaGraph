@@ -3,6 +3,8 @@
 ## Status  
 Accepted
 
+> Execution note: this ADR fixes the baseline; the actual `git init` and baseline commit are deferred until M0.1 implementation begins. The current errata closure does not initialize Git.
+
 ## Context  
 The frozen baseline for M0 specifies Python 3.13.x, Node 24 LTS, `uv` as the Python package manager, and PostgreSQL 18.  
 Initial repository reconnaissance revealed some mismatches between the baseline and the immediate development environment (e.g., Python 3.12.3 present, Node 22 on `PATH` before Node 24, `uv` missing, Docker/PostgreSQL unavailable).  
