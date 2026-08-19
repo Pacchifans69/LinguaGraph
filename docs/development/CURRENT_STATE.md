@@ -120,7 +120,17 @@ Implemented:
   `DELETE ?force=true` (ADR-005);
 - stable `{code, message, details}` API error contract, including
   HTTP/Pydantic validation conversion and duplicate-label `CONFLICT` without
-  SQLAlchemy/PostgreSQL exception leakage;
+  SQLAlchemy/PostgreSQL exception leakage. Only the PostgreSQL
+  `uq_text_versions_document_label` unique violation is translated to
+  `CONFLICT` (driver constraint-name classification — unexpected integrity
+  errors propagate); explicit `null` for PATCH `label`/`sort_order` is
+  rejected at the Pydantic boundary (422), while omission still means
+  "leave unchanged";
+- raw HTTP request-body size enforcement (`MAX_REQUEST_BODY_BYTES`) via
+  `app/api/middleware.py`: actual received-byte counting for both the JSON
+  paste and the multipart upload paths, rejected before unbounded
+  buffering with the stable 413 `TEXT_TOO_LARGE` envelope; separate from
+  the canonical-text `MAX_TEXT_VERSION_CODEPOINTS` limit;
 - workspace read model service
   (`GET /api/v1/documents/{id}/workspace`) returning flat collections for
   document / text_versions / spans / alignment_groups / alignment_members;
@@ -143,6 +153,30 @@ Implemented:
   annotations/groups;
 - M0.3 backend integration tests, frontend Vitest/RTL tests, and the
   Playwright golden-path slice (through workspace creation — no selection).
+
+### M0.3 human-review fix pass (same checkpoint, no new scope)
+
+Review findings A/B/C were fixed without touching the frozen schema/ADRs or
+the transaction contract:
+
+- **A — Playwright database isolation:** the E2E backend
+  (`apps/api/app/e2e/server.py`) runs on a uniquely-created disposable
+  PostgreSQL database (`linguagraph_e2e_<uuid>`), migrated to Alembic HEAD
+  and dropped on exit; `reuseExistingServer: false` for the API webServer;
+  the spec's delete-everything clean-slate strategy was removed. The shared
+  lifecycle lives in `app/db/disposable.py` (used by both the pytest
+  fixtures and the E2E wrapper) with a fail-closed
+  `assert_disposable_db_url` guard; mechanically guarded by
+  `apps/web/src/test/playwrightConfig.test.ts` and the disposable-db unit/
+  integration tests.
+- **B — MAX_REQUEST_BODY_BYTES:** enforced on actual received bytes for
+  JSON paste and multipart upload (`app/api/middleware.py`, 413
+  `TEXT_TOO_LARGE` before unbounded buffering), with HTTP integration tests
+  for oversized JSON/multipart and just-below-limit requests.
+- **C — PATCH null + IntegrityError classification:** explicit null
+  `label`/`sort_order` rejected at the Pydantic boundary; only
+  `uq_text_versions_document_label` violations become duplicate-label
+  `CONFLICT` (create and PATCH); non-label IntegrityErrors propagate.
 
 M0.3 deliberately did NOT implement (deferred to later checkpoints):
 
@@ -441,19 +475,25 @@ reported real-PostgreSQL local run.
 
 ## 10A. M0.3 verification baseline
 
-Locally reported M0.3 verification (awaiting human review):
+Locally reported M0.3 verification (implementation pass + human-review fix
+pass; awaiting re-review):
 
 - Python 3.13.15 (uv-pinned)
-- PostgreSQL 18 (native cluster) — used by all integration tests
+- PostgreSQL 18 (native cluster) — used by all integration tests and by the
+  Playwright E2E backend on its own disposable `linguagraph_e2e_*` database
 - Node 24.19.0 (web)
 - `uv sync --frozen` — passed
-- `uv run pytest` — 274 passed (231 M0.1/M0.2 + 43 M0.3)
+- `uv run pytest` — 297 passed (231 M0.1/M0.2 + 66 M0.3 incl. review-fix
+  tests for body limits, constraint classification, PATCH nulls and the
+  disposable-database guard)
 - `uv run alembic check` — no schema drift detected (no new migration)
+- `uv run alembic current` — `0002 (head)`
 - `npm ci` — passed
 - `npm run lint` / `npm run typecheck` — passed
-- `npm run test` — 39 passed
+- `npm run test` — 43 passed
 - `npm run build` — passed
-- `npx playwright test e2e/golden-path.spec.ts` — M0.3 slice
+- `npx playwright test e2e/golden-path.spec.ts` — M0.3 slice against the
+  isolated disposable E2E database
 - `git diff --check` — clean
 
 No SQLite implementation was introduced anywhere in the test stack.

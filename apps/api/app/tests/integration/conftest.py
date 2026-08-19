@@ -1,9 +1,13 @@
 """Integration-test fixtures: a disposable PostgreSQL database per session.
 
-Safety guarantees (mirroring test_migrations.py):
+Safety guarantees:
 
-- only uniquely named disposable databases are ever created/migrated/dropped;
-- the normal development database is never migrated or downgraded;
+- only uniquely named disposable databases are ever created/migrated/dropped
+  (lifecycle shared with the Playwright E2E wrapper via
+  ``app.db.disposable`` — one implementation, no duplicated unsafe logic);
+- the normal development database is never migrated, downgraded or dropped:
+  :func:`app.db.disposable.assert_disposable_db_url` fails closed on any
+  non-prefixed database name;
 - PostgreSQL is mandatory: when no server is configured, integration tests
   are skipped with an explicit reason (a reported environment limitation,
   not a pass);
@@ -11,17 +15,18 @@ Safety guarantees (mirroring test_migrations.py):
 """
 
 import os
-import uuid
 from pathlib import Path
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings
+from app.db.disposable import (
+    create_disposable_database,
+    drop_disposable_database,
+    migrate_to_head,
+)
 
 API_ROOT = Path(__file__).resolve().parents[3]
 ALEMBIC_INI = API_ROOT / "alembic.ini"
@@ -38,44 +43,6 @@ DOMAIN_TABLES = (
 )
 
 
-def create_disposable_database(prefix: str) -> tuple[object, object]:
-    """Create a uniquely named disposable database; return (admin_engine, target_url).
-
-    Callers MUST drop the database in a ``finally`` block via
-    :func:`drop_disposable_database`. Skips (via pytest.skip) when no
-    PostgreSQL server is configured.
-    """
-    server_url = Settings().integration_server_url
-    if server_url is None:
-        pytest.skip(
-            "TEST_DATABASE_URL/DATABASE_URL not set (and no apps/api/.env) — "
-            "cannot run PostgreSQL integration tests"
-        )
-    url = make_url(server_url)
-    admin_url = url.set(database="postgres")
-    db_name = f"{prefix}_{uuid.uuid4().hex[:12]}"
-    target_url = url.set(database=db_name)
-
-    admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
-    with admin_engine.connect() as conn:
-        conn.execute(text(f'CREATE DATABASE "{db_name}"'))
-    return admin_engine, target_url
-
-
-def drop_disposable_database(admin_engine, target_url) -> None:
-    """Drop the disposable database, force-closing any leftover connections."""
-    db_name = target_url.database
-    admin_engine.dispose()
-    cleanup = create_engine(
-        target_url.set(database="postgres"), isolation_level="AUTOCOMMIT"
-    )
-    try:
-        with cleanup.connect() as conn:
-            conn.execute(text(f'DROP DATABASE IF EXISTS "{db_name}" WITH (FORCE)'))
-    finally:
-        cleanup.dispose()
-
-
 @pytest.fixture(scope="session")
 def disposable_db_url() -> str:
     """A session-scoped disposable database migrated to Alembic HEAD.
@@ -84,18 +51,15 @@ def disposable_db_url() -> str:
     fixture itself is the migration-from-zero proof: the database starts
     empty and is migrated to HEAD.
     """
-    admin_engine, target_url = create_disposable_database("linguagraph_m02")
-    previous = os.environ.get("DATABASE_URL")
-    os.environ["DATABASE_URL"] = target_url.render_as_string(hide_password=False)
     try:
-        cfg = Config(str(ALEMBIC_INI))
-        command.upgrade(cfg, "head")
-        yield target_url.render_as_string(hide_password=False)
+        admin_engine, target_url = create_disposable_database("linguagraph_m02")
+    except RuntimeError as exc:
+        pytest.skip(str(exc))
+    url = target_url.render_as_string(hide_password=False)
+    try:
+        migrate_to_head(url)
+        yield url
     finally:
-        if previous is None:
-            os.environ.pop("DATABASE_URL", None)
-        else:
-            os.environ["DATABASE_URL"] = previous
         drop_disposable_database(admin_engine, target_url)
 
 
@@ -122,16 +86,24 @@ def db_session(db_engine) -> Session:
         yield session
 
 
-@pytest.fixture()
-def api_client(db_engine):
-    """TestClient whose requests run against the disposable PostgreSQL database.
+def _build_api_client(
+    db_engine,
+    *,
+    raise_server_exceptions: bool = True,
+    **settings_overrides,
+):
+    """TestClient bound to the disposable database with optional Settings overrides.
 
-    Every test starts from an empty domain schema (same guarantee as the
-    ``db_session`` fixture): the production ``get_db`` dependency is
-    overridden so each request gets a fresh, transaction-clean ORM session
-    bound to the disposable engine. TRUNCATE is issued directly on the engine
-    (not through the app session), so API-only tests never see rows left by
-    earlier tests.
+    The production ``get_db`` dependency is overridden so every request gets
+    a fresh, transaction-clean ORM session bound to the disposable engine —
+    exactly the production Session lifecycle (request-scoped session, closed
+    after the response; services own transaction boundaries). TRUNCATE is
+    issued directly on the engine (not through the app session), so API-only
+    tests never see rows left by earlier tests.
+
+    ``raise_server_exceptions=False`` makes TestClient return the response
+    body of unhandled server exceptions (Starlette always re-raises them
+    after sending the 500, and TestClient surfaces them by default).
     """
     from fastapi.testclient import TestClient
 
@@ -150,8 +122,32 @@ def api_client(db_engine):
         finally:
             db.close()
 
-    app = create_app()
+    app = create_app(settings=Settings(**settings_overrides))
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as client:
-        yield client
-    app.dependency_overrides.clear()
+    return TestClient(app, raise_server_exceptions=raise_server_exceptions)
+
+
+@pytest.fixture()
+def api_client(db_engine):
+    """TestClient with default settings against the disposable database."""
+    return _build_api_client(db_engine)
+
+
+@pytest.fixture()
+def api_client_factory(db_engine):
+    """Factory for TestClients with per-test overrides.
+
+    ``**settings_overrides`` maps to ``Settings`` (e.g. a small
+    ``max_request_body_bytes`` for body-limit tests);
+    ``raise_server_exceptions=False`` returns the 500 response body instead
+    of re-raising unhandled server exceptions.
+    """
+
+    def _factory(*, raise_server_exceptions: bool = True, **settings_overrides):
+        return _build_api_client(
+            db_engine,
+            raise_server_exceptions=raise_server_exceptions,
+            **settings_overrides,
+        )
+
+    return _factory

@@ -405,3 +405,98 @@ def test_content_size_limit_is_enforced(api_client, monkeypatch) -> None:
     )
     assert response.status_code == 413
     assert response.json()["code"] == "TEXT_TOO_LARGE"
+
+
+# --- PATCH explicit-null rejection (M0.3 review finding C) ------------------
+
+
+def test_patch_explicit_null_sort_order_is_rejected(api_client) -> None:
+    document_id = _make_document(api_client)
+    created = api_client.post(
+        f"/api/v1/documents/{document_id}/text-versions",
+        json={"language_tag": "en", "label": "V", "content": "text"},
+    ).json()
+
+    response = api_client.patch(
+        f"/api/v1/text-versions/{created['id']}", json={"sort_order": None}
+    )
+    assert response.status_code == 422
+    body = response.json()
+    assert body["code"] == "VALIDATION_ERROR"
+    messages = [
+        str(error.get("message", ""))
+        for error in body["details"]["errors"]
+    ]
+    assert any("sort_order" in message for message in messages)
+
+    # The version is untouched.
+    fetched = api_client.get(f"/api/v1/text-versions/{created['id']}").json()
+    assert fetched["sort_order"] == 0
+    assert fetched["label"] == "V"
+
+
+def test_patch_explicit_null_label_is_rejected(api_client) -> None:
+    document_id = _make_document(api_client)
+    created = api_client.post(
+        f"/api/v1/documents/{document_id}/text-versions",
+        json={"language_tag": "en", "label": "V", "content": "text"},
+    ).json()
+
+    response = api_client.patch(
+        f"/api/v1/text-versions/{created['id']}", json={"label": None}
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "VALIDATION_ERROR"
+    fetched = api_client.get(f"/api/v1/text-versions/{created['id']}").json()
+    assert fetched["label"] == "V"
+
+
+def test_non_label_integrity_error_is_not_mislabeled(
+    api_client_factory, monkeypatch
+) -> None:
+    """A non-label IntegrityError must propagate, never become CONFLICT."""
+    from sqlalchemy.exc import IntegrityError
+
+    import app.services.text_version_service as tvs
+
+    # Starlette always re-raises unhandled server exceptions after sending
+    # the 500 (so servers can log them); TestClient surfaces them by default.
+    # For this assertion we want the response body of the 500.
+    api_client = api_client_factory(raise_server_exceptions=False)
+    document_id = _make_document(api_client)
+
+    class _FakeDiag:
+        constraint_name = "some_unrelated_constraint"
+
+    class _FakeOrig:
+        diag = _FakeDiag()
+
+    def _broken_create(*args, **kwargs):
+        raise IntegrityError("stmt", {}, _FakeOrig())
+
+    def _broken_update(*args, **kwargs):
+        raise IntegrityError("stmt", {}, _FakeOrig())
+
+    # Create a real version FIRST (the create patch below would break it).
+    created = api_client.post(
+        f"/api/v1/documents/{document_id}/text-versions",
+        json={"language_tag": "de", "label": "Y", "content": "text"},
+    ).json()
+
+    monkeypatch.setattr(tvs, "create_text_version", _broken_create)
+    response = api_client.post(
+        f"/api/v1/documents/{document_id}/text-versions",
+        json={"language_tag": "en", "label": "X", "content": "text"},
+    )
+    # Not a duplicate-label CONFLICT: the unexpected integrity failure
+    # surfaces as the generic INTERNAL_ERROR envelope (never a DB string).
+    assert response.status_code == 500
+    assert response.json()["code"] == "INTERNAL_ERROR"
+
+    # PATCH path behaves identically.
+    monkeypatch.setattr(tvs, "update_text_version_metadata", _broken_update)
+    response = api_client.patch(
+        f"/api/v1/text-versions/{created['id']}", json={"sort_order": 1}
+    )
+    assert response.status_code == 500
+    assert response.json()["code"] == "INTERNAL_ERROR"

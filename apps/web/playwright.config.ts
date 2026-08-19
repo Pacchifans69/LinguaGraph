@@ -3,10 +3,19 @@ import { defineConfig } from '@playwright/test';
 /**
  * LinguaGraph M0 Playwright configuration.
  *
- * Starts the FastAPI backend (apps/api, port 8000) and the Vite dev server
- * (port 5173, proxying /api to the backend) before running the E2E slice.
- * Servers are reused when already running (`reuseExistingServer`), which is
- * handy for local iteration.
+ * Backend isolation (M0.3 human review finding A):
+ * - the API webServer runs `app.e2e.server` (apps/api), which creates a
+ *   uniquely-named disposable PostgreSQL database (linguagraph_e2e_<uuid>),
+ *   migrates it to Alembic HEAD, serves uvicorn against ONLY that database
+ *   and drops it on exit;
+ * - `reuseExistingServer: false` for the API: an already-running backend
+ *   whose DATABASE_URL cannot be proven to be the E2E database is NEVER
+ *   reused;
+ * - the spec performs no cross-database cleanup (it must not delete data it
+ *   did not create); the disposable database is dropped after the run.
+ *
+ * The Vite dev server (static/proxy only, no database access) may be reused
+ * when already running for local iteration.
  */
 
 const PORT = process.env.PLAYWRIGHT_PORT ?? '5173';
@@ -20,6 +29,9 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: [['list']],
+  // Runs after every run (even on failure/SIGKILL of the API webServer):
+  // drops the disposable E2E database recorded by app.e2e.server.
+  globalTeardown: './e2e/global-teardown.ts',
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
@@ -27,11 +39,12 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
   webServer: [
     {
-      command: `uv run uvicorn app.main:app --host 127.0.0.1 --port ${API_PORT}`,
+      // E2E backend on an isolated disposable PostgreSQL database.
+      command: `uv run python -m app.e2e.server --host 127.0.0.1 --port ${API_PORT}`,
       cwd: '../api',
       url: `http://127.0.0.1:${API_PORT}/api/v1/health`,
-      reuseExistingServer: true,
-      timeout: 60_000,
+      reuseExistingServer: false,
+      timeout: 120_000,
     },
     {
       command: `npm run dev -- --port ${PORT} --host 127.0.0.1`,

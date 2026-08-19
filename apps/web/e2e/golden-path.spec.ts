@@ -32,12 +32,10 @@ test.describe('M0 golden path (M0.3 slice)', () => {
     page,
     request,
   }) => {
-    // Clean slate: delete any pre-existing project through the API boundary.
-    const before = await request.get('/api/v1/projects');
-    expect(before.ok()).toBeTruthy();
-    for (const project of (await before.json()) as Array<{ id: string }>) {
-      await request.delete(`/api/v1/projects/${project.id}`);
-    }
+    // The backend runs against a dedicated disposable PostgreSQL database
+    // (see playwright.config.ts / app.e2e.server): no clean-slate deletion
+    // of pre-existing data is performed, and the test only creates data of
+    // its own, which disappears when the disposable database is dropped.
 
     // 1. Create a Project.
     await page.goto('/');

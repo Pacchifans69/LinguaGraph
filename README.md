@@ -229,7 +229,20 @@ M0.3 implements the document workspace on top of the M0.2 persistence model:
   preferences (`linguagraph.workspace.preferences.v1.<documentId>`), paste +
   `.txt` import, and a force-delete confirmation warning;
 - **Shared API client/error boundary** consuming the stable
-  `{code, message, details}` envelope.
+  `{code, message, details}` envelope;
+- **Request-body size enforcement** — the raw HTTP body limit
+  (`MAX_REQUEST_BODY_BYTES`, default 4,000,000) is enforced by
+  `app/api/middleware.py` on the ACTUAL received byte count for both the
+  JSON paste and the multipart upload paths (413 `TEXT_TOO_LARGE`),
+  independent of the canonical-text code-point limit
+  (`MAX_TEXT_VERSION_CODEPOINTS`);
+- **Stable conflict classification** — only the PostgreSQL
+  `uq_text_versions_document_label` unique violation is translated into the
+  duplicate-label `CONFLICT` (driver constraint-name based, never
+  exception-text parsing); unexpected integrity errors propagate;
+  explicit `null` for PATCH `label`/`sort_order` is rejected at the
+  Pydantic boundary (422 `VALIDATION_ERROR`; omission still means "leave
+  unchanged").
 
 Deliberately NOT implemented in M0.3 (later checkpoints): browser
 Selection/Range handling and UTF-16 ↔ code-point frontend conversion (M0.4),
@@ -248,11 +261,36 @@ npx playwright install chromium      # one-time browser download
 npx playwright test e2e/golden-path.spec.ts
 ```
 
-The Playwright config starts the FastAPI backend and the Vite dev server
-(`playwright.config.ts` `webServer`), then runs the M0 golden-path slice:
-create project → create document → add EN/DE/FR/ES TextVersions → open the
-four panels → verify hide/show/reorder and reload preference. It stops
-before text selection/alignment (M0.4+).
+### E2E database isolation (mandatory)
+
+The E2E backend never touches the normal development database:
+
+- `playwright.config.ts` starts the API through `app.e2e.server` (see
+  `apps/api/app/e2e/server.py`), which creates a uniquely-named disposable
+  PostgreSQL database (`linguagraph_e2e_<uuid>`), migrates it to Alembic
+  HEAD, serves uvicorn with `DATABASE_URL` pointing ONLY at that database,
+  and drops it when the run ends;
+- the API webServer uses `reuseExistingServer: false`: an already-running
+  backend whose `DATABASE_URL` cannot be proven to be the E2E database is
+  never reused;
+- `app.db.disposable.assert_disposable_db_url` fails closed on any database
+  name outside the reserved `linguagraph_e2e` namespace — the same shared
+  lifecycle the pytest integration fixtures use
+  (`app/db/disposable.py`), with no duplicated unsafe DB logic;
+- the golden-path spec performs no cleanup of pre-existing data (the
+  disposable database disappears with the run); PostgreSQL is mandatory,
+  there is no SQLite fallback.
+
+These properties are mechanically guarded by
+`apps/web/src/test/playwrightConfig.test.ts` (config assertions) and
+`apps/api/app/tests/unit/test_disposable_db.py` /
+`apps/api/app/tests/integration/test_disposable_db_integration.py`
+(fail-closed guard + real create/migrate/drop cycle).
+
+The Playwright run then executes the M0 golden-path slice: create project →
+create document → add EN/DE/FR/ES TextVersions → open the four panels →
+verify hide/show/reorder and reload preference. It stops before text
+selection/alignment (M0.4+).
 
 ## Known limitations
 

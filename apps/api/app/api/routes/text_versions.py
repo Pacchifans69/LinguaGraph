@@ -45,14 +45,30 @@ from app.text.canonical import canonicalize_utf8
 
 router = APIRouter(tags=["text-versions"])
 
+# The PostgreSQL unique constraint backing the UNIQUE(document_id, label)
+# invariant (see Alembic revision 0002 / app/db/models/text_version.py).
+UNIQUE_LABEL_CONSTRAINT = "uq_text_versions_document_label"
+
+
+def is_duplicate_label_violation(exc: IntegrityError) -> bool:
+    """True ONLY for the PostgreSQL unique violation on (document_id, label).
+
+    Classification uses the driver-level constraint name
+    (psycopg ``Error.diag.constraint_name``) — never string-matching the
+    exception text — so an unexpected/non-label ``IntegrityError`` is never
+    mislabeled as a duplicate label and is re-raised instead.
+    """
+    diag = getattr(getattr(exc, "orig", None), "diag", None)
+    return getattr(diag, "constraint_name", None) == UNIQUE_LABEL_CONSTRAINT
+
 
 def _label_conflict(document_id: uuid.UUID) -> DomainError:
     """Stable CONFLICT error for the ``UNIQUE(document_id, label)`` invariant.
 
     The service exposes the DB unique violation by design (the persistence
-    layer stays the enforcement point); this route maps it to the standard
-    envelope with a clean message — no SQLAlchemy/PostgreSQL exception string
-    ever reaches the client.
+    layer stays the enforcement point); this route maps ONLY that specific
+    constraint violation to the standard envelope with a clean message — no
+    SQLAlchemy/PostgreSQL exception string ever reaches the client.
     """
     return DomainError(
         "CONFLICT",
@@ -84,8 +100,12 @@ def _create_version(
             content=payload.content,
             sort_order=payload.sort_order,
         )
-    except IntegrityError:
-        raise _label_conflict(document_id) from None
+    except IntegrityError as exc:
+        # Only the label-uniqueness violation is a duplicate-label CONFLICT;
+        # any other integrity failure is unexpected and must propagate.
+        if is_duplicate_label_violation(exc):
+            raise _label_conflict(document_id) from None
+        raise
 
 
 def _payload_validation_error(exc: ValidationError) -> DomainError:
@@ -196,8 +216,13 @@ def update_text_version(
         version = text_version_service.update_text_version_metadata(
             db, text_version_id, **fields
         )
-    except IntegrityError:
-        raise _patch_label_conflict(text_version_id) from None
+    except IntegrityError as exc:
+        # Same constraint-specific classification as create: only the label
+        # uniqueness violation becomes a duplicate-label CONFLICT; anything
+        # else is unexpected and must propagate.
+        if is_duplicate_label_violation(exc):
+            raise _patch_label_conflict(text_version_id) from None
+        raise
     return TextVersionResponse.model_validate(version)
 
 

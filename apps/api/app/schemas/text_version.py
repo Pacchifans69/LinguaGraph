@@ -2,7 +2,10 @@
 
 ``PATCH`` is metadata-only (``label``, ``sort_order``): content mutation is
 governed by the ADR-005 immutability policy and is never exposed through the
-general metadata PATCH.
+general metadata PATCH. An EXPLICIT ``null`` for ``label`` or ``sort_order``
+is rejected at the boundary (HTTP 422 VALIDATION_ERROR): omitting a field
+means "leave unchanged", while ``null`` would otherwise be written into a
+NOT NULL column.
 """
 
 from __future__ import annotations
@@ -10,7 +13,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 _LABEL_MAX = 200
 _LANGUAGE_TAG_MAX = 100
@@ -39,6 +42,21 @@ class TextVersionUpdateRequest(BaseModel):
 
     label: str | None = Field(default=None, min_length=1, max_length=_LABEL_MAX)
     sort_order: int | None = Field(default=None)
+
+    @model_validator(mode="after")
+    def _reject_explicit_null(self) -> "TextVersionUpdateRequest":
+        """Reject EXPLICIT ``null`` for metadata fields (omission is fine).
+
+        ``model_fields_set`` distinguishes "not provided" (leave unchanged)
+        from "provided as null". Explicit null must fail with
+        VALIDATION_ERROR at the HTTP boundary instead of reaching the
+        NOT NULL column.
+        """
+        if "label" in self.model_fields_set and self.label is None:
+            raise ValueError("label must be a non-empty string, not null")
+        if "sort_order" in self.model_fields_set and self.sort_order is None:
+            raise ValueError("sort_order must be an integer, not null")
+        return self
 
 
 class TextVersionResponse(BaseModel):

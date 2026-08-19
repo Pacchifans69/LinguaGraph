@@ -30,3 +30,6 @@ Thumbs.db
 test-results/
 playwright-report/
 blob-report/
+
+# Playwright E2E disposable-database state file (apps/api)
+.e2e-db-url

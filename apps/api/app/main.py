@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.errors import register_exception_handlers
+from app.api.middleware import RequestBodySizeLimitMiddleware
 from app.api.routes.documents import router as documents_router
 from app.api.routes.health import router as health_router
 from app.api.routes.projects import router as projects_router
@@ -35,6 +36,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+
+    # Raw HTTP request-body size limit (MAX_REQUEST_BODY_BYTES), enforced on
+    # the actual received byte count — separate from the canonical-text
+    # code-point limit enforced by the text-version service.
+    app.add_middleware(
+        RequestBodySizeLimitMiddleware,
+        max_bytes=settings.max_request_body_bytes,
     )
 
     register_exception_handlers(app)
