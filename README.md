@@ -9,11 +9,16 @@ language-neutral via BCP-47 `language_tag`).
 
 ## Current milestone
 
-**M0 — Manual Alignment Workbench**, checkpoint **M0.3 — Document Workspace**
-(**implemented, awaiting human review**). M0.1 — Repository Foundation and
-M0.2 — Persistence Model were human-approved and merged into main (PR #1 and
-PR #2). M0.4 must not begin until M0.3 is human-reviewed, approved, and
-merged into main.
+**M0 — Manual Alignment Workbench**. The latest completed checkpoint is
+**M0.3 — Document Workspace** (**COMPLETE / MERGED**). M0.1 — Repository
+Foundation, M0.2 — Persistence Model, and M0.3 were human-approved and merged
+into `main` (PR #1, PR #2, and PR #5). M0.3 merged as
+`1230ffe0282adac3a20c1aafac6c2271c788b198`.
+
+The next checkpoint is **M0.4 — Selection Engine**, which has **not started**.
+M0.4 implementation must begin only after a fresh checkpoint contract is
+reconstructed from current merged `main` and the authoritative documents,
+human-reviewed, and converted into a bounded Agent prompt.
 
 M0 proves the closed loop: *create project → create parallel document → add
 arbitrary-language text versions → select spans → create alignment group →

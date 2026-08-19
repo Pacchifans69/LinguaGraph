@@ -16,21 +16,32 @@ Alembic migration history, or merged GitHub PR history.
 
 Last completed implementation checkpoint:
 
-**M0.2 — Persistence Model** (COMPLETE / MERGED)
+**M0.3 — Document Workspace** (COMPLETE / MERGED)
 
 Most recent implementation checkpoint:
 
-**M0.3 — Document Workspace** (IMPLEMENTED — awaiting human review)
+**M0.3 — Document Workspace** (COMPLETE / MERGED)
 
-M0.2 has been human-reviewed, approved, and merged into `main`.
+M0.1, M0.2, and M0.3 have been human-reviewed, approved, and merged into
+`main`.
+
+M0.3 GitHub state:
+
+- PR #5 — `M0.3 — Document Workspace`
+- final implementation head: `33bfaef20c2e64bed92fe00aa147d74611ac41ad`
+- merge commit: `1230ffe0282adac3a20c1aafac6c2271c788b198`
+- merged: 2026-08-19
 
 The next implementation checkpoint is:
 
-**M0.4 — Selection Engine**
+**M0.4 — Selection Engine** (NOT STARTED)
 
-M0.3 implementation is complete but has NOT yet been human-reviewed/merged.
-M0.4 must not begin until M0.3 has been human-reviewed, approved, and merged
-into `main`.
+The repository is currently in the inter-checkpoint handoff state after M0.3.
+Before any M0.4 implementation, reconstruct the M0.4 checkpoint contract from
+current merged `main` and the authoritative sources, have the human review the
+contract, then issue the bounded Agent prompt and create/use the M0.4
+implementation branch. Do not continue implementation from the merged M0.3
+feature branch.
 
 ---
 
@@ -106,7 +117,13 @@ text import UI are now implemented by M0.3).
 
 Status:
 
-**IMPLEMENTED — awaiting human review** (not yet merged into `main`)
+**COMPLETE / MERGED**
+
+GitHub:
+
+- PR #5 — `M0.3 — Document Workspace`
+- final implementation head: `33bfaef20c2e64bed92fe00aa147d74611ac41ad`
+- merge commit: `1230ffe0282adac3a20c1aafac6c2271c788b198`
 
 Implemented:
 
@@ -495,8 +512,8 @@ reported real-PostgreSQL local run.
 
 ## 10A. M0.3 verification baseline
 
-Locally reported M0.3 verification (implementation pass + human-review fix
-pass + final human-review fix; awaiting final re-review):
+Final locally reported M0.3 verification (implementation pass + human-review
+fix pass + final human-review fix; human review passed before PR #5 merge):
 
 - Python 3.13.15 (uv-pinned)
 - PostgreSQL 18 (native cluster) — used by all integration tests and by the
@@ -518,6 +535,11 @@ pass + final human-review fix; awaiting final re-review):
 - `git diff --check` — clean
 
 No SQLite implementation was introduced anywhere in the test stack.
+
+PR #5 had no PR-triggered GitHub Actions workflow runs/status checks available
+during final pre-merge review. Therefore the verification above is the
+reported local verification evidence and must not be described as independent
+GitHub CI green.
 
 ---
 
@@ -587,17 +609,22 @@ M0.
 
 ## 13. Next action
 
-After M0.3 is human-reviewed, approved and merged into `main`:
+Start M0.4 only through a fresh checkpoint cycle:
 
-1. synchronize local `main`;
-2. create the M0.4 implementation branch;
-3. start a fresh M0.4 Agent/session;
-4. have that Agent read this file, `AGENTS.md`, the authoritative
-   pre-implementation documents and all accepted ADRs;
+1. synchronize/read current `main` (M0.3 merge commit `1230ffe...` or a newer
+   descendant containing only reviewed closeout maintenance);
+2. reconstruct the M0.4 checkpoint contract from this file, `AGENTS.md`, the
+   authoritative pre-implementation documents, ADR-001…ADR-009, current
+   `main`, and merged M0.1/M0.2/M0.3 history;
+3. have the human review and freeze that M0.4 contract;
+4. only then create the M0.4 implementation branch (recommended name:
+   `m0.4-selection-engine`) and give the Agent the final bounded prompt;
 5. implement M0.4 (Selection Engine) only;
-6. stop for human review before M0.5.
+6. human diff review, fixes, PR, and merge;
+7. stop before M0.5 and start a new checkpoint conversation again.
 
-Do not begin M0.4 automatically, and do not skip the M0.3 human review.
+Do not begin M0.4 automatically. Do not reuse the merged M0.3 implementation
+branch as the M0.4 base.
 
 ---
 
