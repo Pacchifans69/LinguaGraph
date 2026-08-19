@@ -16,18 +16,21 @@ Alembic migration history, or merged GitHub PR history.
 
 Last completed implementation checkpoint:
 
-**M0.2 — Persistence Model**
+**M0.2 — Persistence Model** (COMPLETE / MERGED)
+
+Most recent implementation checkpoint:
+
+**M0.3 — Document Workspace** (IMPLEMENTED — awaiting human review)
 
 M0.2 has been human-reviewed, approved, and merged into `main`.
 
 The next implementation checkpoint is:
 
-**M0.3 — Document Workspace**
+**M0.4 — Selection Engine**
 
-M0.3 implementation has NOT begun yet.
-
-Do not begin M0.4 until M0.3 has been implemented, human-reviewed,
-approved, and merged into `main`.
+M0.3 implementation is complete but has NOT yet been human-reviewed/merged.
+M0.4 must not begin until M0.3 has been human-reviewed, approved, and merged
+into `main`.
 
 ---
 
@@ -96,7 +99,116 @@ M0.2 deliberately did NOT implement:
 - visualization/connectors;
 - later NLP/linguistic layers.
 
-Those remain assigned to their later checkpoints.
+Those remain assigned to their later checkpoints (HTTP CRUD/workspace and
+text import UI are now implemented by M0.3).
+
+### M0.3 — Document Workspace
+
+Status:
+
+**IMPLEMENTED — awaiting human review** (not yet merged into `main`)
+
+Implemented:
+
+- Project HTTP CRUD (`POST/GET/GET/PATCH/DELETE /api/v1/projects[/{id}]`);
+- ParallelDocument HTTP CRUD (project-scoped and document-scoped paths);
+- TextVersion HTTP boundary: JSON plain-text paste, strict UTF-8 `.txt`
+  multipart import (canonical UTF-8 pipeline: reject malformed, strip one
+  leading BOM, CRLF/CR -> LF, reject NUL/surrogates, NFC, configured size,
+  hash of canonical content), get, metadata-only `PATCH` (`label`,
+  `sort_order` — content is never accepted), delete and
+  `DELETE ?force=true` (ADR-005);
+- stable `{code, message, details}` API error contract, including
+  HTTP/Pydantic validation conversion and duplicate-label `CONFLICT` without
+  SQLAlchemy/PostgreSQL exception leakage. Only the PostgreSQL
+  `uq_text_versions_document_label` unique violation is translated to
+  `CONFLICT` (driver constraint-name classification — unexpected integrity
+  errors propagate); explicit `null` for PATCH `label`/`sort_order` is
+  rejected at the Pydantic boundary (422), while omission still means
+  "leave unchanged";
+- raw HTTP request-body size enforcement (`MAX_REQUEST_BODY_BYTES`) via
+  `app/api/middleware.py`: actual received-byte counting for both the JSON
+  paste and the multipart upload paths, rejected before unbounded
+  buffering with the stable 413 `TEXT_TOO_LARGE` envelope; separate from
+  the canonical-text `MAX_TEXT_VERSION_CODEPOINTS` limit;
+- workspace read model service
+  (`GET /api/v1/documents/{id}/workspace`) returning flat collections for
+  document / text_versions / spans / alignment_groups / alignment_members;
+  deterministic TextVersion ordering `(sort_order, created_at, id)`;
+- transaction-clean workspace reads (one owned `read_transaction`, fully
+  materialized snapshot, no lazy load after service return);
+- frontend route tree `-> /projects -> /projects/:projectId/documents ->
+  /documents/:documentId/workspace` (react-router);
+- `features/projects`, `features/documents`, `features/workspace` modules,
+  shared API client + error boundary;
+- TanStack Query server state with the accepted query keys and mutation
+  invalidation;
+- TextPanels: language tag, label, hide control, exact canonical content as
+  plain pre-wrap text (no `dangerouslySetInnerHTML`, no selection/annotation
+  rendering);
+- per-document panel preferences
+  (`linguagraph.workspace.preferences.v1.<documentId>`), open/hide/reorder,
+  stale-id reconciliation against server TextVersion ids;
+- paste + `.txt` import UI; force-delete confirmation dialog warning about
+  annotations/groups;
+- M0.3 backend integration tests, frontend Vitest/RTL tests, and the
+  Playwright golden-path slice (through workspace creation — no selection).
+
+### M0.3 human-review fix pass (same checkpoint, no new scope)
+
+Review findings A/B/C were fixed without touching the frozen schema/ADRs or
+the transaction contract:
+
+- **A — Playwright database isolation:** the E2E backend
+  (`apps/api/app/e2e/server.py`) runs on a uniquely-created disposable
+  PostgreSQL database (`linguagraph_e2e_<uuid>`), migrated to Alembic HEAD
+  and dropped on exit; `reuseExistingServer: false` for the API webServer;
+  the spec's delete-everything clean-slate strategy was removed. The shared
+  lifecycle lives in `app/db/disposable.py` (used by both the pytest
+  fixtures and the E2E wrapper) with a fail-closed
+  `assert_disposable_db_url` guard; mechanically guarded by
+  `apps/web/src/test/playwrightConfig.test.ts` and the disposable-db unit/
+  integration tests.
+- **B — MAX_REQUEST_BODY_BYTES:** enforced on actual received bytes for
+  JSON paste and multipart upload (`app/api/middleware.py`, 413
+  `TEXT_TOO_LARGE` before unbounded buffering), with HTTP integration tests
+  for oversized JSON/multipart and just-below-limit requests.
+- **C — PATCH null + IntegrityError classification:** explicit null
+  `label`/`sort_order` rejected at the Pydantic boundary; only
+  `uq_text_versions_document_label` violations become duplicate-label
+  `CONFLICT` (create and PATCH); non-label IntegrityErrors propagate.
+
+### M0.3 final human-review fix (same checkpoint, no new scope)
+
+- **A (final) — E2E frontend proxy fail-closed to the SAME isolated API:**
+  the Vite instance Playwright starts is never reused
+  (`reuseExistingServer: false`) and runs with `--strictPort` (fails, never
+  falls back, if the port is taken). `playwright.config.ts` derives a single
+  `API_PORT` and passes `env: { VITE_API_PROXY_TARGET:
+  'http://127.0.0.1:<API_PORT>' }` to that Vite process; `vite.config.ts`
+  uses `VITE_API_PROXY_TARGET` (falling back to the ordinary development
+  backend `http://localhost:8000` ONLY for plain `npm run dev`). The
+  browser's `/api` requests therefore can only reach the isolated E2E
+  backend, regardless of `PLAYWRIGHT_API_PORT`. Verified with a non-default
+  `PLAYWRIGHT_API_PORT=8011` run while a decoy 500-backend listened on port
+  8000: the golden path passed and the decoy logged ZERO hits.
+- **E2E DB namespace guard hardened:** the E2E guard now matches the
+  documented `linguagraph_e2e_` namespace EXACTLY
+  (`linguagraph_e2e_<12 lowercase hex>`); names merely beginning with
+  `linguagraph_e2e` (e.g. `linguagraph_e2eevil_*`) are refused. The normal
+  development-database rejection test is preserved.
+
+M0.3 deliberately did NOT implement (deferred to later checkpoints):
+
+- browser Selection/Range handling, UTF-16 <-> code-point frontend
+  conversion, selection engine utilities, boundary segmentation, annotation
+  runs, PendingSpan, Alignment Tray, Add-to-Alignment (M0.4);
+- complete AlignmentService, alignment mutation HTTP endpoints, Span
+  get-or-create, alignment persistence UI, hover/active behavior, Inspector,
+  SVG connectors, RenderedSpanRegistry (M0.5 / M0.6).
+
+No Alembic migration was added in M0.3: the M0.2 schema proved non-defective
+and the M0.3 changes are HTTP/frontend only.
 
 ---
 
@@ -342,6 +454,16 @@ the HTTP boundary.
 
 Do not weaken this transaction contract merely to make route code convenient.
 
+### M0.3 status
+
+The M0.3 API layer implements this contract: `workspace_service` executes all
+its queries inside one owned `read_transaction`, materializes the complete
+snapshot before the transaction closes, and returns with
+`db.in_transaction() == False`. Routes serialize scalar columns only (Pydantic
+response models with `from_attributes=True`, no relationship traversal).
+Integration tests assert both properties ("workspace service leaves Session
+transaction-clean" and "HTTP serialization triggers no lazy load / autobegin").
+
 ---
 
 ## 10. M0.2 verification baseline
@@ -371,6 +493,34 @@ reported real-PostgreSQL local run.
 
 ---
 
+## 10A. M0.3 verification baseline
+
+Locally reported M0.3 verification (implementation pass + human-review fix
+pass + final human-review fix; awaiting final re-review):
+
+- Python 3.13.15 (uv-pinned)
+- PostgreSQL 18 (native cluster) — used by all integration tests and by the
+  Playwright E2E backend on its own disposable `linguagraph_e2e_*` database
+- Node 24.19.0 (web)
+- `uv sync --frozen` — passed
+- `uv run pytest -q` — 298 passed (231 M0.1/M0.2 + 67 M0.3 incl. review-fix
+  tests for body limits, constraint classification, PATCH nulls and the
+  disposable-database guard)
+- `uv run alembic check` — no schema drift detected (no new migration)
+- `uv run alembic current` — `0002 (head)`
+- `npm ci` — passed
+- `npm run lint` / `npm run typecheck` — passed
+- `npm run test` — 46 passed (10 files; ACTUAL value from the final run)
+- `npm run build` — passed
+- `npx playwright test e2e/golden-path.spec.ts` — M0.3 slice against the
+  isolated disposable E2E database, default ports AND a non-default
+  `PLAYWRIGHT_API_PORT=8011` run (decoy on port 8000 received zero hits)
+- `git diff --check` — clean
+
+No SQLite implementation was introduced anywhere in the test stack.
+
+---
+
 ## 11. Known non-blocking engineering notes
 
 ### Migration-test environment restoration
@@ -386,19 +536,24 @@ However, the helper should eventually restore any pre-existing
 
 This was reviewed as non-blocking for M0.2.
 
-### Transaction-aware HTTP design
+### PostgreSQL session timezone normalization
 
-The M0.3 API layer must respect the clean-Session service boundary described
-above. Do not solve route serialization problems by weakening transaction
-ownership.
+The M0.3 integration work made serialized timestamps consistent by pinning
+every PostgreSQL session to UTC (`SET TIME ZONE 'UTC'` on connect, see
+`app/db/session.py`). Without this, `timestamptz` reads rendered `+08:00`
+while Python-side `utcnow()` defaults rendered `+00:00`, so the same instant
+serialized differently across requests.
+
+### Async text-version route
+
+`POST /documents/{id}/text-versions` is `async` so the multipart body can be
+awaited; the (local, single-user workbench) DB service call runs
+synchronously on the request thread. Acceptable for M0; revisit if a
+concurrent workload ever emerges.
 
 ---
 
 ## 12. Explicitly deferred work
-
-### M0.3 — Document Workspace
-
-Owns the next document-management/workspace checkpoint.
 
 ### M0.4 — Selection Engine
 
@@ -432,18 +587,17 @@ M0.
 
 ## 13. Next action
 
-After this durable-state document is merged:
+After M0.3 is human-reviewed, approved and merged into `main`:
 
 1. synchronize local `main`;
-2. create the M0.3 implementation branch;
-3. start a fresh M0.3 Agent/session;
+2. create the M0.4 implementation branch;
+3. start a fresh M0.4 Agent/session;
 4. have that Agent read this file, `AGENTS.md`, the authoritative
    pre-implementation documents and all accepted ADRs;
-5. update checkpoint-state documentation for M0.3 implementation;
-6. implement M0.3 only;
-7. stop for human review before M0.4.
+5. implement M0.4 (Selection Engine) only;
+6. stop for human review before M0.5.
 
-Do not begin M0.4 automatically.
+Do not begin M0.4 automatically, and do not skip the M0.3 human review.
 
 ---
 

@@ -25,7 +25,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, text
 
-from app.tests.integration.conftest import (
+from app.db.disposable import (
     create_disposable_database,
     drop_disposable_database,
 )
