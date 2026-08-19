@@ -15,17 +15,20 @@ Foundation, M0.2 — Persistence Model, and M0.3 were human-approved and merged
 into `main` (PR #1, PR #2, and PR #5). M0.3 merged as
 `1230ffe0282adac3a20c1aafac6c2271c788b198`.
 
-The next checkpoint is **M0.4 — Selection Engine**, which has **not started**.
-M0.4 implementation must begin only after a fresh checkpoint contract is
-reconstructed from current merged `main` and the authoritative documents,
-human-reviewed, and converted into a bounded Agent prompt.
+The active implementation checkpoint is **M0.4 — Selection Engine**
+(**implemented, awaiting human review**), based on the approved post-M0.3
+checkpoint base `46b255481518d079a5604a770b9d3036647f8a89`. M0.5 has NOT
+started.
 
 M0 proves the closed loop: *create project → create parallel document → add
 arbitrary-language text versions → select spans → create alignment group →
-persist → reload → highlight counterparts*. M0.3 delivers the first half of
-that loop: project/document navigation, TextVersion creation/import, side-by-side
-TextVersion panels and the workspace read model. Text selection and alignment
-persistence remain M0.4/M0.5.
+persist → reload → highlight counterparts*. M0.3 delivered project/document
+navigation, TextVersion creation/import, side-by-side TextVersion panels and
+the workspace read model. M0.4 delivers the frontend selection engine:
+native Selection/Range → canonical code-point offsets, boundary-segmented
+flat runs, current-selection capture and the pending Alignment Tray (explicit
+Add/remove/clear, client-side duplicate/overlap rules, frontend-only state).
+Alignment persistence remains M0.5.
 
 Authoritative documents:
 
@@ -258,6 +261,56 @@ all NLP/LLM/auth/Redis/Neo4j/Elasticsearch/microservices infrastructure.
 
 No Alembic migration was required for M0.3 (the M0.2 schema is unchanged).
 
+## M0.4 scope and non-goals
+
+M0.4 implements the frontend Selection Engine on top of the M0.3 workspace:
+
+- **Shared text utilities** (`apps/web/src/shared/text/`) — the single
+  UTF-16 ↔ Unicode code-point conversion strategy (`codePointLength`,
+  `sliceByCodePoints`, `utf16OffsetToCodePointOffset`,
+  `codePointOffsetToUtf16Offset`; ADR-001), with surrogate-pair split
+  rejection, integer/range validation and the mandatory Unicode regression
+  vectors (`A🙂B` = 3, `für größere Häuser` = 18,
+  `Café 🙂 mañana für français` = 26);
+- **Selection engine** (`shared/text/selection.ts`) — native browser
+  Selection/Range → canonical code-point range, fail-closed result codes
+  (`EMPTY_SELECTION`, `MULTI_RANGE_SELECTION`, `OUTSIDE_TEXT_CONTENT`,
+  `CROSS_VERSION_SELECTION`, `UNSUPPORTED_SELECTION_BOUNDARY`,
+  `INVALID_SELECTION_BOUNDARY`, `SELECTION_TEXT_MISMATCH`,
+  `STALE_TEXT_VERSION`, `DOM_INTEGRITY_ERROR`), forward/backward
+  normalization, canonical-quote integrity and the DOM text witness; plus
+  the reverse locator (canonical code-point range → native DOM Range);
+- **Boundary segmentation** (`shared/text/segmentation.ts`) — canonical
+  content + persisted Spans + alignment memberships → flat minimal runs with
+  span/alignment-group membership sets (overlap supported), sweep-set
+  implementation, concatenated run text equals canonical content exactly;
+- **TextPanel** — an explicit canonical content root
+  (`[data-text-content-root]` with `data-text-version-id` /
+  `data-content-hash`) rendering flat `<span data-run data-start data-end>`
+  elements; `contentRoot.textContent === TextVersion.content`; the
+  Add-to-Alignment action bar lives OUTSIDE the content root;
+- **Pending selection state** (`WorkspaceProvider` / `workspaceReducer`) —
+  `currentSelection` (last captured selection) and `pendingMembers`
+  (Alignment Tray, ADR-007), frontend-only and never persisted to
+  localStorage; explicit Add to Alignment staging with exact-duplicate and
+  same-version overlap rejection (adjacent/separated allowed), remove-one,
+  clear-tray, Escape (clears current selection only), panel-hide lifecycle,
+  and stale TextVersion / content-hash reconciliation on refetch;
+- **AlignmentTray** — pending-only tray showing language tag, label and
+  quote per member with remove/clear actions; NO persistence-capable Create
+  Alignment action (M0.5).
+
+Deliberately NOT implemented in M0.4: the complete atomic Alignment
+create/update/delete service and its HTTP endpoints, concurrency-safe Span
+get-or-create, server persistence of PendingSpan, Create Alignment
+persistence workflow, orphan-Span cleanup (all M0.5), hover/active
+counterpart visualization, Alignment Inspector, SVG connectors,
+RenderedSpanRegistry, connector geometry (M0.6), and all
+NLP/LLM/auth/Redis/Neo4j/Elasticsearch/microservices infrastructure.
+
+No Alembic migration was required for M0.4 (the M0.2 schema is unchanged;
+Alembic remains at `0002 (head)`).
+
 ## E2E
 
 ```bash
@@ -308,19 +361,27 @@ Non-default ports are supported and safe:
 e2e/golden-path.spec.ts` — the golden path is verified to reach the isolated
 backend on 8011 (a decoy backend on 8000 receives zero requests).
 
-The Playwright run then executes the M0 golden-path slice: create project →
-create document → add EN/DE/FR/ES TextVersions → open the four panels →
-verify hide/show/reorder and reload preference. It stops before text
-selection/alignment (M0.4+).
+The Playwright run executes the M0 golden path: create project → create
+document → add EN/DE/FR/ES TextVersions → open the four panels → verify
+hide/show/reorder and reload preference → add a Unicode TextVersion
+(`Café 🙂 mañana für français`) → native Range selections in EN/DE/Unicode
+panels verified as exact code-point offsets → explicit Add to Alignment →
+pending tray add/remove/re-add/duplicate/overlap/clear → reload (panels
+persist, tray does not) → snapshot assertions that M0.4 staging persisted
+NOTHING (`spans == []`, `alignment_groups == []`, `alignment_members ==
+[]`). It stops before any alignment persistence (M0.5).
 
 ## Known limitations
 
 - Docker is not available in every development environment; `compose.yml` is
   the preferred path, native PostgreSQL 18 is the documented fallback.
 - The Alembic chain is the M0 domain schema (revision `0002` on top of the
-  no-op foundation revision `0001`); M0.3 adds no migration.
+  no-op foundation revision `0001`); M0.3 and M0.4 add no migration.
 - The complete atomic Alignment create/update/delete workflow, including
   concurrency-safe Span get-or-create, is deferred to M0.5; the workspace
-  endpoint only reads spans/alignments.
-- The frontend selection engine, segmentation and `PendingSpan` are deferred
-  to M0.4; M0.3 panels render plain canonical text only.
+  endpoint only reads spans/alignments, and the M0.4 tray is client-only.
+- M0.4 enforces code-point boundaries only: combining sequences are
+  preserved but never moved or merged (no grapheme-cluster editing), and
+  `Intl.Segmenter` is not a coordinate authority.
+- M0.4 renders flat runs and stageable selections; hover/active counterpart
+  highlighting, the Inspector and SVG connectors are deferred to M0.6.

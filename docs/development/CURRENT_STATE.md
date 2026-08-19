@@ -20,7 +20,7 @@ Last completed implementation checkpoint:
 
 Most recent implementation checkpoint:
 
-**M0.3 — Document Workspace** (COMPLETE / MERGED)
+**M0.4 — Selection Engine** (IMPLEMENTED — awaiting human review)
 
 M0.1, M0.2, and M0.3 have been human-reviewed, approved, and merged into
 `main`.
@@ -32,16 +32,19 @@ M0.3 GitHub state:
 - merge commit: `1230ffe0282adac3a20c1aafac6c2271c788b198`
 - merged: 2026-08-19
 
-The next implementation checkpoint is:
+M0.4 implementation is complete but has NOT yet been human-reviewed/merged.
+M0.5 has NOT started and must not begin until M0.4 has been human-reviewed,
+approved, and merged into `main`.
 
-**M0.4 — Selection Engine** (NOT STARTED)
-
-The repository is currently in the inter-checkpoint handoff state after M0.3.
-Before any M0.4 implementation, reconstruct the M0.4 checkpoint contract from
-current merged `main` and the authoritative sources, have the human review the
-contract, then issue the bounded Agent prompt and create/use the M0.4
-implementation branch. Do not continue implementation from the merged M0.3
-feature branch.
+M0.4 base provenance (historical): the original M0.4 implementation attempt
+was created from the reviewed M0.3 implementation head
+`33bfaef20c2e64bed92fe00aa147d74611ac41ad` because the implementation
+environment could not reach the remote. During Gate 2 base reconciliation,
+remote repository state was restored and verified. The M0.4 branch was then
+rebased onto the approved post-M0.3 checkpoint base
+`46b255481518d079a5604a770b9d3036647f8a89`. The earlier `33bfaef` base is
+retained only as historical provenance of the implementation attempt and is
+no longer the current branch base.
 
 ---
 
@@ -226,6 +229,82 @@ M0.3 deliberately did NOT implement (deferred to later checkpoints):
 
 No Alembic migration was added in M0.3: the M0.2 schema proved non-defective
 and the M0.3 changes are HTTP/frontend only.
+
+### M0.4 — Selection Engine
+
+Status:
+
+**IMPLEMENTED — awaiting human review** (not yet merged into `main`)
+
+Base: `46b255481518d079a5604a770b9d3036647f8a89` (approved post-M0.3
+checkpoint base; see the historical base provenance in section 1).
+
+Implementation branch: `m0.4-selection-engine`.
+
+Implemented (frontend only):
+
+- `apps/web/src/shared/text/` — the single UTF-16 ↔ Unicode code-point
+  conversion strategy (ADR-001): `codePointLength`, `sliceByCodePoints`,
+  `utf16OffsetToCodePointOffset`, `codePointOffsetToUtf16Offset`, with
+  surrogate-pair split rejection, integer/range validation, and the
+  mandatory regression vectors (`A🙂B` = 3, `für größere Häuser` = 18,
+  `Café 🙂 mañana für français` = 26);
+- selection engine (`shared/text/selection.ts`): native browser
+  Selection/Range → canonical code-point range with fail-closed result codes
+  (`EMPTY_SELECTION`, `MULTI_RANGE_SELECTION`, `OUTSIDE_TEXT_CONTENT`,
+  `CROSS_VERSION_SELECTION`, `UNSUPPORTED_SELECTION_BOUNDARY`,
+  `INVALID_SELECTION_BOUNDARY`, `SELECTION_TEXT_MISMATCH`,
+  `STALE_TEXT_VERSION`, `DOM_INTEGRITY_ERROR`); supported endpoint shapes:
+  Text node inside a `data-run`, run-element child offsets 0/1, and ALL
+  content-root child offsets (internal root boundaries map to the previous
+  run's end, `DOM_INTEGRITY_ERROR` when adjacent run metadata disagrees);
+  forward/backward direction normalization (direction is provenance only);
+  canonical-quote integrity (`range.toString() === quote`) with the DOM text
+  witness (`contentRoot.textContent === content`); reverse locator
+  (canonical code-point range → native DOM Range);
+- boundary segmentation (`shared/text/segmentation.ts`): canonical content +
+  persisted Spans + alignment memberships → flat minimal runs with
+  span/alignment-group membership sets (overlapping Spans supported; sweep
+  set, no O(S²) scan per run); concatenated run text equals canonical
+  content exactly; empty content produces no invented run;
+- TextPanel: canonical content root `[data-text-content-root]` with
+  `data-text-version-id`/`data-content-hash`, flat `<span data-run
+  data-start data-end>` runs (exactly one Text node each), `white-space:
+  pre-wrap`, no `dangerouslySetInnerHTML`; selection captured on
+  mouseup/keyup; panel-local "Add to Alignment" action OUTSIDE the content
+  root;
+- workspace state (`WorkspaceProvider`/`workspaceReducer`): `currentSelection`
+  and `pendingMembers` (PendingSpan, ADR-007) — frontend-only, never
+  persisted to localStorage; explicit Add-to-Alignment staging (exact
+  duplicate + same-version overlap rejection; adjacent/separated and
+  cross-version ranges allowed); remove-one / clear-tray; Escape clears the
+  current selection + native Selection only; panel hide clears that panel's
+  current selection but retains its pending members; refetch reconciliation
+  drops current/pending state for deleted TextVersions or changed content
+  hashes (same id+hash retained); document change / provider remount clears
+  ephemeral state while panel preferences still restore;
+- AlignmentTray: pending-only tray with language tag, label, quote, remove
+  and clear actions; NO persistence-capable Create Alignment action;
+- normalization extension: `membersBySpan` lookup in `normalize.ts`;
+- M0.4 unit/component tests (`shared/text/*.test.ts`, TextPanel,
+  AlignmentTray, WorkspacePage, workspaceReducer, normalize) and the
+  Playwright golden-path M0.4 slice (native browser selections including
+  non-BMP `Café 🙂 mañana für français`; reload: panel preferences persist,
+  tray does not; final snapshot asserts `spans == []`,
+  `alignment_groups == []`, `alignment_members == []`).
+
+M0.4 deliberately did NOT implement (deferred to later checkpoints):
+
+- complete AlignmentService, alignment mutation HTTP endpoints,
+  concurrency-safe Span get-or-create, server persistence of PendingSpan,
+  Create Alignment persistence workflow, alignment orphan-Span cleanup
+  (M0.5);
+- hover/active counterpart visualization, Alignment Inspector, SVG
+  connectors, RenderedSpanRegistry, connector ClientRects geometry (M0.6).
+
+No Alembic migration was added in M0.4: the M0.2 schema proved non-defective
+and the M0.4 changes are frontend-only. Alembic remains at `0002 (head)`;
+`alembic check` reports no schema drift.
 
 ---
 
@@ -543,6 +622,47 @@ GitHub CI green.
 
 ---
 
+## 10B. M0.4 verification baseline
+
+Locally reported M0.4 verification (implementation pass + Gate 2 base
+reconciliation pass; awaiting human review). The full suite was re-run from
+the reconciled branch after the rebase onto the approved base
+`46b255481518d079a5604a770b9d3036647f8a89` (see section 1), with identical
+results:
+
+- Python 3.13.x (uv-pinned; `apps/api/.venv`)
+- PostgreSQL 18.6 (native cluster) — used by all integration tests and by
+  the Playwright E2E backend on its own disposable `linguagraph_e2e_*`
+  database
+- Node 24.19.0 (downloaded to a local prefix; ADR-009 baseline — the
+  system-wide Node 22 was not used for verification)
+- `uv sync --frozen` — passed
+- `uv run pytest -q` — 298 passed (unchanged from M0.3: M0.4 is
+  frontend-only and adds no backend tests)
+- `uv run alembic check` — no schema drift detected (no new migration)
+- `uv run alembic current` — `0002 (head)`
+- `npm ci` — passed (clean reinstall before the final verification pass)
+- `npm run lint` / `npm run typecheck` — passed
+- `npm run test` — 172 passed (14 files; 82 selection-engine/Unicode
+  tests in `src/shared/text/`, plus TextPanel/AlignmentTray/WorkspacePage/
+  reducer/normalize M0.4 coverage; all M0.3 tests preserved)
+- `npm run build` — passed
+- `npx playwright test e2e/golden-path.spec.ts` — M0.3 + M0.4 slice, 1
+  passed (26.1s), against the isolated disposable E2E database (default
+  ports 8000/5173); the final run executed after `npm ci`
+- `git diff --check` — clean
+
+Tree-equivalence proof (Gate 2): after the rebase, the old pre-rebase M0.4
+head (`1ced20dc85794923c39c9695ea05dc9546a524ba`) vs the reconciled head
+differ in exactly `AGENTS.md`, `README.md`, and
+`docs/development/CURRENT_STATE.md`; `git diff <old head> HEAD -- apps` is
+EMPTY (no application/test/style/config/backend change; no dependency or
+migration change).
+
+No SQLite implementation was introduced anywhere in the test stack.
+
+---
+
 ## 11. Known non-blocking engineering notes
 
 ### Migration-test environment restoration
@@ -579,10 +699,12 @@ concurrent workload ever emerges.
 
 ### M0.4 — Selection Engine
 
-Owns browser native Selection/Range conversion, UTF-16 <-> code-point
-conversion, boundary segmentation and pending selection foundations.
+**IMPLEMENTED — awaiting human review** (see section 2). M0.4 is not yet
+merged into `main`.
 
 ### M0.5 — Manual Alignment
+
+**HAS NOT STARTED.**
 
 Owns:
 
@@ -609,22 +731,17 @@ M0.
 
 ## 13. Next action
 
-Start M0.4 only through a fresh checkpoint cycle:
+After M0.4 is human-reviewed, approved and merged into `main`:
 
-1. synchronize/read current `main` (M0.3 merge commit `1230ffe...` or a newer
-   descendant containing only reviewed closeout maintenance);
-2. reconstruct the M0.4 checkpoint contract from this file, `AGENTS.md`, the
-   authoritative pre-implementation documents, ADR-001…ADR-009, current
-   `main`, and merged M0.1/M0.2/M0.3 history;
-3. have the human review and freeze that M0.4 contract;
-4. only then create the M0.4 implementation branch (recommended name:
-   `m0.4-selection-engine`) and give the Agent the final bounded prompt;
-5. implement M0.4 (Selection Engine) only;
-6. human diff review, fixes, PR, and merge;
-7. stop before M0.5 and start a new checkpoint conversation again.
+1. synchronize local `main`;
+2. create the M0.5 implementation branch from the reviewed post-M0.4 main;
+3. start a fresh M0.5 Agent/session;
+4. have that Agent read this file, `AGENTS.md`, the authoritative
+   pre-implementation documents and all accepted ADRs;
+5. implement M0.5 (Manual Alignment) only;
+6. stop for human review before M0.6.
 
-Do not begin M0.4 automatically. Do not reuse the merged M0.3 implementation
-branch as the M0.4 base.
+Do not begin M0.5 automatically, and do not skip the M0.4 human review.
 
 ---
 

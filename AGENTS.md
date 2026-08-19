@@ -22,6 +22,10 @@ The last completed implementation checkpoint is:
 
 **M0.3 — Document Workspace (COMPLETE / MERGED)**
 
+The most recent implementation checkpoint is:
+
+**M0.4 — Selection Engine (IMPLEMENTED — AWAITING HUMAN REVIEW)**
+
 M0.1, M0.2, and M0.3 have been human-reviewed, approved, and merged into
 `main` (PR #1, PR #2, and PR #5 respectively). M0.3 merged as commit
 `1230ffe0282adac3a20c1aafac6c2271c788b198` from final implementation head
@@ -40,17 +44,24 @@ project/document/workspace route tree, TextVersion panels with
 open/hide/reorder, per-document panel preferences, and the M0.3 test/E2E
 slice.
 
-The next checkpoint is:
+M0.4 implements the frontend selection engine: shared UTF-16 ↔ code-point
+offset utilities (`apps/web/src/shared/text/`), native Selection/Range →
+canonical code-point range mapping with fail-closed boundary validation,
+reverse canonical → DOM Range location, boundary segmentation of canonical
+text into flat runs using persisted Span boundaries, the canonical
+`[data-text-content-root]` panel structure, `PendingSpan` current-selection
+state, the pending Alignment Tray with explicit Add/remove/clear staging and
+client-side duplicate/overlap validation, Escape cancellation, stale
+TextVersion/content-hash reconciliation, and the M0.4 unit/component/E2E
+slice. The complete atomic Alignment create/update/delete service and its
+HTTP endpoints belong to M0.5; the frontend selection engine is done.
 
-**M0.4 — Selection Engine (NOT STARTED)**
+M0.5 has NOT started.
 
-Before any M0.4 implementation, start from current merged `main`, reconstruct
-the M0.4 checkpoint contract from the authoritative sources, have the human
-review that contract, and only then create/use the bounded M0.4 implementation
-branch. Do not continue implementation from the merged M0.3 feature branch.
+Do not begin M0.5 until M0.4 has been human-reviewed, approved, and merged
+into main.
 
-The complete atomic Alignment create/update/delete service and its HTTP
-endpoints remain M0.5. Do not pull M0.5/M0.6 work into M0.4.
+Do not pull M0.5/M0.6 work into M0.4.
 
 Do not reopen frozen architecture decisions; if repository reality conflicts
 with the specification, stop the affected implementation and report the
