@@ -95,6 +95,12 @@ describe('normalizeWorkspace', () => {
     expect(normalized.membersByGroup['grp-1'].map((m) => m.span_id)).toEqual(['sp-1']);
   });
 
+  it('indexes alignment members by span (M0.4 run membership lookup)', () => {
+    const normalized = normalizeWorkspace(snapshot());
+    expect(normalized.membersBySpan['sp-1'].map((m) => m.alignment_group_id)).toEqual(['grp-1']);
+    expect(normalized.membersBySpan['sp-missing'] ?? []).toEqual([]);
+  });
+
   it('normalizes an empty snapshot without throwing', () => {
     const empty = snapshot({
       text_versions: [],
@@ -106,5 +112,6 @@ describe('normalizeWorkspace', () => {
     expect(normalized.textVersions).toEqual([]);
     expect(normalized.spansByVersion).toEqual({});
     expect(normalized.membersByGroup).toEqual({});
+    expect(normalized.membersBySpan).toEqual({});
   });
 });

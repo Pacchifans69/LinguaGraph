@@ -1,13 +1,18 @@
 /**
- * Workspace page component tests (M0.3): panels, hide/reopen/reorder,
+ * Workspace page component tests (M0.3 + M0.4): panels, hide/reopen/reorder,
  * per-document preferences, stale-id reconciliation, error presentation and
- * the destructive delete confirmation flow.
+ * the destructive delete confirmation flow (M0.3); selection capture,
+ * explicit Add-to-Alignment staging, the pending tray, Escape semantics,
+ * panel-hide lifecycle, stale content-hash reconciliation and document
+ * change / remount clearing (M0.4).
  */
 
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { WorkspacePage } from './WorkspacePage';
-import { renderPageAt } from '../../test/harness';
+import { renderPageAt, createTestQueryClient } from '../../test/harness';
 import { installFetchMock, json } from '../../test/mockFetch';
 import { preferenceKey } from './state/preferences';
 import type { WorkspaceSnapshot } from './api';
@@ -68,6 +73,58 @@ afterEach(() => {
   vi.unstubAllGlobals();
   window.localStorage.clear();
 });
+
+/** Select a range inside the English panel's content root via a REAL Range. */
+function stubEnglishSelection(
+  container: HTMLElement,
+  startUtf16: number,
+  endUtf16: number,
+) {
+  const panel = container.querySelector('.text-panel');
+  if (!panel) {
+    throw new Error('no text panel rendered');
+  }
+  const root = panel.querySelector('[data-text-content-root]');
+  const run = root?.firstChild;
+  const textNode = run?.firstChild;
+  if (textNode === null || textNode === undefined || textNode.nodeType !== Node.TEXT_NODE) {
+    throw new Error('no text node in the content root');
+  }
+  const range = document.createRange();
+  range.setStart(textNode, startUtf16);
+  range.setEnd(textNode, endUtf16);
+  const removeAllRanges = vi.fn();
+  vi.stubGlobal('getSelection', () => ({
+    rangeCount: 1,
+    getRangeAt: () => range,
+    anchorNode: textNode,
+    focusNode: textNode,
+    anchorOffset: startUtf16,
+    focusOffset: endUtf16,
+    removeAllRanges,
+  }));
+  return removeAllRanges;
+}
+
+async function openEnglishPanel() {
+  // Wait for the workspace snapshot to load before interacting.
+  await screen.findByRole('button', { name: 'Open English' });
+  return fireEvent.click(screen.getByRole('button', { name: 'Open English' }));
+}
+
+async function stageEnglishRange(container: HTMLElement, start: number, end: number) {
+  const removeAllRanges = stubEnglishSelection(container, start, end);
+  const root = container.querySelector('.text-panel [data-text-content-root]');
+  fireEvent.mouseUp(root as HTMLElement);
+  // Scope to the English panel: every panel has its own Add button.
+  const englishPanel = Array.from(container.querySelectorAll('.text-panel')).find(
+    (panel) => panel.textContent?.includes('I look forward to seeing you tomorrow.'),
+  ) ?? container.querySelector('.text-panel');
+  fireEvent.click(
+    within(englishPanel as HTMLElement).getByRole('button', { name: 'Add to Alignment' }),
+  );
+  return removeAllRanges;
+}
 
 describe('WorkspacePage', () => {
   it('renders hidden panels and opens them (hide + reopen)', async () => {
@@ -255,5 +312,325 @@ describe('WorkspacePage', () => {
     await waitFor(() =>
       expect(screen.queryByText('I look forward to seeing you tomorrow.')).not.toBeInTheDocument(),
     );
+  });
+});
+describe('WorkspacePage (M0.4 selection and pending tray)', () => {
+  it('captures a selection, stages it explicitly and shows it in the tray', async () => {
+    installFetchMock([['/workspace', () => json(200, snapshot())]]);
+    const { container } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+
+    // 1. Native selection -> current selection (status in the EN panel).
+    stubEnglishSelection(container, 2, 17);
+    const root = container.querySelector('.text-panel [data-text-content-root]');
+    fireEvent.mouseUp(root as HTMLElement);
+    expect(
+      await screen.findByText('Selected 2–17: “look forward to”'),
+    ).toBeInTheDocument();
+
+    // 2. Explicit Add to Alignment -> pending tray member; status consumed.
+    fireEvent.click(screen.getByRole('button', { name: 'Add to Alignment' }));
+    expect(
+      await screen.findByText('“look forward to”'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('en — English')).toBeInTheDocument();
+    expect(screen.queryByText('Selected 2–17: “look forward to”')).not.toBeInTheDocument();
+  });
+
+  it('stages members from two TextVersions, removes one and clears the tray', async () => {
+    installFetchMock([['/workspace', () => json(200, snapshot())]]);
+    const { container } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    fireEvent.click(screen.getByRole('button', { name: 'Open German' }));
+    await screen.findByText('Ich freue mich darauf, dich morgen zu sehen.');
+
+    await stageEnglishRange(container, 2, 17);
+    // German: 'Ich freue mich darauf, dich morgen zu sehen.' -> [4,21).
+    const germanPanel = container.querySelectorAll('.text-panel')[1];
+    const germanRoot = germanPanel?.querySelector('[data-text-content-root]');
+    const germanText = germanRoot?.firstChild?.firstChild as Text;
+    const germanRange = document.createRange();
+    germanRange.setStart(germanText, 4);
+    germanRange.setEnd(germanText, 21);
+    vi.stubGlobal('getSelection', () => ({
+      rangeCount: 1,
+      getRangeAt: () => germanRange,
+      anchorNode: germanText,
+      focusNode: germanText,
+      anchorOffset: 4,
+      focusOffset: 21,
+      removeAllRanges: vi.fn(),
+    }));
+    fireEvent.mouseUp(germanRoot as HTMLElement);
+    fireEvent.click(
+      within(germanPanel as HTMLElement).getByRole('button', { name: 'Add to Alignment' }),
+    );
+
+    expect(await screen.findByText('“freue mich darauf”')).toBeInTheDocument();
+    expect(screen.getByText('de — German')).toBeInTheDocument();
+
+    // Remove the German member only.
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove “freue mich darauf” from tray' }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText('“freue mich darauf”')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('“look forward to”')).toBeInTheDocument();
+
+    // Clear the tray.
+    fireEvent.click(screen.getByRole('button', { name: 'Clear tray' }));
+    await waitFor(() =>
+      expect(screen.queryByText('“look forward to”')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('No pending selections.')).toBeInTheDocument();
+  });
+
+  it('Escape clears the current selection only, never the staged tray', async () => {
+    installFetchMock([['/workspace', () => json(200, snapshot())]]);
+    const { container } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+
+    // Stage one member.
+    await stageEnglishRange(container, 2, 17);
+    expect(await screen.findByText('“look forward to”')).toBeInTheDocument();
+
+    // Capture a second current selection.
+    stubEnglishSelection(container, 7, 17);
+    fireEvent.mouseUp(
+      container.querySelector('.text-panel [data-text-content-root]') as HTMLElement,
+    );
+    expect(
+      await screen.findByText('Selected 7–17: “forward to”'),
+    ).toBeInTheDocument();
+
+    // Escape: current selection gone, tray member retained.
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() =>
+      expect(screen.queryByText('Selected 7–17: “forward to”')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('“look forward to”')).toBeInTheDocument();
+  });
+
+  it('hiding a panel clears its current selection but retains its pending member', async () => {
+    installFetchMock([['/workspace', () => json(200, snapshot())]]);
+    const { container } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    await stageEnglishRange(container, 2, 17);
+    expect(await screen.findByText('“look forward to”')).toBeInTheDocument();
+
+    // New current selection, then hide the panel.
+    stubEnglishSelection(container, 7, 17);
+    fireEvent.mouseUp(
+      container.querySelector('.text-panel [data-text-content-root]') as HTMLElement,
+    );
+    expect(
+      await screen.findByText('Selected 7–17: “forward to”'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide English panel' }));
+    await waitFor(() =>
+      expect(screen.queryByText('Selected 7–17: “forward to”')).not.toBeInTheDocument(),
+    );
+    // The staged member survives the panel hide.
+    expect(screen.getByText('“look forward to”')).toBeInTheDocument();
+  });
+
+  it('drops pending state when a refetch reports a changed content hash', async () => {
+    let current = snapshot();
+    installFetchMock([['/workspace', () => json(200, current)]]);
+    const { container, queryClient } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    await stageEnglishRange(container, 2, 17);
+    expect(await screen.findByText('“look forward to”')).toBeInTheDocument();
+
+    // Server returns the same TextVersion id with a NEW content hash.
+    current = snapshot();
+    current.text_versions = current.text_versions.map((version) =>
+      version.id === 'tv-en'
+        ? { ...version, content_hash: 'h-en-changed', content: 'I look forward to seeing you tomorrow!' }
+        : version,
+    );
+
+    queryClient.invalidateQueries({ queryKey: ['workspace', 'doc-1'] });
+    await waitFor(() =>
+      expect(screen.queryByText('“look forward to”')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('No pending selections.')).toBeInTheDocument();
+  });
+
+  it('drops pending state when a refetch reports the TextVersion deleted', async () => {
+    let current = snapshot();
+    installFetchMock([['/workspace', () => json(200, current)]]);
+    const { container, queryClient } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    await stageEnglishRange(container, 2, 17);
+    expect(await screen.findByText('“look forward to”')).toBeInTheDocument();
+
+    current = snapshot();
+    current.text_versions = current.text_versions.filter((version) => version.id !== 'tv-en');
+    queryClient.invalidateQueries({ queryKey: ['workspace', 'doc-1'] });
+    await waitFor(() =>
+      expect(screen.queryByText('“look forward to”')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('No pending selections.')).toBeInTheDocument();
+  });
+
+  it('retains pending state across a refetch with identical id and hash', async () => {
+    let current = snapshot();
+    installFetchMock([['/workspace', () => json(200, current)]]);
+    const { container, queryClient } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    await stageEnglishRange(container, 2, 17);
+    expect(await screen.findByText('“look forward to”')).toBeInTheDocument();
+
+    // Same ids + hashes: nothing is dropped.
+    current = snapshot();
+    queryClient.invalidateQueries({ queryKey: ['workspace', 'doc-1'] });
+    await waitFor(() => expect(screen.getByText('“look forward to”')).toBeInTheDocument());
+  });
+
+  it('a document change clears pending state (provider remount)', async () => {
+    const doc2 = snapshot();
+    doc2.document = { ...doc2.document, id: 'doc-2', title: 'Chapter 2' };
+    doc2.text_versions = doc2.text_versions.map((version) => ({
+      ...version,
+      id: `tv-2-${version.id}`,
+      document_id: 'doc-2',
+      label: `${version.label} 2`,
+    }));
+    installFetchMock([
+      ['/workspace', (url) => (url.includes('doc-2') ? json(200, doc2) : json(200, snapshot()))],
+    ]);
+
+    function Harness() {
+      return (
+        <div>
+          <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
+          <Routes>
+            <Route path="/documents/:documentId/workspace" element={<WorkspacePage />} />
+          </Routes>
+        </div>
+      );
+    }
+    const client = createTestQueryClient();
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/documents/doc-1/workspace']}>
+          <Harness />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    await stageEnglishRange(container, 2, 17);
+    expect(await screen.findByText('“look forward to”')).toBeInTheDocument();
+
+    // Navigate to doc-2: the provider remounts -> pending tray is empty and
+    // panel state re-initializes for the new document.
+    fireEvent.click(screen.getByRole('link', { name: 'Go to doc 2' }));
+    // Wait for the doc-2 workspace to load, then assert the tray is empty.
+    await screen.findByRole('button', { name: /Open English 2/ });
+    expect(screen.queryByText('“look forward to”')).not.toBeInTheDocument();
+    expect(screen.getByText('No pending selections.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open English' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Open English 2/ })).toBeInTheDocument();
+  });
+
+  it('a provider remount does not restore pending state (frontend-only)', async () => {
+    installFetchMock([['/workspace', () => json(200, snapshot())]]);
+    const { container } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    await stageEnglishRange(container, 2, 17);
+    expect(await screen.findByText('“look forward to”')).toBeInTheDocument();
+
+    // Simulate a reload: clean up the first render, then mount a fresh
+    // provider. The persisted panel preference restores the open panel, but
+    // the tray is empty.
+    cleanup();
+    const second = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    expect(
+      await second.findByText('I look forward to seeing you tomorrow.'),
+    ).toBeInTheDocument();
+    expect(second.queryByText('“look forward to”')).not.toBeInTheDocument();
+    expect(second.getByText('No pending selections.')).toBeInTheDocument();
+  });
+
+  it('does not persist current selection or pending members to localStorage', async () => {
+    installFetchMock([['/workspace', () => json(200, snapshot())]]);
+    // A dedicated document id isolates this test's preference key from any
+    // other test's provider persist timing.
+    const { container } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-persist/workspace',
+    );
+
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    await stageEnglishRange(container, 2, 17);
+    await screen.findByText('“look forward to”');
+
+    const saved = JSON.parse(
+      window.localStorage.getItem(preferenceKey('doc-persist')) ?? '{}',
+    );
+    expect(saved).not.toHaveProperty('currentSelection');
+    expect(saved).not.toHaveProperty('pendingMembers');
+    // Only the panel preferences are persisted.
+    expect(saved).toHaveProperty('panelOrder');
+    expect(saved).toHaveProperty('visiblePanels');
   });
 });
