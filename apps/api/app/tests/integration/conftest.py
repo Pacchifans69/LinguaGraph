@@ -102,7 +102,10 @@ def disposable_db_url() -> str:
 @pytest.fixture(scope="session")
 def db_engine(disposable_db_url: str):
     """SQLAlchemy engine bound to the disposable database."""
+    from app.db.session import apply_utc_timezone
+
     engine = create_engine(disposable_db_url, pool_pre_ping=True)
+    apply_utc_timezone(engine)
     yield engine
     engine.dispose()
 
@@ -117,3 +120,38 @@ def db_session(db_engine) -> Session:
         )
         session.commit()
         yield session
+
+
+@pytest.fixture()
+def api_client(db_engine):
+    """TestClient whose requests run against the disposable PostgreSQL database.
+
+    Every test starts from an empty domain schema (same guarantee as the
+    ``db_session`` fixture): the production ``get_db`` dependency is
+    overridden so each request gets a fresh, transaction-clean ORM session
+    bound to the disposable engine. TRUNCATE is issued directly on the engine
+    (not through the app session), so API-only tests never see rows left by
+    earlier tests.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.api.deps import get_db
+    from app.main import create_app
+
+    factory = sessionmaker(bind=db_engine, autoflush=False, expire_on_commit=False)
+
+    with db_engine.begin() as conn:
+        conn.execute(text(f"TRUNCATE {', '.join(DOMAIN_TABLES)} CASCADE"))
+
+    def override_get_db():
+        db = factory()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app = create_app()
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as client:
+        yield client
+    app.dependency_overrides.clear()

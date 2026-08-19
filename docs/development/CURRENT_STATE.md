@@ -16,18 +16,21 @@ Alembic migration history, or merged GitHub PR history.
 
 Last completed implementation checkpoint:
 
-**M0.2 — Persistence Model**
+**M0.2 — Persistence Model** (COMPLETE / MERGED)
+
+Most recent implementation checkpoint:
+
+**M0.3 — Document Workspace** (IMPLEMENTED — awaiting human review)
 
 M0.2 has been human-reviewed, approved, and merged into `main`.
 
 The next implementation checkpoint is:
 
-**M0.3 — Document Workspace**
+**M0.4 — Selection Engine**
 
-M0.3 implementation has NOT begun yet.
-
-Do not begin M0.4 until M0.3 has been implemented, human-reviewed,
-approved, and merged into `main`.
+M0.3 implementation is complete but has NOT yet been human-reviewed/merged.
+M0.4 must not begin until M0.3 has been human-reviewed, approved, and merged
+into `main`.
 
 ---
 
@@ -96,7 +99,62 @@ M0.2 deliberately did NOT implement:
 - visualization/connectors;
 - later NLP/linguistic layers.
 
-Those remain assigned to their later checkpoints.
+Those remain assigned to their later checkpoints (HTTP CRUD/workspace and
+text import UI are now implemented by M0.3).
+
+### M0.3 — Document Workspace
+
+Status:
+
+**IMPLEMENTED — awaiting human review** (not yet merged into `main`)
+
+Implemented:
+
+- Project HTTP CRUD (`POST/GET/GET/PATCH/DELETE /api/v1/projects[/{id}]`);
+- ParallelDocument HTTP CRUD (project-scoped and document-scoped paths);
+- TextVersion HTTP boundary: JSON plain-text paste, strict UTF-8 `.txt`
+  multipart import (canonical UTF-8 pipeline: reject malformed, strip one
+  leading BOM, CRLF/CR -> LF, reject NUL/surrogates, NFC, configured size,
+  hash of canonical content), get, metadata-only `PATCH` (`label`,
+  `sort_order` — content is never accepted), delete and
+  `DELETE ?force=true` (ADR-005);
+- stable `{code, message, details}` API error contract, including
+  HTTP/Pydantic validation conversion and duplicate-label `CONFLICT` without
+  SQLAlchemy/PostgreSQL exception leakage;
+- workspace read model service
+  (`GET /api/v1/documents/{id}/workspace`) returning flat collections for
+  document / text_versions / spans / alignment_groups / alignment_members;
+  deterministic TextVersion ordering `(sort_order, created_at, id)`;
+- transaction-clean workspace reads (one owned `read_transaction`, fully
+  materialized snapshot, no lazy load after service return);
+- frontend route tree `-> /projects -> /projects/:projectId/documents ->
+  /documents/:documentId/workspace` (react-router);
+- `features/projects`, `features/documents`, `features/workspace` modules,
+  shared API client + error boundary;
+- TanStack Query server state with the accepted query keys and mutation
+  invalidation;
+- TextPanels: language tag, label, hide control, exact canonical content as
+  plain pre-wrap text (no `dangerouslySetInnerHTML`, no selection/annotation
+  rendering);
+- per-document panel preferences
+  (`linguagraph.workspace.preferences.v1.<documentId>`), open/hide/reorder,
+  stale-id reconciliation against server TextVersion ids;
+- paste + `.txt` import UI; force-delete confirmation dialog warning about
+  annotations/groups;
+- M0.3 backend integration tests, frontend Vitest/RTL tests, and the
+  Playwright golden-path slice (through workspace creation — no selection).
+
+M0.3 deliberately did NOT implement (deferred to later checkpoints):
+
+- browser Selection/Range handling, UTF-16 <-> code-point frontend
+  conversion, selection engine utilities, boundary segmentation, annotation
+  runs, PendingSpan, Alignment Tray, Add-to-Alignment (M0.4);
+- complete AlignmentService, alignment mutation HTTP endpoints, Span
+  get-or-create, alignment persistence UI, hover/active behavior, Inspector,
+  SVG connectors, RenderedSpanRegistry (M0.5 / M0.6).
+
+No Alembic migration was added in M0.3: the M0.2 schema proved non-defective
+and the M0.3 changes are HTTP/frontend only.
 
 ---
 
@@ -342,6 +400,16 @@ the HTTP boundary.
 
 Do not weaken this transaction contract merely to make route code convenient.
 
+### M0.3 status
+
+The M0.3 API layer implements this contract: `workspace_service` executes all
+its queries inside one owned `read_transaction`, materializes the complete
+snapshot before the transaction closes, and returns with
+`db.in_transaction() == False`. Routes serialize scalar columns only (Pydantic
+response models with `from_attributes=True`, no relationship traversal).
+Integration tests assert both properties ("workspace service leaves Session
+transaction-clean" and "HTTP serialization triggers no lazy load / autobegin").
+
 ---
 
 ## 10. M0.2 verification baseline
@@ -371,6 +439,27 @@ reported real-PostgreSQL local run.
 
 ---
 
+## 10A. M0.3 verification baseline
+
+Locally reported M0.3 verification (awaiting human review):
+
+- Python 3.13.15 (uv-pinned)
+- PostgreSQL 18 (native cluster) — used by all integration tests
+- Node 24.19.0 (web)
+- `uv sync --frozen` — passed
+- `uv run pytest` — 274 passed (231 M0.1/M0.2 + 43 M0.3)
+- `uv run alembic check` — no schema drift detected (no new migration)
+- `npm ci` — passed
+- `npm run lint` / `npm run typecheck` — passed
+- `npm run test` — 39 passed
+- `npm run build` — passed
+- `npx playwright test e2e/golden-path.spec.ts` — M0.3 slice
+- `git diff --check` — clean
+
+No SQLite implementation was introduced anywhere in the test stack.
+
+---
+
 ## 11. Known non-blocking engineering notes
 
 ### Migration-test environment restoration
@@ -386,19 +475,24 @@ However, the helper should eventually restore any pre-existing
 
 This was reviewed as non-blocking for M0.2.
 
-### Transaction-aware HTTP design
+### PostgreSQL session timezone normalization
 
-The M0.3 API layer must respect the clean-Session service boundary described
-above. Do not solve route serialization problems by weakening transaction
-ownership.
+The M0.3 integration work made serialized timestamps consistent by pinning
+every PostgreSQL session to UTC (`SET TIME ZONE 'UTC'` on connect, see
+`app/db/session.py`). Without this, `timestamptz` reads rendered `+08:00`
+while Python-side `utcnow()` defaults rendered `+00:00`, so the same instant
+serialized differently across requests.
+
+### Async text-version route
+
+`POST /documents/{id}/text-versions` is `async` so the multipart body can be
+awaited; the (local, single-user workbench) DB service call runs
+synchronously on the request thread. Acceptable for M0; revisit if a
+concurrent workload ever emerges.
 
 ---
 
 ## 12. Explicitly deferred work
-
-### M0.3 — Document Workspace
-
-Owns the next document-management/workspace checkpoint.
 
 ### M0.4 — Selection Engine
 
@@ -432,18 +526,17 @@ M0.
 
 ## 13. Next action
 
-After this durable-state document is merged:
+After M0.3 is human-reviewed, approved and merged into `main`:
 
 1. synchronize local `main`;
-2. create the M0.3 implementation branch;
-3. start a fresh M0.3 Agent/session;
+2. create the M0.4 implementation branch;
+3. start a fresh M0.4 Agent/session;
 4. have that Agent read this file, `AGENTS.md`, the authoritative
    pre-implementation documents and all accepted ADRs;
-5. update checkpoint-state documentation for M0.3 implementation;
-6. implement M0.3 only;
-7. stop for human review before M0.4.
+5. implement M0.4 (Selection Engine) only;
+6. stop for human review before M0.5.
 
-Do not begin M0.4 automatically.
+Do not begin M0.4 automatically, and do not skip the M0.3 human review.
 
 ---
 

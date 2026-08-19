@@ -23,12 +23,35 @@ services own their intended transaction boundaries):
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
 
+
+def apply_utc_timezone(engine) -> None:  # type: ignore[no-untyped-def]
+    """Register a connect listener that pins PostgreSQL sessions to UTC.
+
+    ``timestamptz`` columns store an absolute instant; PostgreSQL returns it
+    in the session timezone. The application timestamps are UTC
+    (``utcnow()`` in ``app.db.base``), so reading them in any other zone
+    makes serialized timestamps inconsistent across requests
+    (``+00:00`` vs ``+08:00`` for the same instant). Setting ``timezone=UTC``
+    keeps every read on the UTC path. Applied to the app engine and to every
+    disposable integration-test engine.
+    """
+
+    @event.listens_for(engine, "connect")
+    def _set_session_timezone(dbapi_connection, _connection_record) -> None:  # type: ignore[no-untyped-def]
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute("SET TIME ZONE 'UTC'")
+        finally:
+            cursor.close()
+
+
 engine = create_engine(get_settings().database_url, pool_pre_ping=True)
+apply_utc_timezone(engine)
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 

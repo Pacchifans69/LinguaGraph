@@ -1,17 +1,20 @@
-import { HealthStatus } from './HealthStatus';
+import type { ComponentProps } from 'react';
+import { RouterProvider } from 'react-router-dom';
 import { Providers } from './providers';
+import { router } from './router';
 
-export function App() {
+type RouterLike = ComponentProps<typeof RouterProvider>['router'];
+
+export interface AppProps {
+  /** Injectable router; defaults to the browser router. Tests pass a memory
+   * router to avoid the jsdom/Node AbortSignal mismatch in createBrowserRouter. */
+  routerOverride?: RouterLike;
+}
+
+export function App({ routerOverride }: AppProps) {
   return (
     <Providers>
-      <div className="app-shell">
-        <header className="app-header">
-          <h1>LinguaGraph</h1>
-        </header>
-        <main className="app-main">
-          <HealthStatus />
-        </main>
-      </div>
+      <RouterProvider router={routerOverride ?? router} />
     </Providers>
   );
 }

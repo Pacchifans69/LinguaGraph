@@ -9,19 +9,24 @@ language-neutral via BCP-47 `language_tag`).
 
 ## Current milestone
 
-**M0 — Manual Alignment Workbench**, checkpoint **M0.2 — Persistence Model**
-(**under implementation**). M0.1 — Repository Foundation was human-approved
-and merged into main (PR #1). M0.3 must not begin until M0.2 is
-human-reviewed, approved, and merged into main.
+**M0 — Manual Alignment Workbench**, checkpoint **M0.3 — Document Workspace**
+(**implemented, awaiting human review**). M0.1 — Repository Foundation and
+M0.2 — Persistence Model were human-approved and merged into main (PR #1 and
+PR #2). M0.4 must not begin until M0.3 is human-reviewed, approved, and
+merged into main.
 
 M0 proves the closed loop: *create project → create parallel document → add
 arbitrary-language text versions → select spans → create alignment group →
-persist → reload → highlight counterparts*.
+persist → reload → highlight counterparts*. M0.3 delivers the first half of
+that loop: project/document navigation, TextVersion creation/import, side-by-side
+TextVersion panels and the workspace read model. Text selection and alignment
+persistence remain M0.4/M0.5.
 
 Authoritative documents:
 
 - `docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md`
 - `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md`
+- `docs/development/CURRENT_STATE.md` — durable engineering handoff
 - `docs/adr/` — accepted architecture decisions (ADR-001 … ADR-009)
 
 ## Repository layout
@@ -201,29 +206,62 @@ Environment-driven via `apps/api/app/core/config.py` (pydantic-settings):
 `.env.example` files contain non-secret development defaults only; never
 commit `.env`.
 
-## M0.2 scope and non-goals
+## M0.3 scope and non-goals
 
-M0.2 turns the frozen domain model into a real, migration-controlled
-PostgreSQL schema: SQLAlchemy 2.x typed ORM models for Project,
-ParallelDocument, TextVersion, Span, AlignmentGroup and AlignmentMember;
-Alembic revision `0002` with all foreign keys, ON DELETE behavior, unique
-constraints, CHECK constraints and indexes; canonical-text utilities
-(`apps/api/app/text/`); BCP-47 syntactic validation; domain validation
-foundations (offset ranges, alignment invariants, deletion policy); and basic
-persistence foundations for Project/Document/TextVersion with tests.
+M0.3 implements the document workspace on top of the M0.2 persistence model:
 
-Deliberately NOT implemented in M0.2 (later checkpoints): the complete atomic
-Alignment create/update/delete service and its HTTP endpoints (M0.5), all
-HTTP CRUD/workspace routes and schemas (M0.3), text import, selection engine,
-visualization/connectors, NLP/LLM, authentication, Redis/Neo4j/Elasticsearch,
-microservices.
+- **Projects** — HTTP CRUD (`apps/api/app/api/routes/projects.py`) and the
+  frontend Projects page (`/projects`);
+- **ParallelDocuments** — HTTP CRUD (`routes/documents.py`) and the Documents
+  page (`/projects/:projectId/documents`);
+- **TextVersions** — HTTP create (JSON plain-text paste and strict UTF-8
+  `.txt` multipart import), get, metadata-only `PATCH` (`label`,
+  `sort_order`), delete and `DELETE ?force=true` (ADR-005 destructive reset)
+  in `routes/text_versions.py`; canonical server responses (NFC, LF, BOM-strip,
+  hash of canonical content);
+- **Workspace read model** — `GET /api/v1/documents/{id}/workspace` with flat
+  `document / text_versions / spans / alignment_groups / alignment_members`
+  collections, served by `services/workspace_service.py` inside one owned
+  read transaction (no lazy-load after return);
+- **Frontend workspace** — `/documents/:documentId/workspace` with
+  independent TextPanels (language tag, label, hide control, exact canonical
+  content as plain pre-wrap text), panel open/hide/reorder, per-document
+  preferences (`linguagraph.workspace.preferences.v1.<documentId>`), paste +
+  `.txt` import, and a force-delete confirmation warning;
+- **Shared API client/error boundary** consuming the stable
+  `{code, message, details}` envelope.
+
+Deliberately NOT implemented in M0.3 (later checkpoints): browser
+Selection/Range handling and UTF-16 ↔ code-point frontend conversion (M0.4),
+boundary segmentation/annotation runs/PendingSpan/Alignment Tray (M0.4), the
+complete atomic Alignment create/update/delete service and its HTTP endpoints
+(M0.5), alignment persistence UI/hover/connectors/Inspector (M0.5/M0.6), and
+all NLP/LLM/auth/Redis/Neo4j/Elasticsearch/microservices infrastructure.
+
+No Alembic migration was required for M0.3 (the M0.2 schema is unchanged).
+
+## E2E
+
+```bash
+cd apps/web
+npx playwright install chromium      # one-time browser download
+npx playwright test e2e/golden-path.spec.ts
+```
+
+The Playwright config starts the FastAPI backend and the Vite dev server
+(`playwright.config.ts` `webServer`), then runs the M0 golden-path slice:
+create project → create document → add EN/DE/FR/ES TextVersions → open the
+four panels → verify hide/show/reorder and reload preference. It stops
+before text selection/alignment (M0.4+).
 
 ## Known limitations
 
 - Docker is not available in every development environment; `compose.yml` is
   the preferred path, native PostgreSQL 18 is the documented fallback.
-- The M0.2 Alembic chain is the domain schema (revision `0002` on top of the
-  no-op foundation revision `0001`).
+- The Alembic chain is the M0 domain schema (revision `0002` on top of the
+  no-op foundation revision `0001`); M0.3 adds no migration.
 - The complete atomic Alignment create/update/delete workflow, including
-  concurrency-safe Span get-or-create, is deferred to M0.5; M0.2 provides the
-  schema, invariant predicates and persistence foundations it builds on.
+  concurrency-safe Span get-or-create, is deferred to M0.5; the workspace
+  endpoint only reads spans/alignments.
+- The frontend selection engine, segmentation and `PendingSpan` are deferred
+  to M0.4; M0.3 panels render plain canonical text only.

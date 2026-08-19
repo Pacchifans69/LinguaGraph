@@ -20,21 +20,25 @@ Before planning, modifying files, installing dependencies, or writing implementa
 
 The project is currently in:
 
-**M0.2 — Persistence Model (IMPLEMENTATION)**
+**M0.3 — Document Workspace (IMPLEMENTED — AWAITING HUMAN REVIEW)**
 
-M0.1 has been human-reviewed, approved, and merged into main (PR #1). The
+M0.1 has been human-reviewed, approved, and merged into main (PR #1). M0.2
+has been human-reviewed, approved, and merged into main (PR #2). The
 pre-implementation baseline is closed:
 `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` ends with
 `ARCHITECTURE READY FOR BASELINE CLOSURE`, and ADR-001…ADR-009 are accepted
 and frozen.
 
-M0.2 implements the frozen language-neutral domain model as a
-migration-controlled PostgreSQL schema with deterministic canonical-text
-utilities, domain validation foundations, and strong automated tests. The
-complete atomic Alignment create/update/delete service and its HTTP endpoints
-belong to M0.5.
+M0.3 implements the document workspace: project/document HTTP CRUD,
+TextVersion creation/import (JSON plain-text paste + strict UTF-8 `.txt`
+multipart upload), metadata-only text-version PATCH and ADR-005
+delete/force-delete, the workspace read model, the frontend
+project/document/workspace route tree, TextVersion panels with
+open/hide/reorder, per-document panel preferences, and the M0.3 test/E2E
+slice. The complete atomic Alignment create/update/delete service and its
+HTTP endpoints belong to M0.5; the frontend selection engine belongs to M0.4.
 
-Do not begin M0.3 until M0.2 has been human-reviewed, approved, and merged
+Do not begin M0.4 until M0.3 has been human-reviewed, approved, and merged
 into main.
 
 Do not reopen frozen architecture decisions; if repository reality conflicts
