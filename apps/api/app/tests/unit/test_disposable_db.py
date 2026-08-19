@@ -51,6 +51,22 @@ def test_e2e_prefix_requires_the_strict_namespace() -> None:
     assert_disposable_db_url(e2e_url, required_prefix=E2E_DB_PREFIX)
 
 
+def test_e2e_namespace_must_match_exactly_not_merely_begin_with_it() -> None:
+    # A name beginning merely with "linguagraph_e2e" (without the exact
+    # `linguagraph_e2e_<12 lowercase hex>` shape) is REFUSED.
+    for bad_name in (
+        "linguagraph_e2eevil_abcdef123456",  # no underscore namespace boundary
+        "linguagraph_e2e_abcdef12345",  # 11 hex chars
+        "linguagraph_e2e_abcdef1234567",  # 13 hex chars
+        "linguagraph_e2e_ABCDEF123456",  # uppercase hex
+        "linguagraph_e2e_abcdef12345g",  # non-hex char
+        "linguagraph_e2e_",  # empty suffix
+    ):
+        url = make_url(f"postgresql://user:pass@localhost:5432/{bad_name}")
+        with pytest.raises(RuntimeError, match="refusing disposable-database"):
+            assert_disposable_db_url(url, required_prefix=E2E_DB_PREFIX)
+
+
 def test_url_string_input_is_accepted() -> None:
     assert_disposable_db_url(
         "postgresql://user:pass@localhost:5432/linguagraph_e2e_deadbeef1234",

@@ -273,19 +273,35 @@ The E2E backend never touches the normal development database:
 - the API webServer uses `reuseExistingServer: false`: an already-running
   backend whose `DATABASE_URL` cannot be proven to be the E2E database is
   never reused;
+- the Vite instance Playwright starts is also never reused
+  (`reuseExistingServer: false`) and runs with `--strictPort` (an occupied
+  port fails the run instead of silently moving). Its `/api` proxy target is
+  set via `VITE_API_PROXY_TARGET` to exactly the same port the isolated API
+  binds (`playwright.config.ts` derives one `API_PORT` and passes it to both
+  `app.e2e.server` and the Vite env), so the browser can never reach a
+  development backend on another port. Plain `npm run dev` keeps the ordinary
+  development backend default (`http://localhost:8000`) via
+  `vite.config.ts`;
 - `app.db.disposable.assert_disposable_db_url` fails closed on any database
-  name outside the reserved `linguagraph_e2e` namespace — the same shared
-  lifecycle the pytest integration fixtures use
-  (`app/db/disposable.py`), with no duplicated unsafe DB logic;
+  name outside the EXACT `linguagraph_e2e_<12 hex>` namespace (names merely
+  beginning with `linguagraph_e2e` are refused) — the same shared
+  lifecycle the pytest integration fixtures use (`app/db/disposable.py`),
+  with no duplicated unsafe DB logic;
 - the golden-path spec performs no cleanup of pre-existing data (the
   disposable database disappears with the run); PostgreSQL is mandatory,
   there is no SQLite fallback.
 
 These properties are mechanically guarded by
-`apps/web/src/test/playwrightConfig.test.ts` (config assertions) and
+`apps/web/src/test/playwrightConfig.test.ts` (config assertions, including
+the proxy-target derivation from the same API port) and
 `apps/api/app/tests/unit/test_disposable_db.py` /
 `apps/api/app/tests/integration/test_disposable_db_integration.py`
 (fail-closed guard + real create/migrate/drop cycle).
+
+Non-default ports are supported and safe:
+`PLAYWRIGHT_API_PORT=8011 PLAYWRIGHT_PORT=5199 npx playwright test
+e2e/golden-path.spec.ts` — the golden path is verified to reach the isolated
+backend on 8011 (a decoy backend on 8000 receives zero requests).
 
 The Playwright run then executes the M0 golden-path slice: create project →
 create document → add EN/DE/FR/ES TextVersions → open the four panels →

@@ -3,19 +3,29 @@ import { defineConfig } from '@playwright/test';
 /**
  * LinguaGraph M0 Playwright configuration.
  *
- * Backend isolation (M0.3 human review finding A):
+ * Fail-closed E2E isolation (M0.3 final human review finding A):
+ *
  * - the API webServer runs `app.e2e.server` (apps/api), which creates a
  *   uniquely-named disposable PostgreSQL database (linguagraph_e2e_<uuid>),
  *   migrates it to Alembic HEAD, serves uvicorn against ONLY that database
- *   and drops it on exit;
+ *   and records its URL for the globalTeardown drop;
  * - `reuseExistingServer: false` for the API: an already-running backend
  *   whose DATABASE_URL cannot be proven to be the E2E database is NEVER
  *   reused;
- * - the spec performs no cross-database cleanup (it must not delete data it
- *   did not create); the disposable database is dropped after the run.
+ * - the Vite webServer is started fresh for every run
+ *   (`reuseExistingServer: false`) with `--strictPort` (fails if the port is
+ *   taken instead of silently moving), and its `/api` proxy target is set
+ *   via `VITE_API_PROXY_TARGET` to EXACTLY the same
+ *   `http://127.0.0.1:<PLAYWRIGHT_API_PORT>` the isolated API binds — both
+ *   are derived from the single `API_PORT` constant below, so the browser's
+ *   API requests can never reach a development backend on another port
+ *   (e.g. the default 8000);
+ * - the spec performs no cleanup of pre-existing data (it must not delete
+ *   data it did not create); the disposable database is dropped after the
+ *   run.
  *
- * The Vite dev server (static/proxy only, no database access) may be reused
- * when already running for local iteration.
+ * Normal `npm run dev` is unaffected: without `VITE_API_PROXY_TARGET` it
+ * keeps the ordinary development backend default (http://localhost:8000).
  */
 
 const PORT = process.env.PLAYWRIGHT_PORT ?? '5173';
@@ -47,11 +57,16 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: `npm run dev -- --port ${PORT} --host 127.0.0.1`,
+      // Fresh Vite instance whose /api proxy targets the SAME isolated API
+      // port (API_PORT). Never reused; fails closed if the port is taken.
+      command: `npm run dev -- --port ${PORT} --host 127.0.0.1 --strictPort`,
       cwd: '.',
       url: `http://127.0.0.1:${PORT}`,
-      reuseExistingServer: true,
+      reuseExistingServer: false,
       timeout: 60_000,
+      env: {
+        VITE_API_PROXY_TARGET: `http://127.0.0.1:${API_PORT}`,
+      },
     },
   ],
 });

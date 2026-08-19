@@ -178,6 +178,26 @@ the transaction contract:
   `uq_text_versions_document_label` violations become duplicate-label
   `CONFLICT` (create and PATCH); non-label IntegrityErrors propagate.
 
+### M0.3 final human-review fix (same checkpoint, no new scope)
+
+- **A (final) — E2E frontend proxy fail-closed to the SAME isolated API:**
+  the Vite instance Playwright starts is never reused
+  (`reuseExistingServer: false`) and runs with `--strictPort` (fails, never
+  falls back, if the port is taken). `playwright.config.ts` derives a single
+  `API_PORT` and passes `env: { VITE_API_PROXY_TARGET:
+  'http://127.0.0.1:<API_PORT>' }` to that Vite process; `vite.config.ts`
+  uses `VITE_API_PROXY_TARGET` (falling back to the ordinary development
+  backend `http://localhost:8000` ONLY for plain `npm run dev`). The
+  browser's `/api` requests therefore can only reach the isolated E2E
+  backend, regardless of `PLAYWRIGHT_API_PORT`. Verified with a non-default
+  `PLAYWRIGHT_API_PORT=8011` run while a decoy 500-backend listened on port
+  8000: the golden path passed and the decoy logged ZERO hits.
+- **E2E DB namespace guard hardened:** the E2E guard now matches the
+  documented `linguagraph_e2e_` namespace EXACTLY
+  (`linguagraph_e2e_<12 lowercase hex>`); names merely beginning with
+  `linguagraph_e2e` (e.g. `linguagraph_e2eevil_*`) are refused. The normal
+  development-database rejection test is preserved.
+
 M0.3 deliberately did NOT implement (deferred to later checkpoints):
 
 - browser Selection/Range handling, UTF-16 <-> code-point frontend
@@ -476,24 +496,25 @@ reported real-PostgreSQL local run.
 ## 10A. M0.3 verification baseline
 
 Locally reported M0.3 verification (implementation pass + human-review fix
-pass; awaiting re-review):
+pass + final human-review fix; awaiting final re-review):
 
 - Python 3.13.15 (uv-pinned)
 - PostgreSQL 18 (native cluster) — used by all integration tests and by the
   Playwright E2E backend on its own disposable `linguagraph_e2e_*` database
 - Node 24.19.0 (web)
 - `uv sync --frozen` — passed
-- `uv run pytest` — 297 passed (231 M0.1/M0.2 + 66 M0.3 incl. review-fix
+- `uv run pytest -q` — 298 passed (231 M0.1/M0.2 + 67 M0.3 incl. review-fix
   tests for body limits, constraint classification, PATCH nulls and the
   disposable-database guard)
 - `uv run alembic check` — no schema drift detected (no new migration)
 - `uv run alembic current` — `0002 (head)`
 - `npm ci` — passed
 - `npm run lint` / `npm run typecheck` — passed
-- `npm run test` — 43 passed
+- `npm run test` — 46 passed (10 files; ACTUAL value from the final run)
 - `npm run build` — passed
 - `npx playwright test e2e/golden-path.spec.ts` — M0.3 slice against the
-  isolated disposable E2E database
+  isolated disposable E2E database, default ports AND a non-default
+  `PLAYWRIGHT_API_PORT=8011` run (decoy on port 8000 received zero hits)
 - `git diff --check` — clean
 
 No SQLite implementation was introduced anywhere in the test stack.

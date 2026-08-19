@@ -13,12 +13,16 @@ Safety properties (mandatory, enforced by :func:`assert_disposable_db_url`):
 - the normal development database is never created, migrated, read, written
   or dropped by any disposable flow — every target database name must start
   with a reserved ``linguagraph_`` prefix and the guard FAILS CLOSED;
-- the E2E flow additionally requires the ``linguagraph_e2e_`` prefix;
+- the E2E flow requires the EXACT ``linguagraph_e2e_<12 lowercase hex>``
+  namespace (the documented ``linguagraph_e2e_`` namespace): a name that
+  merely starts with ``linguagraph_e2e`` (e.g. ``linguagraph_e2eevil``) is
+  refused;
 - PostgreSQL is mandatory; there is no SQLite fallback anywhere.
 """
 
 from __future__ import annotations
 
+import re
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
@@ -32,6 +36,11 @@ from app.core.config import get_settings
 DISPOSABLE_DB_PREFIX = "linguagraph_"
 # Stricter namespace for the Playwright E2E backend.
 E2E_DB_PREFIX = "linguagraph_e2e"
+# EXACT shape of an E2E disposable database name: the documented
+# `linguagraph_e2e_` namespace plus the 12-hex uuid suffix that
+# create_disposable_database() always generates. Anything else — including
+# names merely beginning with "linguagraph_e2e" — is refused.
+E2E_DB_NAME_PATTERN = re.compile(rf"^{E2E_DB_PREFIX}_[0-9a-f]{{12}}$")
 
 ALEMBIC_INI = Path(__file__).resolve().parents[2] / "alembic.ini"
 
@@ -42,17 +51,29 @@ def assert_disposable_db_url(
     """Fail closed unless ``url`` targets a database in the reserved namespace.
 
     This is the mechanically meaningful guard proving a disposable flow can
-    never target the normal development database: the database name must
-    start with the reserved prefix (``linguagraph_`` for tests,
-    ``linguagraph_e2e`` for the E2E wrapper). Any other name — including the
-    development database name — raises immediately, before any SQL runs.
+    never target the normal development database:
+
+    - default (``linguagraph_``): the database name must start with the
+      reserved test prefix (covers ``linguagraph_m02_*`` etc.);
+    - E2E (``linguagraph_e2e``): the database name must match the EXACT
+      ``linguagraph_e2e_<12 lowercase hex>`` namespace — names merely
+      beginning with ``linguagraph_e2e`` are refused.
+
+    Any other name — including the development database name — raises
+    immediately, before any SQL runs.
     """
     db_name = make_url(url).database
-    if not db_name or not db_name.startswith(required_prefix):
+    if required_prefix == E2E_DB_PREFIX:
+        expected = f"exactly {E2E_DB_PREFIX}_<12 lowercase hex>"
+        valid = bool(db_name) and E2E_DB_NAME_PATTERN.fullmatch(db_name) is not None
+    else:
+        expected = f"prefix {required_prefix!r}"
+        valid = bool(db_name) and db_name.startswith(required_prefix)
+    if not valid:
         raise RuntimeError(
             "refusing disposable-database operation on "
-            f"{db_name!r}: database name must start with "
-            f"{required_prefix!r}; the development database must never be "
+            f"{db_name!r}: database name must match {expected}; the "
+            "development database must never be "
             "created/migrated/read/written/dropped by a disposable flow"
         )
 
