@@ -476,4 +476,3 @@ not authoritative engineering state.
 
 If these sources appear to disagree, inspect the authoritative source instead
 of silently reconciling the conflict from memory.
-instead of silently reconciling the conflict from memory.
