@@ -20,15 +20,22 @@ Before planning, modifying files, installing dependencies, or writing implementa
 
 The project is currently in:
 
-**M0.1 — Repository Foundation (HUMAN REVIEW)**
+**M0.2 — Persistence Model (IMPLEMENTATION)**
 
-The M0.1 implementation is complete and under human review (PR #1, branch
-`m0.1-foundation`). The pre-implementation baseline is closed:
+M0.1 has been human-reviewed, approved, and merged into main (PR #1). The
+pre-implementation baseline is closed:
 `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` ends with
 `ARCHITECTURE READY FOR BASELINE CLOSURE`, and ADR-001…ADR-009 are accepted
 and frozen.
 
-Do not begin M0.2 until M0.1 has been human-approved and merged into main.
+M0.2 implements the frozen language-neutral domain model as a
+migration-controlled PostgreSQL schema with deterministic canonical-text
+utilities, domain validation foundations, and strong automated tests. The
+complete atomic Alignment create/update/delete service and its HTTP endpoints
+belong to M0.5.
+
+Do not begin M0.3 until M0.2 has been human-reviewed, approved, and merged
+into main.
 
 Do not reopen frozen architecture decisions; if repository reality conflicts
 with the specification, stop the affected implementation and report the

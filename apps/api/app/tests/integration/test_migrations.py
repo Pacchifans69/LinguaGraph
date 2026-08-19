@@ -1,96 +1,132 @@
-"""Migration-from-zero proof against a disposable PostgreSQL database.
+"""Migration chain tests against disposable PostgreSQL databases.
 
-Database configuration is discovered through the project's Settings contract
-(``app.core.config.Settings``), which loads ``apps/api/.env`` via
-pydantic-settings — so the documented clean-checkout flow works:
+Covered here:
 
-    cd apps/api
-    cp .env.example .env
-    uv run pytest
-
-The server location comes from ``TEST_DATABASE_URL`` (falling back to
-``DATABASE_URL``). The test creates a uniquely named disposable database,
-runs ``alembic upgrade head`` against it, verifies the resulting schema, and
-drops the database afterwards.
+- migration from an EMPTY database to HEAD (via the shared session fixture,
+  which starts from zero and runs ``alembic upgrade head``), with the
+  resulting schema asserted;
+- the full cycle on a dedicated disposable database: upgrade base -> head,
+  downgrade head -> base, upgrade base -> head again (and a partial downgrade
+  to 0001), proving both directions of the M0.2 revision.
 
 Safety guarantees:
 
 - only uniquely named disposable databases are ever created/migrated/dropped;
 - the normal development database is never migrated or downgraded;
-- PostgreSQL is mandatory: when no server is configured, the test is skipped
-  with an explicit reason (a reported environment limitation, not a pass).
+- PostgreSQL is mandatory; without a configured server the tests skip with an
+  explicit reason (a reported environment limitation, not a pass).
 """
 
-import uuid
+import os
 from pathlib import Path
 
 import pytest
 from alembic import command
 from alembic.config import Config
-from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
-from sqlalchemy.engine import make_url
 
-from app.core.config import Settings
+from app.tests.integration.conftest import (
+    create_disposable_database,
+    drop_disposable_database,
+)
 
 API_ROOT = Path(__file__).resolve().parents[3]
 ALEMBIC_INI = API_ROOT / "alembic.ini"
 
 pytestmark = pytest.mark.integration
 
+# Expected public schema at HEAD: the Alembic version table plus the six
+# M0.2 domain tables (M0_PREIMPLEMENTATION_REPORT.md section 4).
+HEAD_TABLES = [
+    "alembic_version",
+    "alignment_groups",
+    "alignment_members",
+    "parallel_documents",
+    "projects",
+    "spans",
+    "text_versions",
+]
 
-def test_migrate_from_zero_to_head(monkeypatch: pytest.MonkeyPatch) -> None:
-    server_url = Settings().integration_server_url
-    if server_url is None:
-        pytest.skip(
-            "TEST_DATABASE_URL/DATABASE_URL not set (and no apps/api/.env) — "
-            "cannot run PostgreSQL integration tests"
-        )
 
-    url = make_url(server_url)
-    admin_url = url.set(database="postgres")
-    db_name = f"linguagraph_migration_{uuid.uuid4().hex[:12]}"
-    target_url = url.set(database=db_name)
-
-    admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
-    with admin_engine.connect() as conn:
-        conn.execute(text(f'CREATE DATABASE "{db_name}"'))
-
+def _public_tables(url: str) -> list[str]:
+    engine = create_engine(url)
     try:
-        # Alembic's env.py reads DATABASE_URL: point it at the disposable DB.
-        monkeypatch.setenv("DATABASE_URL", target_url.render_as_string(hide_password=False))
-
-        cfg = Config(str(ALEMBIC_INI))
-        command.upgrade(cfg, "head")
-
-        script = ScriptDirectory.from_config(cfg)
-        head_revision = script.get_current_head()
-        assert head_revision is not None, "expected at least one migration revision"
-
-        check_engine = create_engine(target_url)
-        try:
-            with check_engine.connect() as conn:
-                version_num = conn.execute(
-                    text("SELECT version_num FROM alembic_version")
-                ).scalar_one()
-                assert version_num == head_revision
-
-                table_names = (
-                    conn.execute(
-                        text(
-                            "SELECT tablename FROM pg_tables"
-                            " WHERE schemaname = 'public' ORDER BY tablename"
-                        )
+        with engine.connect() as conn:
+            return sorted(
+                conn.execute(
+                    text(
+                        "SELECT tablename FROM pg_tables"
+                        " WHERE schemaname = 'public' ORDER BY tablename"
                     )
-                    .scalars()
-                    .all()
                 )
-                # M0.1 foundation chain: only the Alembic version table exists
-                # (domain tables arrive in M0.2).
-                assert table_names == ["alembic_version"]
-        finally:
-            check_engine.dispose()
+                .scalars()
+                .all()
+            )
     finally:
-        with admin_engine.connect() as conn:
-            conn.execute(text(f'DROP DATABASE IF EXISTS "{db_name}" WITH (FORCE)'))
-        admin_engine.dispose()
+        engine.dispose()
+
+
+def _run_alembic(url: str, action: str, revision: str) -> None:
+    os.environ["DATABASE_URL"] = url
+    try:
+        cfg = Config(str(ALEMBIC_INI))
+        if action == "upgrade":
+            command.upgrade(cfg, revision)
+        else:
+            command.downgrade(cfg, revision)
+    finally:
+        os.environ.pop("DATABASE_URL", None)
+
+
+def test_migrate_from_zero_to_head(disposable_db_url: str) -> None:
+    # The session fixture already migrated an empty database to HEAD; assert
+    # the resulting schema and the recorded revision.
+    assert _public_tables(disposable_db_url) == HEAD_TABLES
+
+    engine = create_engine(disposable_db_url)
+    try:
+        with engine.connect() as conn:
+            version_num = conn.execute(
+                text("SELECT version_num FROM alembic_version")
+            ).scalar_one()
+            assert version_num == "0002"
+    finally:
+        engine.dispose()
+
+
+def test_downgrade_to_base_then_upgrade_again() -> None:
+    """Full upgrade/downgrade/upgrade cycle on a dedicated disposable DB."""
+    admin_engine, target_url = create_disposable_database("linguagraph_cycle")
+    url = target_url.render_as_string(hide_password=False)
+    try:
+        # empty database -> 0001 foundation -> 0002 domain schema
+        _run_alembic(url, "upgrade", "head")
+        assert _public_tables(url) == HEAD_TABLES
+
+        # head -> base: the domain schema is fully removed; only the Alembic
+        # version table remains (M0.1 foundation is a no-op revision).
+        _run_alembic(url, "downgrade", "base")
+        assert _public_tables(url) == ["alembic_version"]
+
+        # base -> head again: the chain is re-applicable (idempotent forward).
+        _run_alembic(url, "upgrade", "head")
+        assert _public_tables(url) == HEAD_TABLES
+
+        # Partial downgrade to the M0.1 revision removes only the M0.2 tables.
+        _run_alembic(url, "downgrade", "0001")
+        assert _public_tables(url) == ["alembic_version"]
+    finally:
+        drop_disposable_database(admin_engine, target_url)
+
+
+def test_revision_0001_is_unchanged() -> None:
+    """Guard: the M0.1 foundation revision must remain a no-op (its file is
+    the repository's migration-history baseline and must not be edited)."""
+    from alembic.script import ScriptDirectory
+
+    script = ScriptDirectory.from_config(Config(str(ALEMBIC_INI)))
+    rev = script.get_revision("0001")
+    assert rev is not None
+    assert rev.down_revision is None
+    assert not rev.branch_labels
+    assert rev.module.revision == "0001"

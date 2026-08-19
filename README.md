@@ -9,9 +9,10 @@ language-neutral via BCP-47 `language_tag`).
 
 ## Current milestone
 
-**M0 — Manual Alignment Workbench**, checkpoint **M0.1 — Repository Foundation**
-(implemented; **under human review** — M0.2 must not begin until M0.1 is
-human-approved and merged into `main`).
+**M0 — Manual Alignment Workbench**, checkpoint **M0.2 — Persistence Model**
+(**under implementation**). M0.1 — Repository Foundation was human-approved
+and merged into main (PR #1). M0.3 must not begin until M0.2 is
+human-reviewed, approved, and merged into main.
 
 M0 proves the closed loop: *create project → create parallel document → add
 arbitrary-language text versions → select spans → create alignment group →
@@ -200,22 +201,29 @@ Environment-driven via `apps/api/app/core/config.py` (pydantic-settings):
 `.env.example` files contain non-secret development defaults only; never
 commit `.env`.
 
-## M0.1 scope and non-goals
+## M0.2 scope and non-goals
 
-M0.1 establishes engineering infrastructure only: monorepo layout, backend
-skeleton with `GET /api/v1/health`, SQLAlchemy/Alembic wiring with an empty
-foundation migration chain, pytest, frontend skeleton with TanStack Query,
-lint/typecheck/Vitest, PostgreSQL 18 compose service, and developer setup.
+M0.2 turns the frozen domain model into a real, migration-controlled
+PostgreSQL schema: SQLAlchemy 2.x typed ORM models for Project,
+ParallelDocument, TextVersion, Span, AlignmentGroup and AlignmentMember;
+Alembic revision `0002` with all foreign keys, ON DELETE behavior, unique
+constraints, CHECK constraints and indexes; canonical-text utilities
+(`apps/api/app/text/`); BCP-47 syntactic validation; domain validation
+foundations (offset ranges, alignment invariants, deletion policy); and basic
+persistence foundations for Project/Document/TextVersion with tests.
 
-Deliberately NOT implemented in M0.1 (later checkpoints): domain models
-(Project, ParallelDocument, TextVersion, Span, AlignmentGroup,
-AlignmentMember), CRUD/workspace APIs, text import, selection engine, manual
-alignment, visualization/connectors, NLP/LLM, authentication, Redis/Neo4j/
-Elasticsearch, microservices.
+Deliberately NOT implemented in M0.2 (later checkpoints): the complete atomic
+Alignment create/update/delete service and its HTTP endpoints (M0.5), all
+HTTP CRUD/workspace routes and schemas (M0.3), text import, selection engine,
+visualization/connectors, NLP/LLM, authentication, Redis/Neo4j/Elasticsearch,
+microservices.
 
 ## Known limitations
 
 - Docker is not available in every development environment; `compose.yml` is
   the preferred path, native PostgreSQL 18 is the documented fallback.
-- The M0.1 Alembic chain is a no-op foundation revision; the domain schema
-  arrives in M0.2.
+- The M0.2 Alembic chain is the domain schema (revision `0002` on top of the
+  no-op foundation revision `0001`).
+- The complete atomic Alignment create/update/delete workflow, including
+  concurrency-safe Span get-or-create, is deferred to M0.5; M0.2 provides the
+  schema, invariant predicates and persistence foundations it builds on.
