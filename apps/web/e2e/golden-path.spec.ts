@@ -1,6 +1,5 @@
 /**
- * M0 golden path — M0.3 + M0.4 slices (this checkpoint stops AHEAD of
- * alignment persistence).
+ * M0 golden path — M0.3 + M0.4 + M0.5 slices.
  *
  * M0.3 portion (document workspace):
  *
@@ -24,10 +23,21 @@
  *  14. reload: panel preferences persist, the pending tray does not;
  *  15. query the workspace snapshot: M0.4 staging persisted NOTHING
  *      (spans == [], alignment_groups == [], alignment_members == []);
- *  16. STOP before any alignment persistence.
+ *  16. STOP.
  *
- * It deliberately does NOT create an alignment or touch any M0.5/M0.6
- * surface.
+ * M0.5 portion (alignment persistence, continued from the M0.4 STOP
+ * point) — the real user loop:
+ *
+ *  17. stage EN [2,17) + EN [18,28) (same-version multi-span) + DE [4,21)
+ *      through the UI; Create Alignment disabled until >=2 members from
+ *      >=2 distinct TextVersions are staged;
+ *  18. Create Alignment through the UI: tray clears, saved alignment
+ *      visibly appears, snapshot contains Span/Group/Member rows;
+ *  19. reload: tray is empty, saved alignment still visible, persisted
+ *      workspace data still present.
+ *
+ * It deliberately does NOT touch any M0.6 surface (hover/active
+ * visualization, connectors, Inspector).
  *
  * Assertions that look for version content are scoped to `.text-panel`:
  * `page.getByText()` also matches `<textarea>` values, which would otherwise
@@ -116,7 +126,7 @@ async function selectAndVerify(
   ).toBeEnabled();
 }
 
-test.describe('M0 golden path (M0.3 + M0.4 slices)', () => {
+test.describe('M0 golden path (M0.3 + M0.4 + M0.5 slices)', () => {
   test('creates a project/document/versions and manages text panels', async ({
     page,
     request,
@@ -353,6 +363,95 @@ test.describe('M0 golden path (M0.3 + M0.4 slices)', () => {
     expect(body.alignment_groups).toEqual([]);
     expect(body.alignment_members).toEqual([]);
 
-    // 18. STOP — the E2E flow ends before any alignment persistence.
+    // 18. M0.4 STOP point. The M0.5 slice continues below.
+
+    // ===================================================================
+    // M0.5 — Alignment Persistence slice
+    // ===================================================================
+
+    // 19. Stage a real alignment through the UI: two separated EN spans
+    //     (same-version multi-span) plus one DE span (>=2 distinct
+    //     TextVersions). The Create Alignment button becomes enabled only
+    //     when both conditions hold.
+    await selectAndVerify(page, enPanel, 'look forward to', 'Selected 2–17: “look forward to”');
+    await enPanel.getByRole('button', { name: 'Add to Alignment' }).click();
+    await expect(page.locator('.tray-member')).toHaveCount(1);
+
+    await selectAndVerify(page, enPanel, 'seeing you', 'Selected 18–28: “seeing you”');
+    await enPanel.getByRole('button', { name: 'Add to Alignment' }).click();
+    await expect(page.locator('.tray-member')).toHaveCount(2);
+    // Two members but only ONE distinct TextVersion: still disabled.
+    await expect(page.getByRole('button', { name: 'Create Alignment' })).toBeDisabled();
+
+    await selectAndVerify(page, dePanel, 'freue mich darauf', 'Selected 4–21: “freue mich darauf”');
+    await dePanel.getByRole('button', { name: 'Add to Alignment' }).click();
+    await expect(page.locator('.tray-member')).toHaveCount(3);
+    await expect(page.getByRole('button', { name: 'Create Alignment' })).toBeEnabled();
+
+    // 20. Create Alignment through the UI: one atomic POST, tray cleared
+    //     only after success, saved alignment appears from server state.
+    await page.getByRole('button', { name: 'Create Alignment' }).click();
+    await expect(page.locator('.tray-member')).toHaveCount(0);
+    await expect(page.getByText('No pending selections.')).toBeVisible();
+    await expect(page.locator('.saved-alignment')).toHaveCount(1);
+    await expect(
+      page.locator('.saved-alignment-member', { hasText: 'look forward to' }),
+    ).toBeVisible();
+    await expect(
+      page.locator('.saved-alignment-member', { hasText: 'seeing you' }),
+    ).toBeVisible();
+    await expect(
+      page.locator('.saved-alignment-member', { hasText: 'freue mich darauf' }),
+    ).toBeVisible();
+
+    // 21. The workspace snapshot now contains the persisted Span/Group/
+    //     Member rows (server-derived exact_text included).
+    const persisted = await request.get(
+      `/api/v1/documents/${match?.[1]}/workspace`,
+    );
+    expect(persisted.ok()).toBeTruthy();
+    const persistedBody = (await persisted.json()) as {
+      spans: Array<{ start_offset: number; end_offset: number; exact_text: string }>;
+      alignment_groups: unknown[];
+      alignment_members: unknown[];
+    };
+    expect(persistedBody.spans).toHaveLength(3);
+    expect(
+      persistedBody.spans.map((s) => s.exact_text).sort(),
+    ).toEqual(['freue mich darauf', 'look forward to', 'seeing you']);
+    expect(persistedBody.spans.every((s) => s.start_offset < s.end_offset)).toBe(true);
+    expect(persistedBody.alignment_groups).toHaveLength(1);
+    expect(persistedBody.alignment_members).toHaveLength(3);
+
+    // 22. Reload: the pending tray is empty (ephemeral), the saved
+    //     alignment remains visibly present, and the persisted workspace
+    //     data remains present — the M0 persistence loop closes.
+    await page.reload();
+    await expect(page.locator('.text-panel')).toHaveCount(5);
+    await expect(page.getByText('No pending selections.')).toBeVisible();
+    await expect(page.locator('.tray-member')).toHaveCount(0);
+    await expect(page.locator('.saved-alignment')).toHaveCount(1);
+    await expect(
+      page.locator('.saved-alignment-member', { hasText: 'look forward to' }),
+    ).toBeVisible();
+    await expect(
+      page.locator('.saved-alignment-member', { hasText: 'freue mich darauf' }),
+    ).toBeVisible();
+
+    const afterReload = await request.get(
+      `/api/v1/documents/${match?.[1]}/workspace`,
+    );
+    expect(afterReload.ok()).toBeTruthy();
+    const afterReloadBody = (await afterReload.json()) as {
+      spans: unknown[];
+      alignment_groups: unknown[];
+      alignment_members: unknown[];
+    };
+    expect(afterReloadBody.spans).toHaveLength(3);
+    expect(afterReloadBody.alignment_groups).toHaveLength(1);
+    expect(afterReloadBody.alignment_members).toHaveLength(3);
+
+    // 23. STOP — M0.6 (hover/active visualization, connectors, Inspector)
+    //     is a separate checkpoint.
   });
 });
