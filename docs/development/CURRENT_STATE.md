@@ -16,10 +16,10 @@ Alembic migration history, or merged GitHub PR history.
 
 Last completed implementation checkpoint:
 
-**M0.4 — Selection Engine** (COMPLETE / MERGED)
+**M0.5 — Alignment Persistence** (COMPLETE / MERGED)
 
-M0.1, M0.2, M0.3, and M0.4 have been human-reviewed, approved, and merged
-into `main`.
+M0.1, M0.2, M0.3, M0.4, and M0.5 have been human-reviewed, approved, and
+merged into `main`.
 
 M0.3 GitHub state:
 
@@ -49,15 +49,36 @@ branch was therefore correctly based on `46b255…`; the earlier `33bfaef`
 base is retained only as historical provenance of the implementation attempt
 and is no longer the current branch base.
 
+M0.5 GitHub state:
+
+- PR #7 — `M0.5 — Alignment Persistence`
+- approved base: `0f8bccd721e9659f1f75074a2e9638d05f27800f`
+- final reviewed implementation head: `b6714d6454063b6c656631fe63fc23e6813d28f4`
+- merge commit: `8d1a57b41f2fb717faca02f3162b4770e62ffbff`
+- merged: 2026-08-20
+
+M0.5 lifecycle:
+
+- Gate 1: PASS;
+- contract reconstruction/freeze: PASS;
+- Gate 2: PASS;
+- Human Diff Review: PASS (including the final test-only synchronization
+  fix HR-R1);
+- human merge decision: APPROVED;
+- Gate 3 closeout audit: PASS.
+
+The M0.5 merge commit `8d1a57b…` has no file-tree difference from the final
+reviewed implementation head `b6714d6…` (verified during Gate 3 closeout).
+
 Next implementation checkpoint:
 
-**M0.5 — Alignment Persistence (NOT STARTED)**
+**M0.6 — Alignment Visualization (NOT STARTED)**
 
-- no M0.5 implementation occurred during M0.4;
-- next M0.5 work starts from the post-M0.4 merged `main` state;
+- no M0.6 implementation occurred during M0.5;
+- next M0.6 work starts from the post-M0.5 merged `main` state;
 - a fresh conversation, repository-reality reconstruction, Gate 1, and
   contract reconstruction/freeze are required before implementation;
-- do not continue from `m0.4-selection-engine`.
+- do not continue from `m0.5-alignment-persistence`.
 
 ---
 
@@ -332,6 +353,113 @@ No Alembic migration was added in M0.4: the M0.2 schema proved non-defective
 and the M0.4 changes are frontend-only. Alembic remains at `0002 (head)`;
 `alembic check` reports no schema drift.
 
+### M0.5 — Alignment Persistence
+
+Status:
+
+**COMPLETE / MERGED**
+
+GitHub:
+
+- PR #7 — `M0.5 — Alignment Persistence`
+- approved base: `0f8bccd721e9659f1f75074a2e9638d05f27800f`
+- final reviewed implementation head: `b6714d6454063b6c656631fe63fc23e6813d28f4`
+- merge commit: `8d1a57b41f2fb717faca02f3162b4770e62ffbff`
+- merged: 2026-08-20
+
+Lifecycle:
+
+- Gate 1: PASS;
+- contract reconstruction/freeze: PASS;
+- Gate 2: PASS;
+- Human Diff Review: PASS (plus the final test-only synchronization fix
+  HR-R1);
+- human merge decision: APPROVED;
+- Gate 3 closeout audit: PASS.
+
+M0.5 closed the core M0 persistence loop (native selection → PendingSpan →
+Alignment Tray → Create Alignment → atomic backend persistence → workspace
+refetch → reload-verified persistence).
+
+Implemented — backend:
+
+- complete atomic `AlignmentService` create/update/delete, each owning
+  exactly one `write_transaction` (transaction-clean Session contract
+  intact; routes never commit/rollback);
+- `POST /api/v1/documents/{document_id}/alignments` (201), `PATCH
+  /api/v1/alignments/{alignment_id}` (200), `DELETE
+  /api/v1/alignments/{alignment_id}` (204) with the stable
+  `{code, message, details}` envelope (NOT_FOUND/SPAN_OUT_OF_RANGE/
+  CROSS_DOCUMENT_ALIGNMENT/INSUFFICIENT_ALIGNMENT_MEMBERS/
+  DUPLICATE_ALIGNMENT_MEMBER/VALIDATION_ERROR) and no exception leakage;
+- coordinate-only member input (`text_version_id`/`start`/`end`);
+  quote/direction/contentHash are never accepted; contentHash stays a
+  frontend-only stale-selection guard;
+- server-derived `exact_text`/`prefix`/`suffix` from canonical content;
+- all frozen alignment invariants via `alignment_invariants.py`
+  (cardinality, distinct versions, same-document, duplicate-span,
+  same-version non-overlap; adjacent/separated allowed; cross-group
+  overlap/reuse allowed);
+- PostgreSQL concurrency-safe Span get-or-create
+  (`INSERT ... ON CONFLICT (text_version_id, start_offset, end_offset)
+  DO NOTHING RETURNING`; the outer alignment transaction is never aborted);
+- PATCH note / full-member-replacement semantics (omission = unchanged,
+  `note: null` clears, `members` = full replacement set, note length <=
+  4000 enforced at both the service and HTTP boundaries);
+- explicit `updated_at` advancement on any logical change (no-op PATCH
+  leaves it unchanged);
+- orphan Span cleanup on PATCH replacement and DELETE, exactly compatible
+  with the reviewed ADR-005 destructive-reset orphan semantics (candidates
+  deleted only at zero surviving memberships; shared spans and unrelated
+  bare spans preserved).
+
+Implemented — frontend:
+
+- Create Alignment action over the PendingSpan tray (ADR-007), sending
+  coordinates only;
+- frontend create validity: >=2 pending members AND >=2 distinct
+  TextVersions (backend remains authoritative);
+- in-flight tray/staging freeze while the create request is pending
+  (Create/Clear/Remove/Add-to-Alignment disabled; staging rejected with a
+  FROZEN reason);
+- document-scoped create-mutation isolation (keyed document workspace
+  remount + `['alignment-create', documentId]` mutation key), so a
+  pending/error doc-A mutation never leaks into doc B;
+- stable API error display with the pending tray retained for
+  correction/retry on failure;
+- minimal read-only persisted-alignment representation derived entirely
+  from the authoritative workspace snapshot (no optimistic state);
+- workspace refetch after success; persistence survives reload (E2E
+  prove).
+
+M0.5 deliberately did NOT implement (deferred to later checkpoints):
+
+- hover/active counterpart visualization, SVG connectors, connector
+  geometry/routing, RenderedSpanRegistry, Alignment Inspector (editable or
+  read-only beyond the minimal saved list), note/member-edit UI,
+  delete-from-Inspector UI (M0.6);
+- automatic alignment, NLP, LLM, translation, dictionaries, linguistic
+  relations, authentication, collaboration, pagination, virtualization,
+  new infrastructure.
+
+No Alembic migration was added in M0.5: the M0.2 schema proved non-defective
+for the frozen contract. Alembic remains at `0002 (head)`; `alembic check`
+reports no schema drift.
+
+Known non-blocking hardening observations (retained for future
+reconstruction; NOT solved during M0.5):
+
+1. concurrent PATCHes to the same AlignmentGroup do not yet have a
+   dedicated concurrency-control contract; pathological interleavings may
+   surface an unexpected integrity failure
+   (`uq_alignment_members_group_span`);
+2. Alignment mutation versus concurrent destructive TextVersion deletion
+   needs a future cross-service concurrency/locking policy;
+3. the real-PostgreSQL concurrent Span get-or-create test proves the
+   accepted algorithm with independent Sessions/transactions, but its
+   barrier does not deterministically force every possible uncommitted
+   conflict interleaving.
+
 ---
 
 ## 3. Frozen architecture baseline
@@ -488,10 +616,10 @@ Alignment invariant foundations require:
 - Spans may be reused across different AlignmentGroups;
 - different AlignmentGroups may overlap.
 
-The full atomic Alignment create/update/delete service remains **M0.5**.
-
-Concurrency-safe Span get-or-create using PostgreSQL `ON CONFLICT` or a
-SAVEPOINT remains **M0.5**.
+The full atomic Alignment create/update/delete service and the
+concurrency-safe Span get-or-create (PostgreSQL `ON CONFLICT`) were
+implemented and merged in **M0.5** (PR #7); this section documents the
+foundations they build on.
 
 ---
 
@@ -697,6 +825,48 @@ No SQLite implementation was introduced anywhere in the test stack.
 
 ---
 
+## 10C. M0.5 verification baseline
+
+Final locally reported M0.5 verification (implementation pass + Gate 2
+review fixes + Human Diff Review fixes + the final test-only
+synchronization fix; merged 2026-08-20 via PR #7; the latest ACTUAL results
+below are from the final pre-PR candidate after the HR-R1 test fix):
+
+- Python 3.13.15 (uv-pinned; `apps/api/.venv`)
+- PostgreSQL 18.6 (native cluster) — used by all integration tests and by
+  the Playwright E2E backend on its own disposable `linguagraph_e2e_*`
+  database
+- Node 24.19.0 (downloaded to a local prefix; ADR-009 baseline — the
+  system-wide Node 22 was not used for verification)
+- `uv sync --frozen` — passed
+- `uv run pytest -q` — **378 passed** (298 M0.1–M0.4 + 80 M0.5 backend
+  tests: alignment schema unit tests, AlignmentService integration tests
+  incl. real-PostgreSQL concurrent Span get-or-create, and the alignment
+  HTTP endpoint tests)
+- `uv run alembic current` — `0002 (head)`
+- `uv run alembic check` — no schema drift detected (no new migration)
+- `npm ci` — passed
+- `npm run lint` / `npm run typecheck` — passed
+- `npm run test` — **191 passed (16 files)**: all M0.1–M0.4 tests preserved
+  plus the M0.5 suite (request construction, create validity, in-flight
+  tray freeze, document-transition mutation isolation, success/failure
+  lifecycles, saved-alignment rendering)
+- `npm run build` — passed
+- `npx playwright test e2e/golden-path.spec.ts` — M0.3 + M0.4 + M0.5
+  slice, 1 passed, against the isolated disposable E2E database: create
+  alignment through the UI (same-version multi-span + distinct versions),
+  tray clears, saved alignment appears, snapshot carries persisted
+  Span/Group/Member rows, reload keeps the saved alignment and persisted
+  data
+- `git diff --check` — clean
+
+Explicitly retained: **no independent GitHub CI evidence was available or
+claimed** — verification is based on the reported local execution above.
+
+No SQLite implementation was introduced anywhere in the test stack.
+
+---
+
 ## 11. Known non-blocking engineering notes
 
 ### Migration-test environment restoration
@@ -737,23 +907,32 @@ concurrent workload ever emerges.
 
 ### M0.5 — Alignment Persistence
 
-**NOT STARTED.**
+**COMPLETE / MERGED** (PR #7; see section 1 and section 2).
 
-Owns (as frozen in the authoritative M0 documents):
+Delivered (as frozen in the authoritative M0 documents): the complete
+atomic AlignmentService create/update/delete, the POST/PATCH/DELETE
+alignment mutation surface, concurrency-safe Span reuse/get-or-create
+(PostgreSQL `ON CONFLICT`), server-derived quote metadata, all frozen
+alignment invariants, PATCH note/full-member-replacement semantics with
+explicit `updated_at` advancement, and ADR-005-compatible orphan Span
+cleanup — plus the frontend Create Alignment seam, in-flight tray/staging
+freeze, document-scoped create-mutation isolation, minimal read-only
+persisted-alignment representation, and reload-verified persistence.
 
-- complete atomic AlignmentService create/update/delete;
-- persistence service and HTTP mutation endpoints;
-- concurrency-safe Span reuse/get-or-create;
-- persistence lifecycle / orphan cleanup.
-
-No M0.5 implementation occurred during M0.4. Next M0.5 work starts from the
-post-M0.4 merged `main` state; a fresh conversation, repository-reality
-reconstruction, Gate 1, and contract reconstruction/freeze are required
-before implementation. Do not continue from `m0.4-selection-engine`.
+The merged implementation branch `m0.5-alignment-persistence` still exists
+locally at this stage and awaits post-closeout cleanup (branch deletion
+happens only after this durable-state commit has been reviewed and landed).
 
 ### M0.6 — Alignment Visualization
 
-Owns hover/active propagation, Inspector and SVG connectors.
+**NOT STARTED.**
+
+Owns hover/active propagation, Inspector and SVG connectors (as frozen in
+the authoritative M0 documents). M0.6 requires a fresh checkpoint
+conversation, repository-reality reconstruction from the post-M0.5 closed
+`main`, Gate 1, checkpoint contract reconstruction, human contract
+review/freeze, and only then implementation. Do not continue from
+`m0.5-alignment-persistence`.
 
 ### M0.7 — Hardening
 
@@ -768,21 +947,21 @@ M0.
 
 ## 13. Next action
 
-M0.4 is complete and merged. The next checkpoint is M0.5 — Alignment
-Persistence, which has NOT started. A new checkpoint conversation must:
+M0.5 is complete and merged. The next checkpoint is M0.6 — Alignment
+Visualization, which has NOT started. A new checkpoint conversation must:
 
-1. synchronize and read current merged `main` (post-M0.4);
+1. synchronize and read current merged `main` (post-M0.5);
 2. perform Gate 1 (repository-reality reconstruction);
-3. reconstruct the M0.5 checkpoint contract from this file, `AGENTS.md`, the
+3. reconstruct the M0.6 checkpoint contract from this file, `AGENTS.md`, the
    authoritative pre-implementation documents, ADR-001…ADR-009, and current
    `main`;
 4. obtain human contract review/freeze;
-5. only then create the bounded M0.5 implementation branch and start
+5. only then create the bounded M0.6 implementation branch and start
    implementation;
-6. stop for human review before M0.6.
+6. stop for human review before M0.7.
 
-Do not begin M0.5 automatically, and do not reuse `m0.4-selection-engine` as
-the M0.5 base.
+Do not begin M0.6 automatically, and do not reuse
+`m0.5-alignment-persistence` as the M0.6 base.
 
 ---
 

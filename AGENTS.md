@@ -20,54 +20,56 @@ Before planning, modifying files, installing dependencies, or writing implementa
 
 The last completed implementation checkpoint is:
 
-**M0.4 — Selection Engine (COMPLETE / MERGED)**
+**M0.5 — Alignment Persistence (COMPLETE / MERGED)**
 
-M0.1, M0.2, M0.3, and M0.4 have been human-reviewed, approved, and merged
-into `main` (PR #1, PR #2, PR #5, and PR #6 respectively). M0.4 merged as
-commit `b2472fcc6e6cda23cb98244ae86ab63fd58ef5ad` from final implementation
-head `2d0d4bcf6dd562e3cab003aa615049628c173999`, on the approved post-M0.3
-base `46b255481518d079a5604a770b9d3036647f8a89`.
+M0.1, M0.2, M0.3, M0.4, and M0.5 have been human-reviewed, approved, and
+merged into `main` (PR #1, PR #2, PR #5, PR #6, and PR #7 respectively).
+M0.5 merged as commit `8d1a57b41f2fb717faca02f3162b4770e62ffbff` from final
+reviewed implementation head `b6714d6454063b6c656631fe63fc23e6813d28f4`, on
+the approved base `0f8bccd721e9659f1f75074a2e9638d05f27800f`.
 
 The pre-implementation baseline remains closed:
 `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` ends with
 `ARCHITECTURE READY FOR BASELINE CLOSURE`, and ADR-001…ADR-009 are accepted
 and frozen.
 
-M0.3 delivered the document workspace: project/document HTTP CRUD,
-TextVersion creation/import (JSON plain-text paste + strict UTF-8 `.txt`
-multipart upload), metadata-only text-version PATCH and ADR-005
-delete/force-delete, the workspace read model, the frontend
-project/document/workspace route tree, TextVersion panels with
-open/hide/reorder, per-document panel preferences, and the M0.3 test/E2E
-slice.
+M0.5 closed the core persistence loop — native selection → PendingSpan →
+Alignment Tray → Create Alignment → atomic backend persistence →
+workspace refetch → reload-verified persistence. The backend delivers the
+complete atomic Alignment create/update/delete service with
+concurrency-safe Span get-or-create (PostgreSQL `ON CONFLICT`),
+server-derived exact_text/prefix/suffix from canonical content,
+coordinate-only member input, all frozen alignment invariants, PATCH
+note/full-member-replacement semantics with explicit `updated_at`
+advancement, orphan-Span cleanup compatible with the ADR-005 destructive
+reset, and the transaction-clean Session contract. The HTTP surface is
+`POST /api/v1/documents/{document_id}/alignments`, `PATCH`/`DELETE
+/api/v1/alignments/{alignment_id}` with the stable `{code, message,
+details}` envelope. The frontend adds the Create Alignment action
+(validity: >=2 members from >=2 distinct TextVersions; backend remains
+authoritative), in-flight tray/staging freeze, document-scoped
+create-mutation isolation, stable error display with the tray retained on
+failure, a minimal read-only persisted-alignment representation driven by
+the authoritative workspace refetch, and reload-surviving persistence.
 
-M0.4 delivered the frontend selection engine: shared UTF-16 ↔ code-point
-offset utilities (`apps/web/src/shared/text/`), native Selection/Range →
-canonical code-point range mapping with fail-closed boundary validation,
-reverse canonical → DOM Range location, boundary segmentation of canonical
-text into flat runs using persisted Span boundaries, the canonical
-`[data-text-content-root]` panel structure, `PendingSpan` current-selection
-state, the pending Alignment Tray with explicit Add/remove/clear staging and
-client-side duplicate/overlap validation, Escape cancellation, stale
-TextVersion/content-hash reconciliation, and the M0.4 unit/component/E2E
-slice. M0.4 did NOT implement alignment persistence — the complete atomic
-Alignment create/update/delete service and its HTTP endpoints belong to
-M0.5.
+M0.5 did NOT implement M0.6 work: hover/active counterpart visualization,
+SVG connectors, connector geometry, RenderedSpanRegistry, and the
+Alignment Inspector remain assigned to M0.6.
 
 The next implementation checkpoint is:
 
-**M0.5 — Alignment Persistence (NOT STARTED)**
+**M0.6 — Alignment Visualization (NOT STARTED)**
 
-M0.5 must NOT begin from this closeout task. Before any M0.5 implementation:
+M0.6 must NOT begin from this closeout task. Before any M0.6 implementation:
 
 - start a fresh checkpoint conversation;
 - reconstruct repository reality from current merged `main`;
 - perform Gate 1;
-- reconstruct the M0.5 checkpoint contract from the authoritative sources;
+- reconstruct the M0.6 checkpoint contract from the authoritative sources;
 - obtain human contract review/freeze;
-- only then create/use the bounded M0.5 implementation branch.
+- only then create/use the bounded M0.6 implementation branch.
 
-Do not pull M0.5/M0.6 work into M0.4.
+Do not pull M0.6/M0.7 work into M0.5.
 
 Do not reopen frozen architecture decisions; if repository reality conflicts
 with the specification, stop the affected implementation and report the

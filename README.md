@@ -10,15 +10,16 @@ language-neutral via BCP-47 `language_tag`).
 ## Current milestone
 
 **M0 — Manual Alignment Workbench**. The latest completed checkpoint is
-**M0.4 — Selection Engine** (**COMPLETE / MERGED**). M0.1 — Repository
-Foundation, M0.2 — Persistence Model, M0.3 — Document Workspace, and
-M0.4 — Selection Engine were human-approved and merged into `main` (PR #1,
-PR #2, PR #5, and PR #6). M0.4 merged as
-`b2472fcc6e6cda23cb98244ae86ab63fd58ef5ad` from final feature head
-`2d0d4bcf6dd562e3cab003aa615049628c173999`.
+**M0.5 — Alignment Persistence** (**COMPLETE / MERGED**). M0.1 — Repository
+Foundation, M0.2 — Persistence Model, M0.3 — Document Workspace, M0.4 —
+Selection Engine, and M0.5 — Alignment Persistence were human-approved and
+merged into `main` (PR #1, PR #2, PR #5, PR #6, and PR #7). M0.5 merged as
+`8d1a57b41f2fb717faca02f3162b4770e62ffbff` from final reviewed
+implementation head `b6714d6454063b6c656631fe63fc23e6813d28f4` on the
+approved base `0f8bccd721e9659f1f75074a2e9638d05f27800f`.
 
-The next checkpoint is **M0.5 — Alignment Persistence** (**NOT STARTED**).
-M0.5 must not begin from this closeout task: it requires a fresh checkpoint
+The next checkpoint is **M0.6 — Alignment Visualization** (**NOT STARTED**).
+M0.6 must not begin from this closeout task: it requires a fresh checkpoint
 conversation, repository-reality reconstruction from current merged `main`,
 Gate 1, contract reconstruction from the authoritative sources, and human
 contract review/freeze before any implementation branch is created.
@@ -32,10 +33,15 @@ UTF-16 ↔ code-point conversion, native Selection/Range canonicalization,
 flat boundary-segmented runs, current-selection capture, the client-side
 PendingSpan Alignment Tray (explicit Add/remove/clear, duplicate/overlap
 staging rules, lifecycle/Escape behavior, frontend-only state) and Unicode
-browser coverage — with NO alignment persistence. M0.5 remains responsible
-for the complete atomic Alignment create/update/delete service and its
-persistence endpoints, concurrency-safe Span get-or-create, and the
-persistence lifecycle/orphan cleanup as already frozen.
+browser coverage. M0.5 closed the persistence loop: the complete atomic
+Alignment create/update/delete service and its HTTP mutation endpoints,
+concurrency-safe Span get-or-create, server-derived quote metadata, all
+frozen alignment invariants, PATCH note/full-member-replacement semantics,
+orphan Span cleanup, the frontend Create Alignment action (with in-flight
+tray freeze and document-scoped mutation isolation), a minimal read-only
+persisted-alignment representation, and reload-verified persistence. M0.6
+owns hover/active visualization, SVG connectors and the Alignment
+Inspector.
 
 Authoritative documents:
 
@@ -263,8 +269,9 @@ Deliberately NOT implemented in M0.3 (later checkpoints): browser
 Selection/Range handling and UTF-16 ↔ code-point frontend conversion (M0.4),
 boundary segmentation/annotation runs/PendingSpan/Alignment Tray (M0.4), the
 complete atomic Alignment create/update/delete service and its HTTP endpoints
-(M0.5), alignment persistence UI/hover/connectors/Inspector (M0.5/M0.6), and
-all NLP/LLM/auth/Redis/Neo4j/Elasticsearch/microservices infrastructure.
+(M0.5, now merged), alignment persistence UI/hover/connectors/Inspector
+(M0.5/M0.6), and all NLP/LLM/auth/Redis/Neo4j/Elasticsearch/microservices
+infrastructure.
 
 No Alembic migration was required for M0.3 (the M0.2 schema is unchanged).
 
@@ -317,6 +324,46 @@ NLP/LLM/auth/Redis/Neo4j/Elasticsearch/microservices infrastructure.
 
 No Alembic migration was required for M0.4 (the M0.2 schema is unchanged;
 Alembic remains at `0002 (head)`).
+
+## M0.5 scope and non-goals
+
+M0.5 implements Alignment Persistence on top of the M0.2 foundations and the
+M0.4 selection engine (PR #7):
+
+- **Backend** — the complete atomic `AlignmentService` create/update/delete,
+  each owning exactly one `write_transaction` (transaction-clean Session
+  contract intact); `POST /api/v1/documents/{document_id}/alignments` (201),
+  `PATCH /api/v1/alignments/{alignment_id}` (200), `DELETE
+  /api/v1/alignments/{alignment_id}` (204) with the stable `{code, message,
+  details}` envelope and no exception leakage; coordinate-only member input
+  (`text_version_id`/`start`/`end` — quote/direction/contentHash are never
+  accepted; contentHash stays a frontend-only stale-selection guard);
+  server-derived `exact_text`/`prefix`/`suffix` from canonical content; all
+  frozen alignment invariants (cardinality, distinct versions,
+  same-document, duplicate-span, same-version non-overlap); PostgreSQL
+  concurrency-safe Span get-or-create (`INSERT ... ON CONFLICT ... DO
+  NOTHING RETURNING`); PATCH note / full-member-replacement semantics
+  (omission = unchanged, `note: null` clears, note length <= 4000 at both
+  boundaries); explicit `updated_at` advancement; orphan Span cleanup
+  compatible with the ADR-005 destructive-reset semantics.
+- **Frontend** — Create Alignment action over the pending tray (validity:
+  >=2 members AND >=2 distinct TextVersions; backend remains
+  authoritative); in-flight tray/staging freeze; document-scoped
+  create-mutation isolation (keyed document workspace remount +
+  `['alignment-create', documentId]` mutation key); stable error display
+  with the tray retained on failure; minimal read-only persisted-alignment
+  representation derived from the authoritative workspace snapshot;
+  reload-verified persistence.
+
+Deliberately NOT implemented in M0.5 (deferred to later checkpoints):
+hover/active counterpart visualization, SVG connectors, connector geometry,
+RenderedSpanRegistry, the Alignment Inspector (editable or read-only beyond
+the minimal saved list), note/member-edit UI, delete-from-Inspector UI
+(M0.6), and all NLP/LLM/auth/Redis/Neo4j/Elasticsearch/microservices
+infrastructure.
+
+No Alembic migration was required for M0.5 (the M0.2 schema proved
+non-defective; Alembic remains at `0002 (head)`).
 
 ## E2E
 
@@ -376,19 +423,30 @@ panels verified as exact code-point offsets → explicit Add to Alignment →
 pending tray add/remove/re-add/duplicate/overlap/clear → reload (panels
 persist, tray does not) → snapshot assertions that M0.4 staging persisted
 NOTHING (`spans == []`, `alignment_groups == []`, `alignment_members ==
-[]`). It stops before any alignment persistence (M0.5).
+[]`) → M0.5: stage EN [2,17) + EN [18,28) + DE [4,21) → Create Alignment
+through the UI → tray clears, saved alignment visibly appears, snapshot
+carries the persisted Span/Group/Member rows with server-derived
+exact_text → reload → tray empty, saved alignment still visible, persisted
+workspace data still present. It stops before any M0.6 visualization.
 
 ## Known limitations
 
 - Docker is not available in every development environment; `compose.yml` is
   the preferred path, native PostgreSQL 18 is the documented fallback.
 - The Alembic chain is the M0 domain schema (revision `0002` on top of the
-  no-op foundation revision `0001`); M0.3 and M0.4 add no migration.
-- The complete atomic Alignment create/update/delete workflow, including
-  concurrency-safe Span get-or-create, is deferred to M0.5; the workspace
-  endpoint only reads spans/alignments, and the M0.4 tray is client-only.
+  no-op foundation revision `0001`); M0.3, M0.4 and M0.5 add no migration.
+- M0.5 implemented the complete atomic Alignment create/update/delete
+  workflow (merged via PR #7); the workspace snapshot remains the primary
+  persisted read model. Known non-blocking hardening observations (not
+  solved in M0.5): concurrent PATCHes to the same AlignmentGroup have no
+  dedicated concurrency-control contract yet; Alignment mutation versus
+  concurrent destructive TextVersion deletion needs a future
+  cross-service concurrency/locking policy; and the concurrent Span
+  get-or-create integration test does not deterministically force every
+  possible uncommitted conflict interleaving.
 - M0.4 enforces code-point boundaries only: combining sequences are
   preserved but never moved or merged (no grapheme-cluster editing), and
   `Intl.Segmenter` is not a coordinate authority.
-- M0.4 renders flat runs and stageable selections; hover/active counterpart
-  highlighting, the Inspector and SVG connectors are deferred to M0.6.
+- M0.5 renders the minimal read-only persisted-alignment representation;
+  hover/active counterpart highlighting, the Inspector and SVG connectors
+  are deferred to M0.6.
