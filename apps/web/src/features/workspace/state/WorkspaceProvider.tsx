@@ -44,11 +44,20 @@ export interface ServerVersionRef {
 export function WorkspaceProvider({
   documentId,
   serverVersions,
+  isCreatingAlignment = false,
   children,
 }: {
   documentId: string;
   /** Current server TextVersions (id + content hash) for reconciliation. */
   serverVersions: ReadonlyArray<ServerVersionRef>;
+  /**
+   * M0.5 (Gate 2 fix): while a Create Alignment request is in flight the
+   * pending tray is FROZEN — staging is rejected here (defense in depth;
+   * the UI additionally disables the controls) so a member staged after the
+   * request began can never be silently discarded by the success-path tray
+   * clear.
+   */
+  isCreatingAlignment?: boolean;
   children: ReactNode;
 }) {
   const [state, dispatch] = useReducer(
@@ -93,6 +102,12 @@ export function WorkspaceProvider({
 
   const value = useMemo<WorkspaceContextValue>(() => {
     const stageResult = (): StageResult => {
+      if (isCreatingAlignment) {
+        // Tray frozen while the create request is in flight: staging now
+        // would stage a member that is NOT part of the persisted request,
+        // and the success-path tray clear would silently discard it.
+        return { ok: false, reason: 'FROZEN' };
+      }
       if (state.currentSelection === null) {
         return { ok: false, reason: 'NO_SELECTION' };
       }
@@ -108,6 +123,7 @@ export function WorkspaceProvider({
       visiblePanels: state.visiblePanels,
       currentSelection: state.currentSelection,
       pendingMembers: state.pendingMembers,
+      isCreatingAlignment,
       openPanel: (versionId) => dispatch({ type: 'OPEN_PANEL', versionId }),
       hidePanel: (versionId) => dispatch({ type: 'HIDE_PANEL', versionId }),
       reorderPanels: (fromIndex, toIndex) =>
@@ -121,7 +137,7 @@ export function WorkspaceProvider({
         dispatch({ type: 'REMOVE_PENDING_MEMBER', member }),
       clearPendingTray: () => dispatch({ type: 'CLEAR_PENDING_MEMBERS' }),
     };
-  }, [state]);
+  }, [state, isCreatingAlignment]);
 
   return (
     <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>

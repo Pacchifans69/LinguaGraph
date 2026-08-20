@@ -13,7 +13,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { WorkspacePage } from './WorkspacePage';
 import { renderPageAt, createTestQueryClient } from '../../test/harness';
-import { installFetchMock, json } from '../../test/mockFetch';
+import { installFetchMock, json, type MockResponse } from '../../test/mockFetch';
 import { preferenceKey } from './state/preferences';
 import type { WorkspaceSnapshot } from './api';
 
@@ -632,6 +632,587 @@ describe('WorkspacePage (M0.4 selection and pending tray)', () => {
     // Only the panel preferences are persisted.
     expect(saved).toHaveProperty('panelOrder');
     expect(saved).toHaveProperty('visiblePanels');
+  });
+});
+
+describe('WorkspacePage (M0.5 alignment persistence)', () => {
+  it('stages, creates, clears the tray and shows the saved alignment from server state', async () => {
+    let current = snapshot();
+    const postedBodies: Array<{ members: unknown[] }> = [];
+    installFetchMock([
+      [
+        '/workspace',
+        () => {
+          const data = current;
+          return json(200, data);
+        },
+      ],
+      [
+        '/alignments',
+        (_url, init) => {
+          postedBodies.push(JSON.parse(String(init?.body)) as { members: unknown[] });
+          // Server-authoritative persistence: the snapshot now contains the
+          // created span/group/member rows.
+          const data = snapshot();
+          data.spans = [
+            {
+              id: 'sp-en',
+              text_version_id: 'tv-en',
+              start_offset: 2,
+              end_offset: 17,
+              exact_text: 'look forward to',
+              prefix: 'I ',
+              suffix: ' seeing you tomorrow.',
+              created_at: '2026-01-01T00:00:00Z',
+            },
+            {
+              id: 'sp-de',
+              text_version_id: 'tv-de',
+              start_offset: 4,
+              end_offset: 21,
+              exact_text: 'freue mich darauf',
+              prefix: 'Ich ',
+              suffix: ', dich morgen zu sehen.',
+              created_at: '2026-01-01T00:00:00Z',
+            },
+          ];
+          data.alignment_groups = [
+            {
+              id: 'al-1',
+              document_id: 'doc-1',
+              note: null,
+              created_at: '2026-01-01T00:00:00Z',
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ];
+          data.alignment_members = [
+            { id: 'am-en', alignment_group_id: 'al-1', span_id: 'sp-en', created_at: 'x' },
+            { id: 'am-de', alignment_group_id: 'al-1', span_id: 'sp-de', created_at: 'x' },
+          ];
+          current = data;
+          return json(201, {
+            id: 'al-1',
+            document_id: 'doc-1',
+            note: null,
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+            members: [
+              { id: 'am-en', span_id: 'sp-en', text_version_id: 'tv-en', start: 2, end: 17, exact_text: 'look forward to' },
+              { id: 'am-de', span_id: 'sp-de', text_version_id: 'tv-de', start: 4, end: 21, exact_text: 'freue mich darauf' },
+            ],
+          });
+        },
+      ],
+    ]);
+    const { container } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    // Stage EN [2,17) and DE [4,22) through the real UI flow.
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    fireEvent.click(screen.getByRole('button', { name: 'Open German' }));
+    await screen.findByText('Ich freue mich darauf, dich morgen zu sehen.');
+
+    await stageEnglishRange(container, 2, 17);
+    expect(await screen.findByText('“look forward to”')).toBeInTheDocument();
+    const germanPanel = container.querySelectorAll('.text-panel')[1];
+    const germanRoot = germanPanel?.querySelector('[data-text-content-root]');
+    const germanText = germanRoot?.firstChild?.firstChild as Text;
+    const germanRange = document.createRange();
+    germanRange.setStart(germanText, 4);
+    germanRange.setEnd(germanText, 21);
+    vi.stubGlobal('getSelection', () => ({
+      rangeCount: 1,
+      getRangeAt: () => germanRange,
+      anchorNode: germanText,
+      focusNode: germanText,
+      anchorOffset: 4,
+      focusOffset: 22,
+      removeAllRanges: vi.fn(),
+    }));
+    fireEvent.mouseUp(germanRoot as HTMLElement);
+    fireEvent.click(
+      within(germanPanel as HTMLElement).getByRole('button', { name: 'Add to Alignment' }),
+    );
+    await screen.findByText('“freue mich darauf”');
+
+    // Create Alignment is enabled and fires exactly one request.
+    const createButton = screen.getByRole('button', { name: 'Create Alignment' });
+    expect(createButton).toBeEnabled();
+    fireEvent.click(createButton);
+    await waitFor(() => expect(postedBodies).toHaveLength(1));
+    // Coordinates only — quote/direction/contentHash never sent.
+    expect(postedBodies[0]).toEqual({
+      members: [
+        { text_version_id: 'tv-en', start: 2, end: 17 },
+        { text_version_id: 'tv-de', start: 4, end: 21 },
+      ],
+    });
+
+    // Tray cleared only AFTER success; saved alignment appears from the
+    // refetched server snapshot.
+    await waitFor(() =>
+      expect(screen.queryByText('“look forward to”')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('No pending selections.')).toBeInTheDocument();
+    expect(await screen.findByText('Alignment al-1')).toBeInTheDocument();
+    expect(
+      screen.getByText(/de — German: “freue mich darauf”/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/en — English: “look forward to”/)).toBeInTheDocument();
+  });
+
+  it('freezes tray/staging while the create request is in flight (G2-F01)', async () => {
+    let current = snapshot();
+    let createCalled = false;
+    // Mutable container: property access is not flow-narrowed across the
+    // fetch handler closure, so the test can resolve the deferred POST.
+    const pendingCreate: { resolve: ((value: MockResponse) => void) | null } = {
+      resolve: null,
+    };
+    installFetchMock([
+      ['/workspace', () => json(200, current)],
+      [
+        '/alignments',
+        () => {
+          createCalled = true;
+          // Deferred: the POST stays unresolved until the test resolves it.
+          return new Promise<MockResponse>((resolve) => {
+            pendingCreate.resolve = resolve;
+          });
+        },
+      ],
+    ]);
+    const { container } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    // Stage a valid alignment (EN + DE) through the real UI flow.
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    fireEvent.click(screen.getByRole('button', { name: 'Open German' }));
+    await screen.findByText('Ich freue mich darauf, dich morgen zu sehen.');
+    await stageEnglishRange(container, 2, 17);
+    await screen.findByText('“look forward to”');
+    const germanPanel = container.querySelectorAll('.text-panel')[1];
+    const germanRoot = germanPanel?.querySelector('[data-text-content-root]');
+    const germanText = germanRoot?.firstChild?.firstChild as Text;
+    const germanRange = document.createRange();
+    germanRange.setStart(germanText, 4);
+    germanRange.setEnd(germanText, 21);
+    vi.stubGlobal('getSelection', () => ({
+      rangeCount: 1,
+      getRangeAt: () => germanRange,
+      anchorNode: germanText,
+      focusNode: germanText,
+      anchorOffset: 4,
+      focusOffset: 21,
+      removeAllRanges: vi.fn(),
+    }));
+    fireEvent.mouseUp(germanRoot as HTMLElement);
+    fireEvent.click(
+      within(germanPanel as HTMLElement).getByRole('button', { name: 'Add to Alignment' }),
+    );
+    await screen.findByText('“freue mich darauf”');
+
+    // Click Create Alignment; the POST stays pending.
+    fireEvent.click(screen.getByRole('button', { name: 'Create Alignment' }));
+    await waitFor(() => expect(createCalled).toBe(true));
+
+    // While pending: Create, Clear, every Remove and Add-to-Alignment
+    // staging are all disabled.
+    expect(screen.getByRole('button', { name: 'Create Alignment' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Clear tray' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Remove “look forward to” from tray' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Remove “freue mich darauf” from tray' }),
+    ).toBeDisabled();
+
+    // Native selection capture stays active, but staging is frozen: every
+    // panel's Add button is disabled and the tray cannot grow.
+    stubEnglishSelection(container, 7, 17);
+    fireEvent.mouseUp(
+      container.querySelector('.text-panel [data-text-content-root]') as HTMLElement,
+    );
+    await screen.findByText('Selected 7–17: “forward to”');
+    const addButtons = screen.getAllByRole('button', { name: 'Add to Alignment' });
+    expect(addButtons.length).toBeGreaterThan(0);
+    for (const button of addButtons) {
+      expect(button).toBeDisabled();
+    }
+    expect(screen.getAllByRole('button', { name: /Remove “.*” from tray/ })).toHaveLength(2);
+
+    // Resolve the request successfully; the snapshot refetch then carries
+    // the persisted alignment.
+    const data = snapshot();
+    data.spans = [
+      {
+        id: 'sp-en', text_version_id: 'tv-en', start_offset: 2, end_offset: 17,
+        exact_text: 'look forward to', prefix: 'I ', suffix: ' seeing you tomorrow.',
+        created_at: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 'sp-de', text_version_id: 'tv-de', start_offset: 4, end_offset: 21,
+        exact_text: 'freue mich darauf', prefix: 'Ich ', suffix: ', dich morgen zu sehen.',
+        created_at: '2026-01-01T00:00:00Z',
+      },
+    ];
+    data.alignment_groups = [{
+      id: 'al-1', document_id: 'doc-1', note: null,
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    }];
+    data.alignment_members = [
+      { id: 'am-en', alignment_group_id: 'al-1', span_id: 'sp-en', created_at: 'x' },
+      { id: 'am-de', alignment_group_id: 'al-1', span_id: 'sp-de', created_at: 'x' },
+    ];
+    current = data;
+    pendingCreate.resolve?.({
+      status: 201,
+      body: {
+        id: 'al-1', document_id: 'doc-1', note: null,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+        members: [
+          { id: 'am-en', span_id: 'sp-en', text_version_id: 'tv-en', start: 2, end: 17, exact_text: 'look forward to' },
+          { id: 'am-de', span_id: 'sp-de', text_version_id: 'tv-de', start: 4, end: 21, exact_text: 'freue mich darauf' },
+        ],
+      },
+    });
+
+    // Tray cleared only after success; persisted UI comes from the refetched
+    // workspace snapshot; the tray is unfrozen again.
+    await waitFor(() =>
+      expect(screen.queryByText('“look forward to”')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('No pending selections.')).toBeInTheDocument();
+    expect(await screen.findByText('Alignment al-1')).toBeInTheDocument();
+    expect(screen.getByText(/en — English: “look forward to”/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create Alignment' })).toBeDisabled(); // empty tray
+  });
+
+  it('isolates the create mutation per document (HR-F01): a pending doc-A create never leaks into doc B', async () => {
+    const doc2 = snapshot();
+    doc2.document = { ...doc2.document, id: 'doc-2', title: 'Chapter 2' };
+    doc2.text_versions = doc2.text_versions.map((version) => ({
+      ...version,
+      id: `tv-2-${version.id}`,
+      document_id: 'doc-2',
+      label: `${version.label} 2`,
+    }));
+
+    let createCalled = false;
+    const pendingCreate: { resolve: ((value: MockResponse) => void) | null } = {
+      resolve: null,
+    };
+    installFetchMock([
+      [
+        '/workspace',
+        (url) => (url.includes('doc-2') ? json(200, doc2) : json(200, snapshot())),
+      ],
+      [
+        '/alignments',
+        () => {
+          createCalled = true;
+          // Deferred: doc A's POST stays pending until the test resolves it.
+          return new Promise<MockResponse>((resolve) => {
+            pendingCreate.resolve = resolve;
+          });
+        },
+      ],
+    ]);
+
+    function Harness() {
+      return (
+        <div>
+          <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
+          <Routes>
+            <Route path="/documents/:documentId/workspace" element={<WorkspacePage />} />
+          </Routes>
+        </div>
+      );
+    }
+    const client = createTestQueryClient();
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/documents/doc-1/workspace']}>
+          <Harness />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    // Stage a valid doc-A alignment (EN + DE) and start the create request.
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    fireEvent.click(screen.getByRole('button', { name: 'Open German' }));
+    await screen.findByText('Ich freue mich darauf, dich morgen zu sehen.');
+    await stageEnglishRange(container, 2, 17);
+    await screen.findByText('“look forward to”');
+    const germanPanel = container.querySelectorAll('.text-panel')[1];
+    const germanRoot = germanPanel?.querySelector('[data-text-content-root]');
+    const germanText = germanRoot?.firstChild?.firstChild as Text;
+    const germanRange = document.createRange();
+    germanRange.setStart(germanText, 4);
+    germanRange.setEnd(germanText, 21);
+    vi.stubGlobal('getSelection', () => ({
+      rangeCount: 1,
+      getRangeAt: () => germanRange,
+      anchorNode: germanText,
+      focusNode: germanText,
+      anchorOffset: 4,
+      focusOffset: 21,
+      removeAllRanges: vi.fn(),
+    }));
+    fireEvent.mouseUp(germanRoot as HTMLElement);
+    fireEvent.click(
+      within(germanPanel as HTMLElement).getByRole('button', { name: 'Add to Alignment' }),
+    );
+    await screen.findByText('“freue mich darauf”');
+    fireEvent.click(screen.getByRole('button', { name: 'Create Alignment' }));
+    await waitFor(() => expect(createCalled).toBe(true));
+
+    // Proof precondition: the doc-A create mutation is genuinely in flight
+    // (document-scoped mutation cache) when we navigate away.
+    expect(
+      client.isMutating({ mutationKey: ['alignment-create', 'doc-1'] }),
+    ).toBe(1);
+
+    // Doc A is frozen while its create is pending.
+    expect(screen.getByRole('button', { name: 'Create Alignment' })).toBeDisabled();
+
+    // Navigate the SAME mounted route to doc B while doc A's POST is still
+    // pending.
+    fireEvent.click(screen.getByRole('link', { name: 'Go to doc 2' }));
+    await screen.findByRole('button', { name: /Open English 2/ });
+
+    // Doc B must NOT inherit doc A's isPending/frozen mutation state:
+    // staging works and the Add button is enabled.
+    fireEvent.click(screen.getByRole('button', { name: /Open English 2/ }));
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    stubEnglishSelection(container, 2, 17);
+    fireEvent.mouseUp(
+      container.querySelector('.text-panel [data-text-content-root]') as HTMLElement,
+    );
+    await screen.findByText('Selected 2–17: “look forward to”');
+    const addButtons = screen.getAllByRole('button', { name: 'Add to Alignment' });
+    for (const button of addButtons) {
+      expect(button).toBeEnabled();
+    }
+    fireEvent.click(addButtons[0]);
+    await screen.findByText('“look forward to”');
+
+    // Resolve doc A's request.
+    pendingCreate.resolve?.({
+      status: 201,
+      body: {
+        id: 'al-1', document_id: 'doc-1', note: null,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+        members: [
+          { id: 'am-en', span_id: 'sp-en', text_version_id: 'tv-en', start: 2, end: 17, exact_text: 'look forward to' },
+          { id: 'am-de', span_id: 'sp-de', text_version_id: 'tv-de', start: 4, end: 21, exact_text: 'freue mich darauf' },
+        ],
+      },
+    });
+
+    // Synchronize: promise resolution is asynchronous, so first wait until
+    // the OLD doc-A alignment-create mutation has ACTUALLY settled (its
+    // success lifecycle — including the workspace invalidation — has run),
+    // then prove doc B's state was untouched by that settlement.
+    await waitFor(() => {
+      expect(
+        client.isMutating({ mutationKey: ['alignment-create', 'doc-1'] }),
+      ).toBe(0);
+    });
+
+    // Doc B state/tray/error UI remains completely untouched: its own tray
+    // member survives, no doc-A saved alignment and no error appear.
+    expect(screen.getByText('“look forward to”')).toBeInTheDocument();
+    expect(screen.queryByText(/Alignment al-/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    // Doc B remains usable after the doc-A mutation settles: its tray can
+    // still be cleared normally.
+    fireEvent.click(screen.getByRole('button', { name: 'Clear tray' }));
+    await waitFor(() =>
+      expect(screen.queryByText('“look forward to”')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('No pending selections.')).toBeInTheDocument();
+  });
+
+  it('does not display a stale doc-A create error after transitioning to doc B (HR-F01)', async () => {
+    const doc2 = snapshot();
+    doc2.document = { ...doc2.document, id: 'doc-2', title: 'Chapter 2' };
+    doc2.text_versions = doc2.text_versions.map((version) => ({
+      ...version,
+      id: `tv-2-${version.id}`,
+      document_id: 'doc-2',
+      label: `${version.label} 2`,
+    }));
+    installFetchMock([
+      [
+        '/workspace',
+        (url) => (url.includes('doc-2') ? json(200, doc2) : json(200, snapshot())),
+      ],
+      [
+        '/alignments',
+        () =>
+          json(409, {
+            code: 'DUPLICATE_ALIGNMENT_MEMBER',
+            message: 'a span cannot appear twice in the same alignment group',
+            details: {},
+          }),
+      ],
+    ]);
+
+    function Harness() {
+      return (
+        <div>
+          <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
+          <Routes>
+            <Route path="/documents/:documentId/workspace" element={<WorkspacePage />} />
+          </Routes>
+        </div>
+      );
+    }
+    const client = createTestQueryClient();
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/documents/doc-1/workspace']}>
+          <Harness />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    // Doc A: stage a valid alignment and fail the create request.
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    fireEvent.click(screen.getByRole('button', { name: 'Open German' }));
+    await screen.findByText('Ich freue mich darauf, dich morgen zu sehen.');
+    await stageEnglishRange(container, 2, 17);
+    await screen.findByText('“look forward to”');
+    const germanPanel = container.querySelectorAll('.text-panel')[1];
+    const germanRoot = germanPanel?.querySelector('[data-text-content-root]');
+    const germanText = germanRoot?.firstChild?.firstChild as Text;
+    const germanRange = document.createRange();
+    germanRange.setStart(germanText, 4);
+    germanRange.setEnd(germanText, 21);
+    vi.stubGlobal('getSelection', () => ({
+      rangeCount: 1,
+      getRangeAt: () => germanRange,
+      anchorNode: germanText,
+      focusNode: germanText,
+      anchorOffset: 4,
+      focusOffset: 21,
+      removeAllRanges: vi.fn(),
+    }));
+    fireEvent.mouseUp(germanRoot as HTMLElement);
+    fireEvent.click(
+      within(germanPanel as HTMLElement).getByRole('button', { name: 'Add to Alignment' }),
+    );
+    await screen.findByText('“freue mich darauf”');
+    fireEvent.click(screen.getByRole('button', { name: 'Create Alignment' }));
+    await screen.findByRole('alert');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'DUPLICATE_ALIGNMENT_MEMBER: a span cannot appear twice in the same alignment group',
+    );
+
+    // Transition to doc B: the stale doc-A mutation error must not be
+    // displayed there (the document-scoped workspace remounts and brings a
+    // fresh create mutation observer).
+    fireEvent.click(screen.getByRole('link', { name: 'Go to doc 2' }));
+    await screen.findByRole('button', { name: /Open English 2/ });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('No saved alignments yet.')).toBeInTheDocument();
+  });
+
+  it('keeps the tray and shows the error when creation fails', async () => {
+    const current = snapshot();
+    installFetchMock([
+      ['/workspace', () => json(200, current)],
+      [
+        '/alignments',
+        () =>
+          json(409, {
+            code: 'DUPLICATE_ALIGNMENT_MEMBER',
+            message: 'a span cannot appear twice in the same alignment group',
+            details: {},
+          }),
+      ],
+    ]);
+    const { container } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    fireEvent.click(screen.getByRole('button', { name: 'Open German' }));
+    await screen.findByText('Ich freue mich darauf, dich morgen zu sehen.');
+
+    await stageEnglishRange(container, 2, 17);
+    await screen.findByText('“look forward to”');
+    const germanPanel = container.querySelectorAll('.text-panel')[1];
+    const germanRoot = germanPanel?.querySelector('[data-text-content-root]');
+    const germanText = germanRoot?.firstChild?.firstChild as Text;
+    const germanRange = document.createRange();
+    germanRange.setStart(germanText, 4);
+    germanRange.setEnd(germanText, 21);
+    vi.stubGlobal('getSelection', () => ({
+      rangeCount: 1,
+      getRangeAt: () => germanRange,
+      anchorNode: germanText,
+      focusNode: germanText,
+      anchorOffset: 4,
+      focusOffset: 22,
+      removeAllRanges: vi.fn(),
+    }));
+    fireEvent.mouseUp(germanRoot as HTMLElement);
+    fireEvent.click(
+      within(germanPanel as HTMLElement).getByRole('button', { name: 'Add to Alignment' }),
+    );
+    await screen.findByText('“freue mich darauf”');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create Alignment' }));
+
+    // Stable envelope error displayed; tray retained for retry; no fake
+    // saved alignment appears (the snapshot still has none).
+    await screen.findByRole('alert');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'DUPLICATE_ALIGNMENT_MEMBER: a span cannot appear twice in the same alignment group',
+    );
+    expect(screen.getByText('“look forward to”')).toBeInTheDocument();
+    expect(screen.getByText('“freue mich darauf”')).toBeInTheDocument();
+    expect(screen.queryByText(/Alignment al-/)).not.toBeInTheDocument();
+    expect(screen.getByText('No saved alignments yet.')).toBeInTheDocument();
+  });
+
+  it('Create Alignment is disabled with two members from one TextVersion', async () => {
+    installFetchMock([['/workspace', () => json(200, snapshot())]]);
+    const { container } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+
+    // Two separated EN spans: 2 members, but only ONE distinct version.
+    await stageEnglishRange(container, 2, 17);
+    await screen.findByText('“look forward to”');
+    await stageEnglishRange(container, 18, 28);
+
+    expect(await screen.findByText('“seeing you”')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create Alignment' })).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      /two different text versions/,
+    );
   });
 });
 

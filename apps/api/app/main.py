@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.errors import register_exception_handlers
 from app.api.middleware import RequestBodySizeLimitMiddleware
+from app.api.routes.alignments import router as alignments_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.health import router as health_router
 from app.api.routes.projects import router as projects_router
@@ -53,6 +54,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(documents_router, prefix=API_V1_PREFIX)
     app.include_router(text_versions_router, prefix=API_V1_PREFIX)
     app.include_router(workspace_router, prefix=API_V1_PREFIX)
+    app.include_router(alignments_router, prefix=API_V1_PREFIX)
 
     # Last registration: unmatched paths/methods get the standard envelope
     # instead of Starlette's default {"detail": ...} body.

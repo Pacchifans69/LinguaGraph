@@ -23,6 +23,11 @@ import { TextPanel } from './TextPanel';
 import { AlignmentTray } from './AlignmentTray';
 import { ImportPanel } from './ImportPanel';
 import {
+  useCreateAlignment,
+  pendingToMemberInput,
+} from '../alignments/api';
+import { SavedAlignments } from '../alignments/SavedAlignments';
+import {
   WorkspaceProvider,
 } from './state/WorkspaceProvider';
 import { useWorkspaceState } from './state/workspaceContext';
@@ -38,10 +43,19 @@ function WorkspaceBody({
   documentId,
   versionsById,
   runsByVersion,
+  savedAlignments,
+  createMutation,
 }: {
   documentId: string;
   versionsById: Record<string, TextVersion>;
   runsByVersion: Record<string, RunDescriptor[]>;
+  savedAlignments: {
+    groups: ReturnType<typeof normalizeWorkspace>['alignmentGroups'];
+    membersByGroup: ReturnType<typeof normalizeWorkspace>['membersByGroup'];
+    spansById: ReturnType<typeof normalizeWorkspace>['spansById'];
+    versionsById: ReturnType<typeof normalizeWorkspace>['versionsById'];
+  };
+  createMutation: ReturnType<typeof useCreateAlignment>;
 }) {
   const {
     panelOrder,
@@ -57,6 +71,30 @@ function WorkspaceBody({
   const deleteMutation = useDeleteTextVersion(documentId);
   const [pendingForceDelete, setPendingForceDelete] =
     useState<PendingForceDelete | null>(null);
+
+  // M0.5 Create Alignment validity (frozen contract section 20): at least 2
+  // members AND at least 2 distinct TextVersions. Frontend UX mirror only —
+  // the backend validates every invariant authoritatively.
+  const canCreateAlignment =
+    pendingMembers.length >= 2 &&
+    new Set(pendingMembers.map((member) => member.textVersionId)).size >= 2;
+
+  function handleCreateAlignment() {
+    if (!canCreateAlignment || createMutation.isPending) {
+      return;
+    }
+    createMutation.mutate(
+      { members: pendingMembers.map(pendingToMemberInput) },
+      {
+        // The successful server mutation is the boundary between ephemeral
+        // tray state and persisted state: the tray is cleared ONLY here,
+        // never before (frozen contract section 22).
+        onSuccess: () => {
+          clearPendingTray();
+        },
+      },
+    );
+  }
 
   // Escape: cancels the current selection (and the native browser
   // Selection) only. Already-staged pending tray members are never
@@ -108,6 +146,9 @@ function WorkspaceBody({
     <div className="workspace">
       {deleteMutation.isError ? (
         <ErrorMessage error={deleteMutation.error} />
+      ) : null}
+      {createMutation.isError ? (
+        <ErrorMessage error={createMutation.error} />
       ) : null}
 
       {hidden.length > 0 ? (
@@ -182,6 +223,18 @@ function WorkspaceBody({
         versionsById={versionsById}
         onRemove={removePendingMember}
         onClear={clearPendingTray}
+        canCreate={canCreateAlignment}
+        onCreate={handleCreateAlignment}
+        isCreating={createMutation.isPending}
+      />
+
+      {/* M0.5: minimal read-only persisted alignment representation,
+          derived entirely from the authoritative workspace snapshot. */}
+      <SavedAlignments
+        groups={savedAlignments.groups}
+        membersByGroup={savedAlignments.membersByGroup}
+        spansById={savedAlignments.spansById}
+        versionsById={savedAlignments.versionsById}
       />
 
       <ImportPanel documentId={documentId} />
@@ -219,7 +272,28 @@ function WorkspaceBody({
 
 export function WorkspacePage() {
   const { documentId = '' } = useParams<{ documentId: string }>();
+
+  // Document-scoped inner component (HR-F01): keyed by documentId, so a
+  // same-route parameter transition (/documents/doc-A/workspace ->
+  // /documents/doc-B/workspace) remounts the WHOLE document workspace
+  // subtree — including the create-alignment MutationObserver. A
+  // pending/error mutation from doc A can therefore never leak its
+  // isPending/frozen/error state into doc B.
+  return <DocumentWorkspacePage key={documentId} documentId={documentId} />;
+}
+
+function DocumentWorkspacePage({ documentId }: { documentId: string }) {
   const workspaceQuery = useWorkspace(documentId);
+
+  // M0.5 (Gate 2 fix): the create mutation lives at the page level (before
+  // any early return — hooks must be unconditional) so the in-flight flag
+  // can freeze the pending tray (WorkspaceProvider) while the request is
+  // pending: a member staged after the request began must never be silently
+  // discarded by the success-path tray clear. HR-F01: this hook's observer
+  // is document-scoped because the whole component remounts on documentId
+  // change (and the mutation carries a document-scoped mutationKey as
+  // defense in depth).
+  const createMutation = useCreateAlignment(documentId);
 
   const normalized = useMemo(
     () => (workspaceQuery.data ? normalizeWorkspace(workspaceQuery.data) : null),
@@ -272,13 +346,14 @@ export function WorkspacePage() {
   }));
 
   return (
-    // key={documentId}: a document change remounts the provider, clearing
-    // ephemeral selection state (currentSelection/pendingMembers) and
-    // re-initializing panel preferences for the new document.
+    // No key here: the DocumentWorkspacePage component above is keyed by
+    // documentId, so the whole subtree (provider + hooks) already remounts
+    // on a document change — ephemeral selection state is cleared and panel
+    // preferences re-initialize for the new document.
     <WorkspaceProvider
-      key={documentId}
       documentId={documentId}
       serverVersions={serverVersions}
+      isCreatingAlignment={createMutation.isPending}
     >
       <section className="workspace-page">
         <nav className="breadcrumb" aria-label="Breadcrumb">
@@ -294,6 +369,13 @@ export function WorkspacePage() {
           documentId={documentId}
           versionsById={normalized.versionsById}
           runsByVersion={runsByVersion}
+          savedAlignments={{
+            groups: normalized.alignmentGroups,
+            membersByGroup: normalized.membersByGroup,
+            spansById: normalized.spansById,
+            versionsById: normalized.versionsById,
+          }}
+          createMutation={createMutation}
         />
       </section>
     </WorkspaceProvider>
