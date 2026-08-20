@@ -10,6 +10,10 @@
  *   TextVersions (frontend UX mirror of the backend invariants — the
  *   backend remains authoritative). The tray is cleared ONLY after the
  *   server mutation succeeds (WorkspacePage owns that lifecycle);
+ * - M0.5 Gate 2 fix: while a Create Alignment request is in flight the tray
+ *   is FROZEN — Create, Clear and every Remove are disabled so a member
+ *   staged after the request began is never silently discarded by the
+ *   success-path tray clear;
  * - Escape never clears the tray; removal is always explicit.
  */
 
@@ -65,6 +69,7 @@ export function AlignmentTray({
                   type="button"
                   className="tray-remove"
                   aria-label={`Remove “${member.quote}” from tray`}
+                  disabled={isCreating}
                   onClick={() => onRemove(member)}
                 >
                   Remove
@@ -78,7 +83,7 @@ export function AlignmentTray({
         <button
           type="button"
           className="tray-clear"
-          disabled={members.length === 0}
+          disabled={members.length === 0 || isCreating}
           onClick={onClear}
         >
           Clear tray

@@ -13,7 +13,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { WorkspacePage } from './WorkspacePage';
 import { renderPageAt, createTestQueryClient } from '../../test/harness';
-import { installFetchMock, json } from '../../test/mockFetch';
+import { installFetchMock, json, type MockResponse } from '../../test/mockFetch';
 import { preferenceKey } from './state/preferences';
 import type { WorkspaceSnapshot } from './api';
 
@@ -763,6 +763,137 @@ describe('WorkspacePage (M0.5 alignment persistence)', () => {
       screen.getByText(/de — German: “freue mich darauf”/),
     ).toBeInTheDocument();
     expect(screen.getByText(/en — English: “look forward to”/)).toBeInTheDocument();
+  });
+
+  it('freezes tray/staging while the create request is in flight (G2-F01)', async () => {
+    let current = snapshot();
+    let createCalled = false;
+    // Mutable container: property access is not flow-narrowed across the
+    // fetch handler closure, so the test can resolve the deferred POST.
+    const pendingCreate: { resolve: ((value: MockResponse) => void) | null } = {
+      resolve: null,
+    };
+    installFetchMock([
+      ['/workspace', () => json(200, current)],
+      [
+        '/alignments',
+        () => {
+          createCalled = true;
+          // Deferred: the POST stays unresolved until the test resolves it.
+          return new Promise<MockResponse>((resolve) => {
+            pendingCreate.resolve = resolve;
+          });
+        },
+      ],
+    ]);
+    const { container } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    // Stage a valid alignment (EN + DE) through the real UI flow.
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    fireEvent.click(screen.getByRole('button', { name: 'Open German' }));
+    await screen.findByText('Ich freue mich darauf, dich morgen zu sehen.');
+    await stageEnglishRange(container, 2, 17);
+    await screen.findByText('“look forward to”');
+    const germanPanel = container.querySelectorAll('.text-panel')[1];
+    const germanRoot = germanPanel?.querySelector('[data-text-content-root]');
+    const germanText = germanRoot?.firstChild?.firstChild as Text;
+    const germanRange = document.createRange();
+    germanRange.setStart(germanText, 4);
+    germanRange.setEnd(germanText, 21);
+    vi.stubGlobal('getSelection', () => ({
+      rangeCount: 1,
+      getRangeAt: () => germanRange,
+      anchorNode: germanText,
+      focusNode: germanText,
+      anchorOffset: 4,
+      focusOffset: 21,
+      removeAllRanges: vi.fn(),
+    }));
+    fireEvent.mouseUp(germanRoot as HTMLElement);
+    fireEvent.click(
+      within(germanPanel as HTMLElement).getByRole('button', { name: 'Add to Alignment' }),
+    );
+    await screen.findByText('“freue mich darauf”');
+
+    // Click Create Alignment; the POST stays pending.
+    fireEvent.click(screen.getByRole('button', { name: 'Create Alignment' }));
+    await waitFor(() => expect(createCalled).toBe(true));
+
+    // While pending: Create, Clear, every Remove and Add-to-Alignment
+    // staging are all disabled.
+    expect(screen.getByRole('button', { name: 'Create Alignment' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Clear tray' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Remove “look forward to” from tray' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Remove “freue mich darauf” from tray' }),
+    ).toBeDisabled();
+
+    // Native selection capture stays active, but staging is frozen: every
+    // panel's Add button is disabled and the tray cannot grow.
+    stubEnglishSelection(container, 7, 17);
+    fireEvent.mouseUp(
+      container.querySelector('.text-panel [data-text-content-root]') as HTMLElement,
+    );
+    await screen.findByText('Selected 7–17: “forward to”');
+    const addButtons = screen.getAllByRole('button', { name: 'Add to Alignment' });
+    expect(addButtons.length).toBeGreaterThan(0);
+    for (const button of addButtons) {
+      expect(button).toBeDisabled();
+    }
+    expect(screen.getAllByRole('button', { name: /Remove “.*” from tray/ })).toHaveLength(2);
+
+    // Resolve the request successfully; the snapshot refetch then carries
+    // the persisted alignment.
+    const data = snapshot();
+    data.spans = [
+      {
+        id: 'sp-en', text_version_id: 'tv-en', start_offset: 2, end_offset: 17,
+        exact_text: 'look forward to', prefix: 'I ', suffix: ' seeing you tomorrow.',
+        created_at: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 'sp-de', text_version_id: 'tv-de', start_offset: 4, end_offset: 21,
+        exact_text: 'freue mich darauf', prefix: 'Ich ', suffix: ', dich morgen zu sehen.',
+        created_at: '2026-01-01T00:00:00Z',
+      },
+    ];
+    data.alignment_groups = [{
+      id: 'al-1', document_id: 'doc-1', note: null,
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    }];
+    data.alignment_members = [
+      { id: 'am-en', alignment_group_id: 'al-1', span_id: 'sp-en', created_at: 'x' },
+      { id: 'am-de', alignment_group_id: 'al-1', span_id: 'sp-de', created_at: 'x' },
+    ];
+    current = data;
+    pendingCreate.resolve?.({
+      status: 201,
+      body: {
+        id: 'al-1', document_id: 'doc-1', note: null,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+        members: [
+          { id: 'am-en', span_id: 'sp-en', text_version_id: 'tv-en', start: 2, end: 17, exact_text: 'look forward to' },
+          { id: 'am-de', span_id: 'sp-de', text_version_id: 'tv-de', start: 4, end: 21, exact_text: 'freue mich darauf' },
+        ],
+      },
+    });
+
+    // Tray cleared only after success; persisted UI comes from the refetched
+    // workspace snapshot; the tray is unfrozen again.
+    await waitFor(() =>
+      expect(screen.queryByText('“look forward to”')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('No pending selections.')).toBeInTheDocument();
+    expect(await screen.findByText('Alignment al-1')).toBeInTheDocument();
+    expect(screen.getByText(/en — English: “look forward to”/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Create Alignment' })).toBeDisabled(); // empty tray
   });
 
   it('keeps the tray and shows the error when creation fails', async () => {

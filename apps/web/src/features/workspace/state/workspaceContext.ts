@@ -15,6 +15,13 @@ export interface WorkspaceContextValue {
   currentSelection: PendingSpan | null;
   /** M0.4: explicitly staged pending members (Alignment Tray, never persisted). */
   pendingMembers: PendingSpan[];
+  /**
+   * M0.5 (Gate 2 fix): true while a Create Alignment request is in flight.
+   * The pending tray is FROZEN: staging, remove and clear are rejected so a
+   * member staged after the request began is never silently discarded by
+   * the success-path tray clear.
+   */
+  isCreatingAlignment: boolean;
   openPanel: (versionId: string) => void;
   hidePanel: (versionId: string) => void;
   reorderPanels: (fromIndex: number, toIndex: number) => void;
@@ -26,7 +33,8 @@ export interface WorkspaceContextValue {
   /**
    * Stage the current selection into the pending tray. Returns the
    * rejection reason when staging fails (no selection / duplicate /
-   * same-version overlap), so the UI can surface it.
+   * same-version overlap / tray frozen during an in-flight create), so the
+   * UI can surface it.
    */
   addCurrentSelectionToTray: () => StageResult;
   /** Remove one pending member by identity (textVersionId, start, end). */

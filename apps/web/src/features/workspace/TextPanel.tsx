@@ -37,12 +37,15 @@ export function TextPanel({ version, runs, onHide }: TextPanelProps) {
     captureSelection,
     clearSelection,
     addCurrentSelectionToTray,
+    isCreatingAlignment,
   } = useWorkspaceState();
   const [stagingError, setStagingError] = useState<string | null>(null);
 
   const isCurrentSelection = currentSelection?.textVersionId === version.id;
 
   function handleSelectionEvent() {
+    // Native selection capture stays active while a create is in flight —
+    // only STAGING is frozen (the Add action below and the provider guard).
     const rootElement = contentRootRef.current;
     if (rootElement === null) {
       return;
@@ -139,7 +142,7 @@ export function TextPanel({ version, runs, onHide }: TextPanelProps) {
         ) : null}
         <button
           type="button"
-          disabled={!isCurrentSelection}
+          disabled={!isCurrentSelection || isCreatingAlignment}
           onClick={handleAddToAlignment}
         >
           Add to Alignment

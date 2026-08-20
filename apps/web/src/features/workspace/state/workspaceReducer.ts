@@ -50,7 +50,11 @@ export type WorkspaceAction =
   | { type: 'REMOVE_PENDING_MEMBER'; member: PendingSpan }
   | { type: 'CLEAR_PENDING_MEMBERS' };
 
-export type StageRejectionReason = 'NO_SELECTION' | 'DUPLICATE' | 'OVERLAP';
+export type StageRejectionReason =
+  | 'NO_SELECTION'
+  | 'DUPLICATE'
+  | 'OVERLAP'
+  | 'FROZEN';
 
 export type StageResult =
   | { ok: true }

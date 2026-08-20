@@ -23,6 +23,15 @@ persistence foundations:
 Every operation leaves the Session transaction-clean on exit (success or
 failure). The service never calls ``commit()``/``rollback()`` itself —
 ``write_transaction`` owns the transaction boundaries.
+
+Known non-blocking limitation (recorded at M0.5 Gate 2 review): concurrent
+PATCHes to the SAME AlignmentGroup are not given a dedicated concurrency-
+control contract in M0.5; in a pathological interleaving they may surface
+an unexpected integrity failure (``uq_alignment_members_group_span``) as an
+unhandled IntegrityError. The single-user workbench cannot normally produce
+this, and the reviewed M0.3 constraint-classification policy propagates
+unexpected integrity errors. The concurrent Span get-or-create algorithm
+(PostgreSQL ``ON CONFLICT``) is unaffected and remains accepted.
 """
 
 from __future__ import annotations
@@ -53,6 +62,32 @@ from app.text.offsets import (
 )
 
 _UNSET = object()
+
+# The domain/persistence limit for AlignmentGroup.note (nullable
+# VARCHAR(4000) — Alembic 0002 / app/db/models/alignment.py). Enforced at
+# the service boundary; the HTTP/Pydantic boundary repeats it as defense in
+# depth (schemas/alignment.py NOTE_MAX).
+NOTE_MAX = 4000
+
+
+def _validate_note(note: str | None) -> None:
+    """Validate ``AlignmentGroup.note`` at the application service boundary.
+
+    ``None`` is valid (no note); an empty string is valid; up to
+    ``NOTE_MAX`` code points is valid; anything longer raises the stable
+    ``VALIDATION_ERROR`` domain error instead of letting the value reach the
+    PostgreSQL ``VARCHAR(4000)`` column and surface as a driver exception.
+    """
+    if note is not None and len(note) > NOTE_MAX:
+        raise DomainError(
+            "VALIDATION_ERROR",
+            "alignment note is too long",
+            {
+                "field": "note",
+                "max_length": NOTE_MAX,
+                "actual_length": len(note),
+            },
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,16 +138,23 @@ def _resolve_member_spans(
 
     1. resolve every referenced TextVersion (missing -> NOT_FOUND);
     2. verify every TextVersion belongs to ``document_id``
-       (-> CROSS_DOCUMENT_ALIGNMENT);
-    3. validate each code-point ``[start, end)`` range against the canonical
-       content (-> SPAN_OUT_OF_RANGE);
-    4. derive ``exact_text``/``prefix``/``suffix`` server-side;
-    5. concurrency-safe get-or-create every Span.
+       (-> CROSS_DOCUMENT_ALIGNMENT) — the full resolution/ownership pass
+       runs BEFORE any Span insert;
+    3. per member: validate the code-point ``[start, end)`` range against
+       the canonical content (-> SPAN_OUT_OF_RANGE), derive
+       ``exact_text``/``prefix``/``suffix`` server-side, then
+       concurrency-safe get-or-create the Span.
 
-    Returns resolved ``MemberRef``s ready for invariant validation. No rows
-    are inserted for an invalid member set: all validation happens before
-    the first Span insert, so a failed request cannot leave newly created
-    orphan Spans.
+    Note on ordering: range validation is performed per member immediately
+    before THAT member's insert, and the AGGREGATE alignment invariants
+    (cardinality, duplicate Span, same-version overlap) are validated by the
+    caller AFTER this function returns. A failure in a later member or in
+    the aggregate validation therefore leaves earlier provisional Span
+    inserts in the transaction — this is safe because the ONE outer
+    Alignment ``write_transaction`` rolls the whole operation back, so a
+    failed request never leaves newly created orphan Spans behind.
+
+    Returns resolved ``MemberRef``s ready for invariant validation.
     """
     version_ids = list({m.text_version_id for m in members})
     versions = {
@@ -290,6 +332,10 @@ def create_alignment(
     no new group, no new members, no newly created orphan Span.
     """
     with write_transaction(db):
+        # Service-boundary note validation BEFORE any database work (the
+        # clean-Session check in write_transaction still wins on a
+        # dirty/open-session entry).
+        _validate_note(note)
         document = db.get(ParallelDocument, document_id)
         if document is None:
             raise DomainError(
@@ -340,6 +386,12 @@ def update_alignment(
     the old Alignment remains completely intact.
     """
     with write_transaction(db):
+        # Service-boundary note validation when note is EXPLICITLY supplied
+        # (omission stays "unchanged", null clears) — before any database
+        # work, so the clean-Session check in write_transaction still wins on
+        # a dirty/open-session entry.
+        if note is not _UNSET:
+            _validate_note(note)
         group = db.get(AlignmentGroup, alignment_id)
         if group is None:
             raise DomainError(

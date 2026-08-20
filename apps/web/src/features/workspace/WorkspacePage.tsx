@@ -44,6 +44,7 @@ function WorkspaceBody({
   versionsById,
   runsByVersion,
   savedAlignments,
+  createMutation,
 }: {
   documentId: string;
   versionsById: Record<string, TextVersion>;
@@ -54,6 +55,7 @@ function WorkspaceBody({
     spansById: ReturnType<typeof normalizeWorkspace>['spansById'];
     versionsById: ReturnType<typeof normalizeWorkspace>['versionsById'];
   };
+  createMutation: ReturnType<typeof useCreateAlignment>;
 }) {
   const {
     panelOrder,
@@ -67,7 +69,6 @@ function WorkspaceBody({
     clearPendingTray,
   } = useWorkspaceState();
   const deleteMutation = useDeleteTextVersion(documentId);
-  const createMutation = useCreateAlignment(documentId);
   const [pendingForceDelete, setPendingForceDelete] =
     useState<PendingForceDelete | null>(null);
 
@@ -273,6 +274,13 @@ export function WorkspacePage() {
   const { documentId = '' } = useParams<{ documentId: string }>();
   const workspaceQuery = useWorkspace(documentId);
 
+  // M0.5 (Gate 2 fix): the create mutation lives at the PAGE level (before
+  // any early return — hooks must be unconditional) so the in-flight flag
+  // can freeze the pending tray (WorkspaceProvider) while the request is
+  // pending: a member staged after the request began must never be silently
+  // discarded by the success-path tray clear.
+  const createMutation = useCreateAlignment(documentId);
+
   const normalized = useMemo(
     () => (workspaceQuery.data ? normalizeWorkspace(workspaceQuery.data) : null),
     [workspaceQuery.data],
@@ -331,6 +339,7 @@ export function WorkspacePage() {
       key={documentId}
       documentId={documentId}
       serverVersions={serverVersions}
+      isCreatingAlignment={createMutation.isPending}
     >
       <section className="workspace-page">
         <nav className="breadcrumb" aria-label="Breadcrumb">
@@ -352,6 +361,7 @@ export function WorkspacePage() {
             spansById: normalized.spansById,
             versionsById: normalized.versionsById,
           }}
+          createMutation={createMutation}
         />
       </section>
     </WorkspaceProvider>

@@ -188,8 +188,13 @@ describe('AlignmentTray', () => {
     expect(onCreate).toHaveBeenCalledTimes(1);
   });
 
-  it('disables Create Alignment while a create request is in flight', () => {
+  it('freezes the whole tray while a create request is in flight (G2-F01)', () => {
+    // Create, Clear and every Remove must be disabled while the POST is
+    // pending: a member staged after the request began must never be
+    // silently discarded by the success-path tray clear.
     const onCreate = vi.fn();
+    const onClear = vi.fn();
+    const onRemove = vi.fn();
     renderTray({
       members: [
         member(),
@@ -204,8 +209,17 @@ describe('AlignmentTray', () => {
       versionsById: { 'tv-en': version(), 'tv-de': version({ id: 'tv-de' }) },
       canCreate: true,
       onCreate,
+      onClear,
+      onRemove,
       isCreating: true,
     });
     expect(screen.getByRole('button', { name: 'Create Alignment' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Clear tray' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Remove “look forward to” from tray' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Remove “freue mich darauf” from tray' }),
+    ).toBeDisabled();
   });
 });

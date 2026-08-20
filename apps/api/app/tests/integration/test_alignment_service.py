@@ -832,6 +832,83 @@ def test_delete_missing_group_not_found(db_session) -> None:
     assert excinfo.value.code == "NOT_FOUND"
 
 
+# --- NOTE LENGTH AT THE SERVICE BOUNDARY (G2-F02) ------------------------------
+
+
+def test_create_note_exactly_4000_chars_succeeds(db_session) -> None:
+    project = make_project(db_session)
+    document = make_document(db_session, project.id)
+    en, de, _fr = make_aligned_versions(db_session, document.id)
+
+    note = "x" * 4000
+    view = alignment_service.create_alignment(
+        db_session,
+        document_id=document.id,
+        members=[member(en, 2, 17), member(de, 4, 22)],
+        note=note,
+    )
+    assert view.note == note
+    assert len(view.note) == 4000
+    assert count(db_session, AlignmentGroup) == 1
+
+
+def test_create_note_over_4000_validation_error_no_persisted_state(db_session) -> None:
+    project = make_project(db_session)
+    document = make_document(db_session, project.id)
+    en, de, _fr = make_aligned_versions(db_session, document.id)
+
+    with pytest.raises(DomainError) as excinfo:
+        alignment_service.create_alignment(
+            db_session,
+            document_id=document.id,
+            members=[member(en, 2, 17), member(de, 4, 22)],
+            note="x" * 4001,
+        )
+    assert excinfo.value.code == "VALIDATION_ERROR"
+    assert excinfo.value.details == {
+        "field": "note",
+        "max_length": 4000,
+        "actual_length": 4001,
+    }
+    # No persisted state at all: no group, no members, no orphan spans.
+    assert count(db_session, AlignmentGroup) == 0
+    assert count(db_session, AlignmentMember) == 0
+    assert count(db_session, Span) == 0
+    assert db_session.in_transaction() is False
+
+
+def test_patch_note_over_4000_validation_error_old_intact(db_session) -> None:
+    _document, en, de, _fr, view = _patch_setup(db_session)
+    old_member_ids = {m.id for m in view.members}
+
+    with pytest.raises(DomainError) as excinfo:
+        alignment_service.update_alignment(
+            db_session, view.id, note="x" * 4001
+        )
+    assert excinfo.value.code == "VALIDATION_ERROR"
+    assert excinfo.value.details["max_length"] == 4000
+
+    # The old Alignment remains completely intact (note and members).
+    group = db_session.get(AlignmentGroup, view.id)
+    assert group.note == "original"
+    rows = list(
+        db_session.scalars(
+            select(AlignmentMember).where(AlignmentMember.alignment_group_id == view.id)
+        ).all()
+    )
+    assert {r.id for r in rows} == old_member_ids
+    assert count(db_session, Span) == 2
+    assert db_session.in_transaction() is False
+
+
+def test_patch_note_exactly_4000_chars_succeeds(db_session) -> None:
+    _document, en, de, _fr, view = _patch_setup(db_session)
+    note = "y" * 4000
+    result = alignment_service.update_alignment(db_session, view.id, note=note)
+    assert result.note == note
+    assert db_session.get(AlignmentGroup, view.id).note == note
+
+
 # --- TRANSACTION-CLEAN SESSION CONTRACT ------------------------------------------
 
 
