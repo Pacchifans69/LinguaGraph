@@ -10,6 +10,7 @@
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
+import { sliceByCodePoints } from './offset';
 import { segmentText } from './segmentation';
 import {
   canonicalRangeToDomRange,
@@ -595,6 +596,73 @@ describe('selectionToCanonical — direction and selection-level rules', () => {
         direction: 'forward',
       });
     }
+  });
+});
+
+describe('rangeToCanonical — large content root with many runs (stress/correctness)', () => {
+  it('validates and maps selections across 1000 runs of a 5000-code-point text', () => {
+    // Deterministic, non-timing stress case: 5000 code points (every 25th is
+    // non-BMP '🙂'), 500 spans -> 1000 flat runs. Exercises collectRuns'
+    // single code-point materialization plus the tiling witness.
+    const content = Array.from({ length: 5000 }, (_, i) =>
+      i % 25 === 0 ? '🙂' : 'x',
+    ).join('');
+    const spans = Array.from({ length: 500 }, (_, i) => ({
+      id: `s${i}`,
+      start: i * 10,
+      end: i * 10 + 5,
+    }));
+    const { root, version } = buildPanel(content, spans);
+    expect(root.children.length).toBe(1000);
+
+    // Forward: a selection spanning runs 250..750 -> canonical [1250, 3750).
+    const reversed = canonicalRangeToDomRange(root, version, 1250, 3750);
+    expect(reversed.status).toBe('ok');
+    if (reversed.status === 'ok') {
+      expect(reversed.range.toString()).toBe(
+        sliceByCodePoints(content, 1250, 3750),
+      );
+      const forward = rangeToCanonical(reversed.range, root, version);
+      expect(forward).toMatchObject({ status: 'ok', start: 1250, end: 3750 });
+    }
+
+    // Whole-content selection across every run.
+    const whole = canonicalRangeToDomRange(root, version, 0, 5000);
+    expect(whole.status).toBe('ok');
+    if (whole.status === 'ok') {
+      expect(whole.range.toString()).toBe(content);
+      expect(rangeToCanonical(whole.range, root, version)).toMatchObject({
+        status: 'ok',
+        start: 0,
+        end: 5000,
+      });
+    }
+  });
+
+  it('fails closed when run boundary metadata violates the tiling invariants', () => {
+    const { root, version } = buildPanel('abcdefgh', [
+      { id: 's1', start: 0, end: 2 },
+      { id: 's2', start: 2, end: 4 },
+    ]);
+    const text = runText(root, 0);
+    const range = rangeBetween({ container: text, offset: 0 }, { container: text, offset: 2 });
+
+    // First run's data-start corrupted (run no longer tiles from 0).
+    const rootA = root.cloneNode(true) as HTMLDivElement;
+    (rootA.children[0] as HTMLElement).setAttribute('data-start', '1');
+    document.body.appendChild(rootA);
+    const a = rangeToCanonical(range, rootA, version);
+    expect(a.status).toBe('error');
+    if (a.status === 'error') expect(a.code).toBe('DOM_INTEGRITY_ERROR');
+
+    // Last run's data-end corrupted (runs no longer reach the canonical
+    // length; the explicit tiling witness rejects the shape).
+    const rootB = root.cloneNode(true) as HTMLDivElement;
+    (rootB.children[2] as HTMLElement).setAttribute('data-end', '7');
+    document.body.appendChild(rootB);
+    const b = rangeToCanonical(range, rootB, version);
+    expect(b.status).toBe('error');
+    if (b.status === 'error') expect(b.code).toBe('DOM_INTEGRITY_ERROR');
   });
 });
 

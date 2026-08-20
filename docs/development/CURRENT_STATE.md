@@ -264,8 +264,10 @@ Implemented (frontend only):
   (canonical code-point range → native DOM Range);
 - boundary segmentation (`shared/text/segmentation.ts`): canonical content +
   persisted Spans + alignment memberships → flat minimal runs with
-  span/alignment-group membership sets (overlapping Spans supported; sweep
-  set, no O(S²) scan per run); concatenated run text equals canonical
+  span/alignment-group membership sets (overlapping Spans supported;
+  sweep-set implementation with output-sensitive membership emission — dense
+  overlap is quadratic only in emitted membership cardinality, never in
+  inactive-span scans); concatenated run text equals canonical
   content exactly; empty content produces no invented run;
 - TextPanel: canonical content root `[data-text-content-root]` with
   `data-text-version-id`/`data-content-hash`, flat `<span data-run

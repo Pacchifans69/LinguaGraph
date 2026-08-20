@@ -182,12 +182,21 @@ function validateRoot(
  * equals the canonical slice of its metadata, and runs must be contiguous.
  * Any other DOM shape is a fail-closed DOM_INTEGRITY_ERROR (nested/foreign
  * text-bearing nodes are unsupported in M0).
+ *
+ * The canonical content is materialized into a code-point array ONCE; every
+ * run is validated against slices of that same array, so a content root
+ * with T runs costs O(N + T) validation work instead of O(T * N) repeated
+ * whole-string conversions. This sits on the native selection path, where
+ * the practical target is ~100k Unicode code points per TextVersion with
+ * hundreds of runs. Run text is still produced by a code-point-safe
+ * operation (never String.slice with canonical offsets).
  */
 function collectRuns(
   root: HTMLElement,
   content: string,
 ): { ok: true; runs: ResolvedRun[] } | { ok: false; code: SelectionErrorCode; message: string } {
-  const length = codePointLength(content);
+  const codePoints = Array.from(content);
+  const length = codePoints.length;
   const runs: ResolvedRun[] = [];
 
   for (const child of Array.from(root.childNodes)) {
@@ -223,7 +232,7 @@ function collectRuns(
     }
     const textNode = element.firstChild;
     const text = textNode.data;
-    if (text !== sliceByCodePoints(content, start, end)) {
+    if (text !== codePoints.slice(start, end).join('')) {
       return {
         ok: false,
         code: 'DOM_INTEGRITY_ERROR',
@@ -238,6 +247,27 @@ function collectRuns(
       };
     }
     runs.push({ start, end, text, element, textNode });
+  }
+
+  // Explicit tiling witness: a first run not starting at 0, or a last run not
+  // reaching the canonical length, would break the contentRoot.textContent
+  // invariant (the caller also checks textContent === content, but asserting
+  // the tiling here keeps the run validation self-contained).
+  if (runs.length > 0) {
+    if (runs[0].start !== 0) {
+      return {
+        ok: false,
+        code: 'DOM_INTEGRITY_ERROR',
+        message: 'runs must tile the canonical content from offset 0',
+      };
+    }
+    if (runs[runs.length - 1].end !== length) {
+      return {
+        ok: false,
+        code: 'DOM_INTEGRITY_ERROR',
+        message: 'runs must tile the canonical content to its full length',
+      };
+    }
   }
 
   return { ok: true, runs };

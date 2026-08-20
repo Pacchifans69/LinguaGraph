@@ -634,3 +634,40 @@ describe('WorkspacePage (M0.4 selection and pending tray)', () => {
     expect(saved).toHaveProperty('visiblePanels');
   });
 });
+
+describe('WorkspacePage (M0.4 preference-write discipline)', () => {
+  it('does not write preferences on ephemeral-only transitions', async () => {
+    installFetchMock([['/workspace', () => json(200, snapshot())]]);
+    const { container } = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+
+    // Preference state has stabilized (panel open + reconcile settled).
+    // From here on, ONLY ephemeral transitions happen (capture -> stage ->
+    // capture -> Escape-clear): none of them may touch localStorage.
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    setItemSpy.mockClear();
+
+    await stageEnglishRange(container, 2, 17);
+    await screen.findByText('“look forward to”');
+
+    stubEnglishSelection(container, 7, 17);
+    fireEvent.mouseUp(
+      container.querySelector('.text-panel [data-text-content-root]') as HTMLElement,
+    );
+    await screen.findByText('Selected 7–17: “forward to”');
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() =>
+      expect(screen.queryByText('Selected 7–17: “forward to”')).not.toBeInTheDocument(),
+    );
+
+    expect(setItemSpy).not.toHaveBeenCalled();
+    setItemSpy.mockRestore();
+  });
+});

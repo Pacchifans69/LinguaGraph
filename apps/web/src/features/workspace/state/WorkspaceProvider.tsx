@@ -80,15 +80,16 @@ export function WorkspaceProvider({
     dispatch({ type: 'RECONCILE_PENDING', serverVersions });
   }, [versionKey, serverVersions]);
 
-  // Persist per-document preferences on every change. Panel drag order is a
-  // UI preference only — never PATCHed into TextVersion.sort_order.
-  // currentSelection/pendingMembers are deliberately NOT persisted.
+  // Persist per-document preferences ONLY when the actual preference state
+  // changes. currentSelection/pendingMembers are ephemeral (deliberately NOT
+  // persisted) and MUST NOT trigger localStorage writes, so the dependency
+  // list is scoped to panelOrder/visiblePanels — never the whole `state`.
   useEffect(() => {
     savePreferences(documentId, {
       panelOrder: state.panelOrder,
       visiblePanels: state.visiblePanels,
     });
-  }, [documentId, state]);
+  }, [documentId, state.panelOrder, state.visiblePanels]);
 
   const value = useMemo<WorkspaceContextValue>(() => {
     const stageResult = (): StageResult => {

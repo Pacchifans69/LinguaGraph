@@ -8,9 +8,28 @@
  * covering the run, so overlapping persisted Spans are represented by
  * membership sets on the same minimal run (never by duplicated DOM text).
  *
- * Complexity: O(S log S + T + N) — a sweep-set over sorted span events (no
- * O(S) span scan per run) and a single `Array.from(content)` for all run
- * text. Run text is produced by a code-point-safe operation.
+ * Complexity (output-sensitive; dense overlap can make total emitted
+ * membership cardinality quadratic in the number of spans):
+ *
+ *   S   = number of spans
+ *   N   = canonical content code points
+ *   T   = number of runs (T <= 2S + 1)
+ *   A_r = number of active spans for run r (the run's spanIds cardinality)
+ *   G_r = alignment-group membership items inspected for run r
+ *
+ * total work includes:
+ *
+ *   O(S log S)   sorting span events and deduplicating boundaries
+ *   O(N)         one `Array.from(content)` serving every run's text
+ *   O(T + sum_r(A_r + G_r))
+ *                 per-run active-membership materialization, sorting and
+ *                 group-union work, plus the fixed per-run overhead
+ *
+ * Dense overlap is therefore quadratic only in the EMITTED membership
+ * cardinality (every run lists every overlapping span), which no
+ * segmentation can avoid; this is not the same as scanning all S spans for
+ * every run regardless of activity, and the sweep-set keeps inactive spans
+ * out of the per-run work entirely.
  *
  * Deterministic output: spans are processed in (start, end, id) order;
  * `spanIds` and `alignmentGroupIds` are sorted.
