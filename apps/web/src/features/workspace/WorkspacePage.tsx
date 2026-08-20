@@ -23,6 +23,11 @@ import { TextPanel } from './TextPanel';
 import { AlignmentTray } from './AlignmentTray';
 import { ImportPanel } from './ImportPanel';
 import {
+  useCreateAlignment,
+  pendingToMemberInput,
+} from '../alignments/api';
+import { SavedAlignments } from '../alignments/SavedAlignments';
+import {
   WorkspaceProvider,
 } from './state/WorkspaceProvider';
 import { useWorkspaceState } from './state/workspaceContext';
@@ -38,10 +43,17 @@ function WorkspaceBody({
   documentId,
   versionsById,
   runsByVersion,
+  savedAlignments,
 }: {
   documentId: string;
   versionsById: Record<string, TextVersion>;
   runsByVersion: Record<string, RunDescriptor[]>;
+  savedAlignments: {
+    groups: ReturnType<typeof normalizeWorkspace>['alignmentGroups'];
+    membersByGroup: ReturnType<typeof normalizeWorkspace>['membersByGroup'];
+    spansById: ReturnType<typeof normalizeWorkspace>['spansById'];
+    versionsById: ReturnType<typeof normalizeWorkspace>['versionsById'];
+  };
 }) {
   const {
     panelOrder,
@@ -55,8 +67,33 @@ function WorkspaceBody({
     clearPendingTray,
   } = useWorkspaceState();
   const deleteMutation = useDeleteTextVersion(documentId);
+  const createMutation = useCreateAlignment(documentId);
   const [pendingForceDelete, setPendingForceDelete] =
     useState<PendingForceDelete | null>(null);
+
+  // M0.5 Create Alignment validity (frozen contract section 20): at least 2
+  // members AND at least 2 distinct TextVersions. Frontend UX mirror only —
+  // the backend validates every invariant authoritatively.
+  const canCreateAlignment =
+    pendingMembers.length >= 2 &&
+    new Set(pendingMembers.map((member) => member.textVersionId)).size >= 2;
+
+  function handleCreateAlignment() {
+    if (!canCreateAlignment || createMutation.isPending) {
+      return;
+    }
+    createMutation.mutate(
+      { members: pendingMembers.map(pendingToMemberInput) },
+      {
+        // The successful server mutation is the boundary between ephemeral
+        // tray state and persisted state: the tray is cleared ONLY here,
+        // never before (frozen contract section 22).
+        onSuccess: () => {
+          clearPendingTray();
+        },
+      },
+    );
+  }
 
   // Escape: cancels the current selection (and the native browser
   // Selection) only. Already-staged pending tray members are never
@@ -108,6 +145,9 @@ function WorkspaceBody({
     <div className="workspace">
       {deleteMutation.isError ? (
         <ErrorMessage error={deleteMutation.error} />
+      ) : null}
+      {createMutation.isError ? (
+        <ErrorMessage error={createMutation.error} />
       ) : null}
 
       {hidden.length > 0 ? (
@@ -182,6 +222,18 @@ function WorkspaceBody({
         versionsById={versionsById}
         onRemove={removePendingMember}
         onClear={clearPendingTray}
+        canCreate={canCreateAlignment}
+        onCreate={handleCreateAlignment}
+        isCreating={createMutation.isPending}
+      />
+
+      {/* M0.5: minimal read-only persisted alignment representation,
+          derived entirely from the authoritative workspace snapshot. */}
+      <SavedAlignments
+        groups={savedAlignments.groups}
+        membersByGroup={savedAlignments.membersByGroup}
+        spansById={savedAlignments.spansById}
+        versionsById={savedAlignments.versionsById}
       />
 
       <ImportPanel documentId={documentId} />
@@ -294,6 +346,12 @@ export function WorkspacePage() {
           documentId={documentId}
           versionsById={normalized.versionsById}
           runsByVersion={runsByVersion}
+          savedAlignments={{
+            groups: normalized.alignmentGroups,
+            membersByGroup: normalized.membersByGroup,
+            spansById: normalized.spansById,
+            versionsById: normalized.versionsById,
+          }}
         />
       </section>
     </WorkspaceProvider>

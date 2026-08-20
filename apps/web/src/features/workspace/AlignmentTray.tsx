@@ -1,13 +1,15 @@
 /**
- * AlignmentTray (M0.4): the pending-only tray of staged selections
+ * AlignmentTray (M0.4 + M0.5): the pending tray of staged selections
  * (ADR-007; spec section 24).
  *
  * - lists pending members with their TextVersion language tag, label and
  *   selected quote;
  * - supports explicit remove-one and clear-all;
- * - shows that the tray is CLIENT STATE ONLY: nothing is persisted, and
- *   there is deliberately NO persistence-capable "Create Alignment" action
- *   (that belongs to M0.5);
+ * - M0.5: the persistence-capable "Create Alignment" action. It is enabled
+ *   only when the tray holds at least 2 members from at least 2 distinct
+ *   TextVersions (frontend UX mirror of the backend invariants — the
+ *   backend remains authoritative). The tray is cleared ONLY after the
+ *   server mutation succeeds (WorkspacePage owns that lifecycle);
  * - Escape never clears the tray; removal is always explicit.
  */
 
@@ -19,6 +21,10 @@ export interface AlignmentTrayProps {
   versionsById: Record<string, TextVersion>;
   onRemove: (member: PendingSpan) => void;
   onClear: () => void;
+  /** M0.5: true when >=2 members from >=2 distinct TextVersions are staged. */
+  canCreate: boolean;
+  onCreate: () => void;
+  isCreating: boolean;
 }
 
 export function AlignmentTray({
@@ -26,6 +32,9 @@ export function AlignmentTray({
   versionsById,
   onRemove,
   onClear,
+  canCreate,
+  onCreate,
+  isCreating,
 }: AlignmentTrayProps) {
   return (
     <section className="alignment-tray" aria-label="Alignment tray">
@@ -74,7 +83,21 @@ export function AlignmentTray({
         >
           Clear tray
         </button>
+        <button
+          type="button"
+          className="tray-create"
+          disabled={!canCreate || isCreating}
+          onClick={onCreate}
+        >
+          Create Alignment
+        </button>
       </div>
+      {members.length > 0 && !canCreate ? (
+        <p className="tray-hint" role="status">
+          Select at least two spans from two different text versions to
+          create an alignment.
+        </p>
+      ) : null}
     </section>
   );
 }
