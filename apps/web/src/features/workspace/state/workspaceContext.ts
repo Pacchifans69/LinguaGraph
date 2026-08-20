@@ -17,9 +17,12 @@ export interface WorkspaceContextValue {
   pendingMembers: PendingSpan[];
   /**
    * M0.5 (Gate 2 fix): true while a Create Alignment request is in flight.
-   * The pending tray is FROZEN: staging, remove and clear are rejected so a
-   * member staged after the request began is never silently discarded by
-   * the success-path tray clear.
+   * The pending tray is FROZEN against growth: STAGING is rejected by
+   * WorkspaceProvider with the FROZEN reason, and the user-facing Remove /
+   * Clear tray controls are disabled — so a member staged after the request
+   * began can never be silently discarded by the success-path tray clear.
+   * (Programmatic clearPendingTray remains usable; the create success path
+   * itself relies on it.)
    */
   isCreatingAlignment: boolean;
   openPanel: (versionId: string) => void;

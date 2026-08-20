@@ -48,6 +48,10 @@ export interface CreatedAlignment {
 export function useCreateAlignment(documentId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    // Document-scoped mutation key (HR-F01, defense in depth): mutation
+    // cache/observer state is isolated per document even beyond the
+    // keyed DocumentWorkspacePage remount.
+    mutationKey: ['alignment-create', documentId],
     mutationFn: (input: CreateAlignmentInput) =>
       apiClient.post<CreatedAlignment>(
         `/api/v1/documents/${documentId}/alignments`,

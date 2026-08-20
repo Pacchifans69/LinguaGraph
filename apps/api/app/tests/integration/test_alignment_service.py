@@ -381,29 +381,26 @@ def test_create_shares_span_across_groups(db_session) -> None:
     assert len(memberships) == 2
 
 
-def test_concurrent_same_coordinate_get_or_create(db_engine) -> None:
+def test_concurrent_same_coordinate_get_or_create(db_session, db_engine) -> None:
     """Two concurrent creates with identical coordinates -> ONE logical Span.
 
-    Both service calls run in their own Session/transaction on the same
-    engine; the PostgreSQL ``ON CONFLICT DO NOTHING RETURNING`` path lets
-    the loser reuse the winner's Span without aborting its own outer
-    transaction. The assertion holds for every interleaving.
+    Setup runs through the ``db_session`` fixture so its per-test TRUNCATE
+    gives this test the same clean domain state as the rest of the
+    integration suite (HR-F02). The two concurrent service calls then run in
+    their own worker Sessions/transactions on the same engine; the
+    PostgreSQL ``ON CONFLICT DO NOTHING RETURNING`` path lets the loser
+    reuse the winner's Span without aborting its own outer transaction. The
+    assertion holds for every interleaving.
     """
-    from app.tests.integration.test_persistence import (
-        make_document,
-        make_project,
-        make_version,
-    )
+    project = make_project(db_session)
+    document = make_document(db_session, project.id)
+    en = make_version(db_session, document.id, language_tag="en", label="EN", content=EN)
+    de = make_version(db_session, document.id, language_tag="de", label="DE", content=DE)
+    document_id = document.id
+    en_id = en.id
+    de_id = de.id
 
     factory = sessionmaker(bind=db_engine, autoflush=False, expire_on_commit=False)
-    with factory() as setup:
-        project = make_project(setup)
-        document = make_document(setup, project.id)
-        en = make_version(setup, document.id, language_tag="en", label="EN", content=EN)
-        de = make_version(setup, document.id, language_tag="de", label="DE", content=DE)
-        document_id = document.id
-        en_id = en.id
-        de_id = de.id
 
     errors: list[Exception] = []
     barrier = threading.Barrier(2)
@@ -439,8 +436,6 @@ def test_concurrent_same_coordinate_get_or_create(db_engine) -> None:
             )
         ).all()
         assert len(span_rows) == 1  # exactly one logical Span survives
-        # Scope every assertion to this document: the disposable database is
-        # shared with earlier tests, which leave their own rows behind.
         groups = session.scalars(
             select(AlignmentGroup).where(AlignmentGroup.document_id == document_id)
         ).all()

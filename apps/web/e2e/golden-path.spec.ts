@@ -14,27 +14,32 @@
  *
  *   7. add a Unicode TextVersion with non-BMP content
  *      ('Café 🙂 mañana für français');
- *   8. native Range selection in the EN panel -> canonical quote/offsets;
- *   9. explicit Add to Alignment -> pending tray;
- *  10. stage members from DE and the Unicode version;
- *  11. verify both/three pending members; remove one; re-add it;
- *  12. duplicate + same-version overlap staging rejection;
- *  13. clear tray;
- *  14. reload: panel preferences persist, the pending tray does not;
- *  15. query the workspace snapshot: M0.4 staging persisted NOTHING
+ *   8. native Range selections -> canonical quote/offsets (EN, DE, Unicode);
+ *   9. explicit Add to Alignment -> pending tray; stage members;
+ *  10. stage a DE member;
+ *  11. Unicode browser-level scenario around a surrogate pair;
+ *  12. reload: panel preferences persist, the pending tray does not;
+ *  13. re-stage EN + DE, remove one pending member, re-add it;
+ *  14. duplicate staging rejection (same version + start + end);
+ *  15. same-version overlap staging rejection;
+ *  16. clear tray;
+ *  17. query the workspace snapshot: M0.4 staging persisted NOTHING
  *      (spans == [], alignment_groups == [], alignment_members == []);
- *  16. STOP.
+ *  18. M0.4 STOP point; the M0.5 slice continues below.
  *
  * M0.5 portion (alignment persistence, continued from the M0.4 STOP
  * point) — the real user loop:
  *
- *  17. stage EN [2,17) + EN [18,28) (same-version multi-span) + DE [4,21)
+ *  19. stage EN [2,17) + EN [18,28) (same-version multi-span) + DE [4,21)
  *      through the UI; Create Alignment disabled until >=2 members from
  *      >=2 distinct TextVersions are staged;
- *  18. Create Alignment through the UI: tray clears, saved alignment
+ *  20. Create Alignment through the UI: tray clears, saved alignment
  *      visibly appears, snapshot contains Span/Group/Member rows;
- *  19. reload: tray is empty, saved alignment still visible, persisted
- *      workspace data still present.
+ *  21. workspace snapshot carries the persisted data with server-derived
+ *      exact_text;
+ *  22. reload: tray is empty, saved alignment still visible, persisted
+ *      workspace data still present;
+ *  23. STOP — M0.6 (hover/active visualization, connectors, Inspector).
  *
  * It deliberately does NOT touch any M0.6 surface (hover/active
  * visualization, connectors, Inspector).

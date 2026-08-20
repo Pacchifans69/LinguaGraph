@@ -272,13 +272,27 @@ function WorkspaceBody({
 
 export function WorkspacePage() {
   const { documentId = '' } = useParams<{ documentId: string }>();
+
+  // Document-scoped inner component (HR-F01): keyed by documentId, so a
+  // same-route parameter transition (/documents/doc-A/workspace ->
+  // /documents/doc-B/workspace) remounts the WHOLE document workspace
+  // subtree — including the create-alignment MutationObserver. A
+  // pending/error mutation from doc A can therefore never leak its
+  // isPending/frozen/error state into doc B.
+  return <DocumentWorkspacePage key={documentId} documentId={documentId} />;
+}
+
+function DocumentWorkspacePage({ documentId }: { documentId: string }) {
   const workspaceQuery = useWorkspace(documentId);
 
-  // M0.5 (Gate 2 fix): the create mutation lives at the PAGE level (before
+  // M0.5 (Gate 2 fix): the create mutation lives at the page level (before
   // any early return — hooks must be unconditional) so the in-flight flag
   // can freeze the pending tray (WorkspaceProvider) while the request is
   // pending: a member staged after the request began must never be silently
-  // discarded by the success-path tray clear.
+  // discarded by the success-path tray clear. HR-F01: this hook's observer
+  // is document-scoped because the whole component remounts on documentId
+  // change (and the mutation carries a document-scoped mutationKey as
+  // defense in depth).
   const createMutation = useCreateAlignment(documentId);
 
   const normalized = useMemo(
@@ -332,11 +346,11 @@ export function WorkspacePage() {
   }));
 
   return (
-    // key={documentId}: a document change remounts the provider, clearing
-    // ephemeral selection state (currentSelection/pendingMembers) and
-    // re-initializing panel preferences for the new document.
+    // No key here: the DocumentWorkspacePage component above is keyed by
+    // documentId, so the whole subtree (provider + hooks) already remounts
+    // on a document change — ephemeral selection state is cleared and panel
+    // preferences re-initialize for the new document.
     <WorkspaceProvider
-      key={documentId}
       documentId={documentId}
       serverVersions={serverVersions}
       isCreatingAlignment={createMutation.isPending}

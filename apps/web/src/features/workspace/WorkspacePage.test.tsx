@@ -896,6 +896,216 @@ describe('WorkspacePage (M0.5 alignment persistence)', () => {
     expect(screen.getByRole('button', { name: 'Create Alignment' })).toBeDisabled(); // empty tray
   });
 
+  it('isolates the create mutation per document (HR-F01): a pending doc-A create never leaks into doc B', async () => {
+    const doc2 = snapshot();
+    doc2.document = { ...doc2.document, id: 'doc-2', title: 'Chapter 2' };
+    doc2.text_versions = doc2.text_versions.map((version) => ({
+      ...version,
+      id: `tv-2-${version.id}`,
+      document_id: 'doc-2',
+      label: `${version.label} 2`,
+    }));
+
+    let createCalled = false;
+    const pendingCreate: { resolve: ((value: MockResponse) => void) | null } = {
+      resolve: null,
+    };
+    installFetchMock([
+      [
+        '/workspace',
+        (url) => (url.includes('doc-2') ? json(200, doc2) : json(200, snapshot())),
+      ],
+      [
+        '/alignments',
+        () => {
+          createCalled = true;
+          // Deferred: doc A's POST stays pending until the test resolves it.
+          return new Promise<MockResponse>((resolve) => {
+            pendingCreate.resolve = resolve;
+          });
+        },
+      ],
+    ]);
+
+    function Harness() {
+      return (
+        <div>
+          <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
+          <Routes>
+            <Route path="/documents/:documentId/workspace" element={<WorkspacePage />} />
+          </Routes>
+        </div>
+      );
+    }
+    const client = createTestQueryClient();
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/documents/doc-1/workspace']}>
+          <Harness />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    // Stage a valid doc-A alignment (EN + DE) and start the create request.
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    fireEvent.click(screen.getByRole('button', { name: 'Open German' }));
+    await screen.findByText('Ich freue mich darauf, dich morgen zu sehen.');
+    await stageEnglishRange(container, 2, 17);
+    await screen.findByText('“look forward to”');
+    const germanPanel = container.querySelectorAll('.text-panel')[1];
+    const germanRoot = germanPanel?.querySelector('[data-text-content-root]');
+    const germanText = germanRoot?.firstChild?.firstChild as Text;
+    const germanRange = document.createRange();
+    germanRange.setStart(germanText, 4);
+    germanRange.setEnd(germanText, 21);
+    vi.stubGlobal('getSelection', () => ({
+      rangeCount: 1,
+      getRangeAt: () => germanRange,
+      anchorNode: germanText,
+      focusNode: germanText,
+      anchorOffset: 4,
+      focusOffset: 21,
+      removeAllRanges: vi.fn(),
+    }));
+    fireEvent.mouseUp(germanRoot as HTMLElement);
+    fireEvent.click(
+      within(germanPanel as HTMLElement).getByRole('button', { name: 'Add to Alignment' }),
+    );
+    await screen.findByText('“freue mich darauf”');
+    fireEvent.click(screen.getByRole('button', { name: 'Create Alignment' }));
+    await waitFor(() => expect(createCalled).toBe(true));
+
+    // Doc A is frozen while its create is pending.
+    expect(screen.getByRole('button', { name: 'Create Alignment' })).toBeDisabled();
+
+    // Navigate the SAME mounted route to doc B while doc A's POST is still
+    // pending.
+    fireEvent.click(screen.getByRole('link', { name: 'Go to doc 2' }));
+    await screen.findByRole('button', { name: /Open English 2/ });
+
+    // Doc B must NOT inherit doc A's isPending/frozen mutation state:
+    // staging works and the Add button is enabled.
+    fireEvent.click(screen.getByRole('button', { name: /Open English 2/ }));
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    stubEnglishSelection(container, 2, 17);
+    fireEvent.mouseUp(
+      container.querySelector('.text-panel [data-text-content-root]') as HTMLElement,
+    );
+    await screen.findByText('Selected 2–17: “look forward to”');
+    const addButtons = screen.getAllByRole('button', { name: 'Add to Alignment' });
+    for (const button of addButtons) {
+      expect(button).toBeEnabled();
+    }
+    fireEvent.click(addButtons[0]);
+    await screen.findByText('“look forward to”');
+
+    // Resolve doc A's request.
+    pendingCreate.resolve?.({
+      status: 201,
+      body: {
+        id: 'al-1', document_id: 'doc-1', note: null,
+        created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+        members: [
+          { id: 'am-en', span_id: 'sp-en', text_version_id: 'tv-en', start: 2, end: 17, exact_text: 'look forward to' },
+          { id: 'am-de', span_id: 'sp-de', text_version_id: 'tv-de', start: 4, end: 21, exact_text: 'freue mich darauf' },
+        ],
+      },
+    });
+
+    // Doc B state/tray/error UI remains completely untouched: its own tray
+    // member survives, no doc-A saved alignment and no error appear.
+    expect(screen.getByText('“look forward to”')).toBeInTheDocument();
+    expect(screen.queryByText(/Alignment al-/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('does not display a stale doc-A create error after transitioning to doc B (HR-F01)', async () => {
+    const doc2 = snapshot();
+    doc2.document = { ...doc2.document, id: 'doc-2', title: 'Chapter 2' };
+    doc2.text_versions = doc2.text_versions.map((version) => ({
+      ...version,
+      id: `tv-2-${version.id}`,
+      document_id: 'doc-2',
+      label: `${version.label} 2`,
+    }));
+    installFetchMock([
+      [
+        '/workspace',
+        (url) => (url.includes('doc-2') ? json(200, doc2) : json(200, snapshot())),
+      ],
+      [
+        '/alignments',
+        () =>
+          json(409, {
+            code: 'DUPLICATE_ALIGNMENT_MEMBER',
+            message: 'a span cannot appear twice in the same alignment group',
+            details: {},
+          }),
+      ],
+    ]);
+
+    function Harness() {
+      return (
+        <div>
+          <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
+          <Routes>
+            <Route path="/documents/:documentId/workspace" element={<WorkspacePage />} />
+          </Routes>
+        </div>
+      );
+    }
+    const client = createTestQueryClient();
+    const { container } = render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={['/documents/doc-1/workspace']}>
+          <Harness />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    // Doc A: stage a valid alignment and fail the create request.
+    await openEnglishPanel();
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    fireEvent.click(screen.getByRole('button', { name: 'Open German' }));
+    await screen.findByText('Ich freue mich darauf, dich morgen zu sehen.');
+    await stageEnglishRange(container, 2, 17);
+    await screen.findByText('“look forward to”');
+    const germanPanel = container.querySelectorAll('.text-panel')[1];
+    const germanRoot = germanPanel?.querySelector('[data-text-content-root]');
+    const germanText = germanRoot?.firstChild?.firstChild as Text;
+    const germanRange = document.createRange();
+    germanRange.setStart(germanText, 4);
+    germanRange.setEnd(germanText, 21);
+    vi.stubGlobal('getSelection', () => ({
+      rangeCount: 1,
+      getRangeAt: () => germanRange,
+      anchorNode: germanText,
+      focusNode: germanText,
+      anchorOffset: 4,
+      focusOffset: 21,
+      removeAllRanges: vi.fn(),
+    }));
+    fireEvent.mouseUp(germanRoot as HTMLElement);
+    fireEvent.click(
+      within(germanPanel as HTMLElement).getByRole('button', { name: 'Add to Alignment' }),
+    );
+    await screen.findByText('“freue mich darauf”');
+    fireEvent.click(screen.getByRole('button', { name: 'Create Alignment' }));
+    await screen.findByRole('alert');
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'DUPLICATE_ALIGNMENT_MEMBER: a span cannot appear twice in the same alignment group',
+    );
+
+    // Transition to doc B: the stale doc-A mutation error must not be
+    // displayed there (the document-scoped workspace remounts and brings a
+    // fresh create mutation observer).
+    fireEvent.click(screen.getByRole('link', { name: 'Go to doc 2' }));
+    await screen.findByRole('button', { name: /Open English 2/ });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('No saved alignments yet.')).toBeInTheDocument();
+  });
+
   it('keeps the tray and shows the error when creation fails', async () => {
     const current = snapshot();
     installFetchMock([

@@ -452,10 +452,10 @@ def _cleanup_orphan_spans(
     Orphan semantics identical to the reviewed ADR-005 destructive-reset
     implementation (``text_version_service.delete_text_version``): a
     candidate is deleted only when no AlignmentMember references it OUTSIDE
-    the given group — memberships in any other group (including groups in
-    other documents) always count as surviving. Pre-existing bare Spans are
-    never candidates here: only spans whose membership in this group is
-    being removed are offered as candidates.
+    the given group — memberships in any other surviving AlignmentGroup
+    count as surviving. Pre-existing bare Spans are never candidates here:
+    only spans whose membership in this group is being removed are offered
+    as candidates.
     """
     for span_id in candidate_span_ids:
         survives = (
