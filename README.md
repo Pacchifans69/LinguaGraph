@@ -10,25 +10,32 @@ language-neutral via BCP-47 `language_tag`).
 ## Current milestone
 
 **M0 — Manual Alignment Workbench**. The latest completed checkpoint is
-**M0.3 — Document Workspace** (**COMPLETE / MERGED**). M0.1 — Repository
-Foundation, M0.2 — Persistence Model, and M0.3 were human-approved and merged
-into `main` (PR #1, PR #2, and PR #5). M0.3 merged as
-`1230ffe0282adac3a20c1aafac6c2271c788b198`.
+**M0.4 — Selection Engine** (**COMPLETE / MERGED**). M0.1 — Repository
+Foundation, M0.2 — Persistence Model, M0.3 — Document Workspace, and
+M0.4 — Selection Engine were human-approved and merged into `main` (PR #1,
+PR #2, PR #5, and PR #6). M0.4 merged as
+`b2472fcc6e6cda23cb98244ae86ab63fd58ef5ad` from final feature head
+`2d0d4bcf6dd562e3cab003aa615049628c173999`.
 
-The active implementation checkpoint is **M0.4 — Selection Engine**
-(**implemented, awaiting human review**), based on the approved post-M0.3
-checkpoint base `46b255481518d079a5604a770b9d3036647f8a89`. M0.5 has NOT
-started.
+The next checkpoint is **M0.5 — Alignment Persistence** (**NOT STARTED**).
+M0.5 must not begin from this closeout task: it requires a fresh checkpoint
+conversation, repository-reality reconstruction from current merged `main`,
+Gate 1, contract reconstruction from the authoritative sources, and human
+contract review/freeze before any implementation branch is created.
 
 M0 proves the closed loop: *create project → create parallel document → add
 arbitrary-language text versions → select spans → create alignment group →
 persist → reload → highlight counterparts*. M0.3 delivered project/document
 navigation, TextVersion creation/import, side-by-side TextVersion panels and
-the workspace read model. M0.4 delivers the frontend selection engine:
-native Selection/Range → canonical code-point offsets, boundary-segmented
-flat runs, current-selection capture and the pending Alignment Tray (explicit
-Add/remove/clear, client-side duplicate/overlap rules, frontend-only state).
-Alignment persistence remains M0.5.
+the workspace read model. M0.4 delivered the frontend selection engine:
+UTF-16 ↔ code-point conversion, native Selection/Range canonicalization,
+flat boundary-segmented runs, current-selection capture, the client-side
+PendingSpan Alignment Tray (explicit Add/remove/clear, duplicate/overlap
+staging rules, lifecycle/Escape behavior, frontend-only state) and Unicode
+browser coverage — with NO alignment persistence. M0.5 remains responsible
+for the complete atomic Alignment create/update/delete service and its
+persistence endpoints, concurrency-safe Span get-or-create, and the
+persistence lifecycle/orphan cleanup as already frozen.
 
 Authoritative documents:
 

@@ -16,14 +16,10 @@ Alembic migration history, or merged GitHub PR history.
 
 Last completed implementation checkpoint:
 
-**M0.3 — Document Workspace** (COMPLETE / MERGED)
+**M0.4 — Selection Engine** (COMPLETE / MERGED)
 
-Most recent implementation checkpoint:
-
-**M0.4 — Selection Engine** (IMPLEMENTED — awaiting human review)
-
-M0.1, M0.2, and M0.3 have been human-reviewed, approved, and merged into
-`main`.
+M0.1, M0.2, M0.3, and M0.4 have been human-reviewed, approved, and merged
+into `main`.
 
 M0.3 GitHub state:
 
@@ -32,19 +28,36 @@ M0.3 GitHub state:
 - merge commit: `1230ffe0282adac3a20c1aafac6c2271c788b198`
 - merged: 2026-08-19
 
-M0.4 implementation is complete but has NOT yet been human-reviewed/merged.
-M0.5 has NOT started and must not begin until M0.4 has been human-reviewed,
-approved, and merged into `main`.
+M0.4 GitHub state:
+
+- PR #6 — `M0.4 — Selection Engine`
+- approved base: `46b255481518d079a5604a770b9d3036647f8a89`
+- final implementation head: `2d0d4bcf6dd562e3cab003aa615049628c173999`
+- merge commit: `b2472fcc6e6cda23cb98244ae86ab63fd58ef5ad`
+- merged: 2026-08-20
+
+M0.4 Gate 2: PASS — human merge decision: APPROVED — M0.4: COMPLETE / MERGED.
 
 M0.4 base provenance (historical): the original M0.4 implementation attempt
 was created from the reviewed M0.3 implementation head
 `33bfaef20c2e64bed92fe00aa147d74611ac41ad` because the implementation
 environment could not reach the remote. During Gate 2 base reconciliation,
-remote repository state was restored and verified. The M0.4 branch was then
+remote repository state was restored and verified, and the M0.4 branch was
 rebased onto the approved post-M0.3 checkpoint base
-`46b255481518d079a5604a770b9d3036647f8a89`. The earlier `33bfaef` base is
-retained only as historical provenance of the implementation attempt and is
-no longer the current branch base.
+`46b255481518d079a5604a770b9d3036647f8a89`. The final reviewed and merged
+branch was therefore correctly based on `46b255…`; the earlier `33bfaef`
+base is retained only as historical provenance of the implementation attempt
+and is no longer the current branch base.
+
+Next implementation checkpoint:
+
+**M0.5 — Alignment Persistence (NOT STARTED)**
+
+- no M0.5 implementation occurred during M0.4;
+- next M0.5 work starts from the post-M0.4 merged `main` state;
+- a fresh conversation, repository-reality reconstruction, Gate 1, and
+  contract reconstruction/freeze are required before implementation;
+- do not continue from `m0.4-selection-engine`.
 
 ---
 
@@ -234,12 +247,23 @@ and the M0.3 changes are HTTP/frontend only.
 
 Status:
 
-**IMPLEMENTED — awaiting human review** (not yet merged into `main`)
+**COMPLETE / MERGED**
+
+GitHub:
+
+- PR #6 — `M0.4 — Selection Engine`
+- approved base: `46b255481518d079a5604a770b9d3036647f8a89`
+- final implementation head: `2d0d4bcf6dd562e3cab003aa615049628c173999`
+- merge commit: `b2472fcc6e6cda23cb98244ae86ab63fd58ef5ad`
+- merged: 2026-08-20
+
+M0.4 Gate 2: PASS — human merge decision: APPROVED.
 
 Base: `46b255481518d079a5604a770b9d3036647f8a89` (approved post-M0.3
 checkpoint base; see the historical base provenance in section 1).
 
-Implementation branch: `m0.4-selection-engine`.
+Implementation branch: `m0.4-selection-engine` (retained pending final
+branch-cleanup approval after the Gate 3 remote audit).
 
 Implemented (frontend only):
 
@@ -627,8 +651,8 @@ GitHub CI green.
 ## 10B. M0.4 verification baseline
 
 Locally reported M0.4 verification (implementation pass + Gate 2 base
-reconciliation pass + human-review fix pass; awaiting human review). The
-latest ACTUAL results below are from the human-review fix pass, executed
+reconciliation pass + human-review fix pass; merged 2026-08-20 via PR #6).
+The latest ACTUAL results below are from the human-review fix pass, executed
 after the rebase onto the approved base
 `46b255481518d079a5604a770b9d3036647f8a89` (see section 1):
 
@@ -709,20 +733,23 @@ concurrent workload ever emerges.
 
 ### M0.4 — Selection Engine
 
-**IMPLEMENTED — awaiting human review** (see section 2). M0.4 is not yet
-merged into `main`.
+**COMPLETE / MERGED** (PR #6; see section 1 and section 2).
 
-### M0.5 — Manual Alignment
+### M0.5 — Alignment Persistence
 
-**HAS NOT STARTED.**
+**NOT STARTED.**
 
-Owns:
+Owns (as frozen in the authoritative M0 documents):
 
-- complete AlignmentService;
-- atomic alignment create/update/delete;
+- complete atomic AlignmentService create/update/delete;
+- persistence service and HTTP mutation endpoints;
 - concurrency-safe Span reuse/get-or-create;
-- alignment HTTP mutations;
-- tray -> persistence workflow.
+- persistence lifecycle / orphan cleanup.
+
+No M0.5 implementation occurred during M0.4. Next M0.5 work starts from the
+post-M0.4 merged `main` state; a fresh conversation, repository-reality
+reconstruction, Gate 1, and contract reconstruction/freeze are required
+before implementation. Do not continue from `m0.4-selection-engine`.
 
 ### M0.6 — Alignment Visualization
 
@@ -741,17 +768,21 @@ M0.
 
 ## 13. Next action
 
-After M0.4 is human-reviewed, approved and merged into `main`:
+M0.4 is complete and merged. The next checkpoint is M0.5 — Alignment
+Persistence, which has NOT started. A new checkpoint conversation must:
 
-1. synchronize local `main`;
-2. create the M0.5 implementation branch from the reviewed post-M0.4 main;
-3. start a fresh M0.5 Agent/session;
-4. have that Agent read this file, `AGENTS.md`, the authoritative
-   pre-implementation documents and all accepted ADRs;
-5. implement M0.5 (Manual Alignment) only;
+1. synchronize and read current merged `main` (post-M0.4);
+2. perform Gate 1 (repository-reality reconstruction);
+3. reconstruct the M0.5 checkpoint contract from this file, `AGENTS.md`, the
+   authoritative pre-implementation documents, ADR-001…ADR-009, and current
+   `main`;
+4. obtain human contract review/freeze;
+5. only then create the bounded M0.5 implementation branch and start
+   implementation;
 6. stop for human review before M0.6.
 
-Do not begin M0.5 automatically, and do not skip the M0.4 human review.
+Do not begin M0.5 automatically, and do not reuse `m0.4-selection-engine` as
+the M0.5 base.
 
 ---
 
