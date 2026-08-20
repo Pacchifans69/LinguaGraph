@@ -976,6 +976,12 @@ describe('WorkspacePage (M0.5 alignment persistence)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create Alignment' }));
     await waitFor(() => expect(createCalled).toBe(true));
 
+    // Proof precondition: the doc-A create mutation is genuinely in flight
+    // (document-scoped mutation cache) when we navigate away.
+    expect(
+      client.isMutating({ mutationKey: ['alignment-create', 'doc-1'] }),
+    ).toBe(1);
+
     // Doc A is frozen while its create is pending.
     expect(screen.getByRole('button', { name: 'Create Alignment' })).toBeDisabled();
 
@@ -1013,11 +1019,29 @@ describe('WorkspacePage (M0.5 alignment persistence)', () => {
       },
     });
 
+    // Synchronize: promise resolution is asynchronous, so first wait until
+    // the OLD doc-A alignment-create mutation has ACTUALLY settled (its
+    // success lifecycle — including the workspace invalidation — has run),
+    // then prove doc B's state was untouched by that settlement.
+    await waitFor(() => {
+      expect(
+        client.isMutating({ mutationKey: ['alignment-create', 'doc-1'] }),
+      ).toBe(0);
+    });
+
     // Doc B state/tray/error UI remains completely untouched: its own tray
     // member survives, no doc-A saved alignment and no error appear.
     expect(screen.getByText('“look forward to”')).toBeInTheDocument();
     expect(screen.queryByText(/Alignment al-/)).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    // Doc B remains usable after the doc-A mutation settles: its tray can
+    // still be cleared normally.
+    fireEvent.click(screen.getByRole('button', { name: 'Clear tray' }));
+    await waitFor(() =>
+      expect(screen.queryByText('“look forward to”')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('No pending selections.')).toBeInTheDocument();
   });
 
   it('does not display a stale doc-A create error after transitioning to doc B (HR-F01)', async () => {
