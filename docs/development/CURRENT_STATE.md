@@ -627,10 +627,10 @@ GitHub CI green.
 ## 10B. M0.4 verification baseline
 
 Locally reported M0.4 verification (implementation pass + Gate 2 base
-reconciliation pass; awaiting human review). The full suite was re-run from
-the reconciled branch after the rebase onto the approved base
-`46b255481518d079a5604a770b9d3036647f8a89` (see section 1), with identical
-results:
+reconciliation pass + human-review fix pass; awaiting human review). The
+latest ACTUAL results below are from the human-review fix pass, executed
+after the rebase onto the approved base
+`46b255481518d079a5604a770b9d3036647f8a89` (see section 1):
 
 - Python 3.13.x (uv-pinned; `apps/api/.venv`)
 - PostgreSQL 18.6 (native cluster) — used by all integration tests and by
@@ -645,12 +645,15 @@ results:
 - `uv run alembic current` — `0002 (head)`
 - `npm ci` — passed (clean reinstall before the final verification pass)
 - `npm run lint` / `npm run typecheck` — passed
-- `npm run test` — 172 passed (14 files; 82 selection-engine/Unicode
-  tests in `src/shared/text/`, plus TextPanel/AlignmentTray/WorkspacePage/
-  reducer/normalize M0.4 coverage; all M0.3 tests preserved)
+- `npm run test` — 175 passed (14 files), the latest M0.4 baseline: the
+  82 selection-engine/Unicode tests in `src/shared/text/`, the
+  TextPanel/AlignmentTray/WorkspacePage/reducer/normalize M0.4 coverage,
+  all M0.3 tests preserved, PLUS the 3 human-review-fix tests
+  (large-content/many-runs selection correctness; run-tiling fail-closed
+  coverage; ephemeral-only state does not trigger preference writes)
 - `npm run build` — passed
 - `npx playwright test e2e/golden-path.spec.ts` — M0.3 + M0.4 slice, 1
-  passed (26.1s), against the isolated disposable E2E database (default
+  passed (26.2s), against the isolated disposable E2E database (default
   ports 8000/5173); the final run executed after `npm ci`
 - `git diff --check` — clean
 
@@ -659,7 +662,12 @@ head (`1ced20dc85794923c39c9695ea05dc9546a524ba`) vs the reconciled head
 differ in exactly `AGENTS.md`, `README.md`, and
 `docs/development/CURRENT_STATE.md`; `git diff <old head> HEAD -- apps` is
 EMPTY (no application/test/style/config/backend change; no dependency or
-migration change).
+migration change). The human-review fix pass changed only
+`selection.ts`/`segmentation.ts`/`WorkspaceProvider.tsx` plus directly
+relevant tests and this file.
+
+No independent GitHub CI evidence is claimed: verification is based on the
+reported local execution above.
 
 No SQLite implementation was introduced anywhere in the test stack.
 

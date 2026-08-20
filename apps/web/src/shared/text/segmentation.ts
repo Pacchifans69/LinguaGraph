@@ -11,19 +11,19 @@
  * Complexity (output-sensitive; dense overlap can make total emitted
  * membership cardinality quadratic in the number of spans):
  *
- *   S   = number of spans
+ *   S   = input span count
  *   N   = canonical content code points
- *   T   = number of runs (T <= 2S + 1)
- *   A_r = number of active spans for run r (the run's spanIds cardinality)
- *   G_r = alignment-group membership items inspected for run r
+ *   T   = run count (T <= 2S + 1)
+ *   A_r = active span count for run r (the run's spanIds cardinality)
+ *   G_r = group-membership entries inspected for run r
+ *   H_r = unique emitted alignment-group ids for run r
  *
- * total work includes:
- *
- *   O(S log S)   sorting span events and deduplicating boundaries
- *   O(N)         one `Array.from(content)` serving every run's text
- *   O(T + sum_r(A_r + G_r))
- *                 per-run active-membership materialization, sorting and
- *                 group-union work, plus the fixed per-run overhead
+ *   O( S log S
+ *      + N
+ *      + T
+ *      + sum_r( A_r log A_r      // [...active].sort() per run
+ *             + G_r              // membership inspection
+ *             + H_r log H_r ) )  // [...groupIdSet].sort() per run
  *
  * Dense overlap is therefore quadratic only in the EMITTED membership
  * cardinality (every run lists every overlapping span), which no
