@@ -919,10 +919,9 @@ cleanup — plus the frontend Create Alignment seam, in-flight tray/staging
 freeze, document-scoped create-mutation isolation, minimal read-only
 persisted-alignment representation, and reload-verified persistence.
 
-The merged implementation branch `m0.5-alignment-persistence` still exists
-locally at this stage and awaits post-closeout cleanup (branch deletion
-happens only after this durable-state commit has been reviewed and landed).
-
+Historical implementation branch: `m0.5-alignment-persistence`
+(deleted locally and remotely after M0.5 Gate 3 durable-state closure /
+branch cleanup).
 ### M0.6 — Alignment Visualization
 
 **NOT STARTED.**
