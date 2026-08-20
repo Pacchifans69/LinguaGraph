@@ -262,8 +262,8 @@ M0.4 Gate 2: PASS — human merge decision: APPROVED.
 Base: `46b255481518d079a5604a770b9d3036647f8a89` (approved post-M0.3
 checkpoint base; see the historical base provenance in section 1).
 
-Implementation branch: `m0.4-selection-engine` (retained pending final
-branch-cleanup approval after the Gate 3 remote audit).
+Historical implementation branch: `m0.4-selection-engine` (deleted after
+M0.4 Gate 3 closeout / branch cleanup).
 
 Implemented (frontend only):
 
