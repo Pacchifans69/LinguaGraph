@@ -1,33 +1,122 @@
 /**
- * M0 golden path — M0.3 slice (this checkpoint stops AHEAD of selection).
+ * M0 golden path — M0.3 + M0.4 slices (this checkpoint stops AHEAD of
+ * alignment persistence).
  *
- * Executes ONLY the document-workspace portion of the golden path
- * (report section 51 / M0.3 execution contract):
+ * M0.3 portion (document workspace):
  *
  *   1. create Project;
  *   2. create ParallelDocument;
  *   3. add EN / DE / FR / ES TextVersions (paste);
  *   4. open all four panels;
- *   5. verify hide/show/reorder and reload-preference behavior where
- *      practical;
+ *   5. verify hide/show/reorder and reload-preference behavior;
  *   6. STOP.
  *
- * It deliberately does NOT select text, create an alignment, or touch any
- * M0.4/M0.5 surface.
+ * M0.4 portion (selection engine, continued from the M0.3 STOP point):
+ *
+ *   7. add a Unicode TextVersion with non-BMP content
+ *      ('Café 🙂 mañana für français');
+ *   8. native Range selection in the EN panel -> canonical quote/offsets;
+ *   9. explicit Add to Alignment -> pending tray;
+ *  10. stage members from DE and the Unicode version;
+ *  11. verify both/three pending members; remove one; re-add it;
+ *  12. duplicate + same-version overlap staging rejection;
+ *  13. clear tray;
+ *  14. reload: panel preferences persist, the pending tray does not;
+ *  15. query the workspace snapshot: M0.4 staging persisted NOTHING
+ *      (spans == [], alignment_groups == [], alignment_members == []);
+ *  16. STOP before any alignment persistence.
+ *
+ * It deliberately does NOT create an alignment or touch any M0.5/M0.6
+ * surface.
  *
  * Assertions that look for version content are scoped to `.text-panel`:
  * `page.getByText()` also matches `<textarea>` values, which would otherwise
  * false-positive before the server round-trip settles.
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const EN_TEXT = 'I look forward to seeing you tomorrow.';
 const DE_TEXT = 'Ich freue mich darauf, dich morgen zu sehen.';
 const FR_TEXT = 'J’ai hâte de te voir demain.';
 const ES_TEXT = 'Tengo ganas de verte mañana.';
+const UNI_TEXT = 'Café 🙂 mañana für français';
 
-test.describe('M0 golden path (M0.3 slice)', () => {
+/**
+ * Select `text` inside one panel's canonical content root using the REAL
+ * browser Selection/Range APIs, then fire mouseup so the panel captures the
+ * selection (exactly like a user drag).
+ *
+ * The panel's `data-run` text nodes tile the canonical content exactly, so a
+ * text-node walk maps the target's UTF-16 position to node + local offset.
+ * The selection engine (not this helper) converts those UTF-16 positions
+ * into canonical code-point offsets.
+ */
+async function selectTextInPanel(
+  page: Page,
+  panel: Locator,
+  text: string,
+): Promise<void> {
+  await panel.locator('[data-text-content-root]').evaluate((root, target) => {
+    const textContent = root.textContent ?? '';
+    const utf16Start = textContent.indexOf(target);
+    if (utf16Start < 0) {
+      throw new Error(`target text not found in panel: ${target}`);
+    }
+    const utf16End = utf16Start + target.length;
+
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    let accumulated = 0;
+    let startNode: Node | null = null;
+    let startOffset = 0;
+    let endNode: Node | null = null;
+    let endOffset = 0;
+    let node: Node | null;
+    while ((node = walker.nextNode()) !== null) {
+      const length = node.textContent?.length ?? 0;
+      if (startNode === null && accumulated + length > utf16Start) {
+        startNode = node;
+        startOffset = utf16Start - accumulated;
+      }
+      if (accumulated + length >= utf16End) {
+        endNode = node;
+        endOffset = utf16End - accumulated;
+        break;
+      }
+      accumulated += length;
+    }
+    if (startNode === null || endNode === null) {
+      throw new Error('could not locate the target text nodes');
+    }
+
+    const range = document.createRange();
+    range.setStart(startNode, startOffset);
+    range.setEnd(endNode, endOffset);
+    const selection = window.getSelection();
+    if (selection === null) {
+      throw new Error('no window.getSelection');
+    }
+    selection.removeAllRanges();
+    selection.addRange(range);
+    root.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+  }, text);
+}
+
+/** Select `text` in a panel and assert the exact canonical quote + offsets. */
+async function selectAndVerify(
+  page: Page,
+  panel: Locator,
+  text: string,
+  expectedStatus: string,
+): Promise<void> {
+  await selectTextInPanel(page, panel, text);
+  await expect(panel.getByText(expectedStatus)).toBeVisible();
+  await expect(
+    panel.getByRole('button', { name: 'Add to Alignment' }),
+  ).toBeEnabled();
+}
+
+test.describe('M0 golden path (M0.3 + M0.4 slices)', () => {
   test('creates a project/document/versions and manages text panels', async ({
     page,
     request,
@@ -140,8 +229,106 @@ test.describe('M0 golden path (M0.3 slice)', () => {
       ).toBeVisible();
     }
 
-    // 6. STOP — no text is selected and no alignment is created in M0.3.
-    // Verify the workspace snapshot via the API is complete and consistent.
+    // 6. M0.3 STOP point reached. The M0.4 slice continues below.
+
+    // ===================================================================
+    // M0.4 — Selection Engine slice
+    // ===================================================================
+
+    // 7. Add a Unicode TextVersion with non-BMP content.
+    await expect(page.getByLabel('Label')).toHaveValue('');
+    await page.getByLabel('Language tag (BCP-47)').fill('mix');
+    await page.getByLabel('Label').fill('Unicode');
+    await page.locator('.import-form').getByLabel('Text').fill(UNI_TEXT);
+    await page.getByRole('button', { name: 'Add version' }).click();
+    await expect(page.locator('.text-panel')).toHaveCount(5);
+
+    const enPanel = page.locator('.text-panel', { hasText: EN_TEXT }).first();
+    const dePanel = page.locator('.text-panel', { hasText: DE_TEXT }).first();
+    const uniPanel = page.locator('.text-panel', { hasText: UNI_TEXT }).first();
+
+    // No selection yet: every panel's Add to Alignment is disabled and the
+    // tray is empty.
+    await expect(page.getByRole('button', { name: 'Add to Alignment' }).first()).toBeDisabled();
+    await expect(page.getByText('No pending selections.')).toBeVisible();
+
+    // 8. Native Range selection in the EN panel -> canonical quote/offsets.
+    await selectAndVerify(page, enPanel, 'look forward to', 'Selected 2–17: “look forward to”');
+
+    // 9. Explicit Add to Alignment -> one pending member; current selection
+    //    is consumed (status disappears, button disabled again).
+    await enPanel.getByRole('button', { name: 'Add to Alignment' }).click();
+    await expect(page.locator('.tray-member')).toHaveCount(1);
+    await expect(page.locator('.tray-member', { hasText: 'look forward to' })).toBeVisible();
+    await expect(enPanel.getByText('Selected 2–17: “look forward to”')).toHaveCount(0);
+    await expect(enPanel.getByRole('button', { name: 'Add to Alignment' })).toBeDisabled();
+
+    // 10. Stage a DE member (exact code-point offsets across a panel).
+    await selectAndVerify(page, dePanel, 'freue mich darauf', 'Selected 4–21: “freue mich darauf”');
+    await dePanel.getByRole('button', { name: 'Add to Alignment' }).click();
+    await expect(page.locator('.tray-member')).toHaveCount(2);
+
+    // 11. Unicode browser-level scenario: native selection around a
+    //     surrogate pair ('🙂') produces exact code-point coordinates.
+    //     'Café 🙂 mañana für français' -> '🙂 mañana' = canonical [5,13).
+    await selectAndVerify(page, uniPanel, '🙂 mañana', 'Selected 5–13: “🙂 mañana”');
+    await uniPanel.getByRole('button', { name: 'Add to Alignment' }).click();
+    await expect(page.locator('.tray-member')).toHaveCount(3);
+    await expect(
+      page.locator('.tray-member', { hasText: '🙂 mañana' }),
+    ).toBeVisible();
+
+    // Also prove a pure non-BMP selection: the whole 'A🙂B'-style emoji
+    // boundary inside the mixed vector (select just the emoji: [5,6)).
+    await selectAndVerify(page, uniPanel, '🙂', 'Selected 5–6: “🙂”');
+
+    // 12. Reload: panel preferences persist; the pending tray does not.
+    await page.reload();
+    await expect(page.locator('.text-panel')).toHaveCount(5);
+    await expect(page.locator('.tray-member')).toHaveCount(0);
+    await expect(page.getByText('No pending selections.')).toBeVisible();
+
+    // 13. Re-stage EN + DE, remove one pending member, re-add it.
+    await selectAndVerify(page, enPanel, 'look forward to', 'Selected 2–17: “look forward to”');
+    await enPanel.getByRole('button', { name: 'Add to Alignment' }).click();
+    await expect(page.locator('.tray-member')).toHaveCount(1);
+    await selectAndVerify(page, dePanel, 'freue mich darauf', 'Selected 4–21: “freue mich darauf”');
+    await dePanel.getByRole('button', { name: 'Add to Alignment' }).click();
+    await expect(page.locator('.tray-member')).toHaveCount(2);
+
+    await page
+      .getByRole('button', { name: 'Remove “freue mich darauf” from tray' })
+      .click();
+    await expect(page.locator('.tray-member')).toHaveCount(1);
+    await expect(
+      page.locator('.tray-member', { hasText: 'freue mich darauf' }),
+    ).toHaveCount(0);
+
+    await selectAndVerify(page, dePanel, 'freue mich darauf', 'Selected 4–21: “freue mich darauf”');
+    await dePanel.getByRole('button', { name: 'Add to Alignment' }).click();
+    await expect(page.locator('.tray-member')).toHaveCount(2);
+
+    // 14. Duplicate staging rejection (same version + start + end).
+    await selectAndVerify(page, enPanel, 'look forward to', 'Selected 2–17: “look forward to”');
+    await enPanel.getByRole('button', { name: 'Add to Alignment' }).click();
+    await expect(
+      enPanel.getByRole('alert'),
+    ).toHaveText(/already in the tray/);
+    await expect(page.locator('.tray-member')).toHaveCount(2);
+
+    // 15. Same-version overlap staging rejection ([2,15) overlaps [2,17)).
+    await selectAndVerify(page, enPanel, 'look forward', 'Selected 2–14: “look forward”');
+    await enPanel.getByRole('button', { name: 'Add to Alignment' }).click();
+    await expect(enPanel.getByRole('alert')).toHaveText(/overlaps/);
+    await expect(page.locator('.tray-member')).toHaveCount(2);
+
+    // 16. Clear the tray explicitly.
+    await page.getByRole('button', { name: 'Clear tray' }).click();
+    await expect(page.locator('.tray-member')).toHaveCount(0);
+    await expect(page.getByText('No pending selections.')).toBeVisible();
+
+    // 17. M0.4 staging persisted NOTHING: the workspace snapshot still has
+    //     no spans / alignment groups / alignment members.
     const workspaceUrl = await page.evaluate(() => window.location.pathname);
     const match = /\/documents\/([^/]+)\/workspace/.exec(workspaceUrl);
     expect(match).not.toBeNull();
@@ -151,12 +338,21 @@ test.describe('M0 golden path (M0.3 slice)', () => {
     expect(snapshot.ok()).toBeTruthy();
     const body = (await snapshot.json()) as {
       text_versions: Array<{ language_tag: string; label: string }>;
+      spans: unknown[];
+      alignment_groups: unknown[];
+      alignment_members: unknown[];
     };
     expect(body.text_versions.map((v) => v.language_tag).sort()).toEqual([
       'de',
       'en',
       'es',
       'fr',
+      'mix',
     ]);
+    expect(body.spans).toEqual([]);
+    expect(body.alignment_groups).toEqual([]);
+    expect(body.alignment_members).toEqual([]);
+
+    // 18. STOP — the E2E flow ends before any alignment persistence.
   });
 });

@@ -1,19 +1,26 @@
 /**
- * Workspace page (M0.3): side-by-side TextPanels for one ParallelDocument.
+ * Workspace page (M0.3 + M0.4): side-by-side TextPanels for one
+ * ParallelDocument.
  *
  * - fetches + normalizes the workspace snapshot (TanStack Query);
  * - owns per-document panel visibility/order via WorkspaceProvider
  *   (persisted to localStorage, reconciled against server versions);
+ * - M0.4: computes boundary-segmented runs for every panel, hosts the
+ *   pending Alignment Tray, and handles Escape (clears the current
+ *   selection + native Selection; NEVER the staged tray);
  * - supports panel reorder (local preference only — never PATCHes server
  *   sort_order), hide/reopen, add/import versions, and delete with an
  *   explicit force-delete confirmation warning.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useDeleteTextVersion, useWorkspace, type TextVersion } from './api';
 import { normalizeWorkspace } from './normalize';
+import { segmentText } from '../../shared/text/segmentation';
+import type { RunDescriptor } from '../../shared/text/types';
 import { TextPanel } from './TextPanel';
+import { AlignmentTray } from './AlignmentTray';
 import { ImportPanel } from './ImportPanel';
 import {
   WorkspaceProvider,
@@ -30,15 +37,40 @@ interface PendingForceDelete {
 function WorkspaceBody({
   documentId,
   versionsById,
+  runsByVersion,
 }: {
   documentId: string;
   versionsById: Record<string, TextVersion>;
+  runsByVersion: Record<string, RunDescriptor[]>;
 }) {
-  const { panelOrder, visiblePanels, openPanel, hidePanel, reorderPanels } =
-    useWorkspaceState();
+  const {
+    panelOrder,
+    visiblePanels,
+    openPanel,
+    hidePanel,
+    reorderPanels,
+    pendingMembers,
+    clearSelection,
+    removePendingMember,
+    clearPendingTray,
+  } = useWorkspaceState();
   const deleteMutation = useDeleteTextVersion(documentId);
   const [pendingForceDelete, setPendingForceDelete] =
     useState<PendingForceDelete | null>(null);
+
+  // Escape: cancels the current selection (and the native browser
+  // Selection) only. Already-staged pending tray members are never
+  // destroyed by Escape — removal is always explicit.
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        clearSelection();
+        window.getSelection()?.removeAllRanges();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [clearSelection]);
 
   const visible = panelOrder.filter((id) => visiblePanels.includes(id));
   const hidden = panelOrder.filter((id) => !visiblePanels.includes(id));
@@ -134,12 +166,23 @@ function WorkspaceBody({
                     Delete
                   </button>
                 </div>
-                <TextPanel version={version} onHide={() => hidePanel(id)} />
+                <TextPanel
+                  version={version}
+                  runs={runsByVersion[id] ?? []}
+                  onHide={() => hidePanel(id)}
+                />
               </div>
             );
           })
         )}
       </div>
+
+      <AlignmentTray
+        members={pendingMembers}
+        versionsById={versionsById}
+        onRemove={removePendingMember}
+        onClear={clearPendingTray}
+      />
 
       <ImportPanel documentId={documentId} />
 
@@ -183,6 +226,27 @@ export function WorkspacePage() {
     [workspaceQuery.data],
   );
 
+  // M0.4 boundary segmentation: canonical content + persisted spans +
+  // alignment memberships -> flat runs per TextVersion. Recomputed only when
+  // the server snapshot changes.
+  const runsByVersion = useMemo(() => {
+    const map: Record<string, RunDescriptor[]> = {};
+    if (!normalized) {
+      return map;
+    }
+    for (const version of normalized.textVersions) {
+      map[version.id] = segmentText(
+        version.content,
+        normalized.spansByVersion[version.id] ?? [],
+        (spanId) =>
+          (normalized.membersBySpan[spanId] ?? []).map(
+            (member) => member.alignment_group_id,
+          ),
+      );
+    }
+    return map;
+  }, [normalized]);
+
   if (workspaceQuery.isPending) {
     return (
       <section className="workspace-page">
@@ -202,10 +266,20 @@ export function WorkspacePage() {
     return null;
   }
 
-  const serverVersionIds = normalized.textVersions.map((version) => version.id);
+  const serverVersions = normalized.textVersions.map((version) => ({
+    id: version.id,
+    contentHash: version.content_hash,
+  }));
 
   return (
-    <WorkspaceProvider documentId={documentId} serverVersionIds={serverVersionIds}>
+    // key={documentId}: a document change remounts the provider, clearing
+    // ephemeral selection state (currentSelection/pendingMembers) and
+    // re-initializing panel preferences for the new document.
+    <WorkspaceProvider
+      key={documentId}
+      documentId={documentId}
+      serverVersions={serverVersions}
+    >
       <section className="workspace-page">
         <nav className="breadcrumb" aria-label="Breadcrumb">
           <Link to="/projects">Projects</Link>
@@ -219,6 +293,7 @@ export function WorkspacePage() {
         <WorkspaceBody
           documentId={documentId}
           versionsById={normalized.versionsById}
+          runsByVersion={runsByVersion}
         />
       </section>
     </WorkspaceProvider>

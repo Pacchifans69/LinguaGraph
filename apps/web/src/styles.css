@@ -228,6 +228,92 @@ body {
   gap: 0.25rem;
 }
 
+/* --- M0.4 selection actions + alignment tray ----------------------------- */
+
+/* Panel-local selection action bar — OUTSIDE the canonical content root. */
+.text-panel-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  align-items: flex-start;
+  padding: 0.375rem 0.625rem;
+  border-top: 1px solid #d0d0d0;
+  background-color: #fafafa;
+}
+
+.selection-status {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #333;
+}
+
+.staging-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #b00020;
+}
+
+.alignment-tray {
+  margin-top: 1.25rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  background-color: #fff;
+  padding: 0.625rem;
+  max-width: 44rem;
+}
+
+.alignment-tray-header h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+.tray-note {
+  margin: 0 0 0.5rem;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.tray-empty {
+  color: #666;
+}
+
+.tray-list {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.tray-member {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: #fafafa;
+}
+
+.tray-member-label {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #444;
+  white-space: nowrap;
+}
+
+.tray-member-quote {
+  flex: 1;
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.tray-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 /* --- confirm dialog -------------------------------------------------------- */
 
 .confirm-dialog-backdrop {

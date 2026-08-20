@@ -29,6 +29,8 @@ export interface NormalizedWorkspace {
   groupsById: Record<string, AlignmentGroup>;
   alignmentMembers: AlignmentMember[];
   membersByGroup: Record<string, AlignmentMember[]>;
+  /** M0.4: alignment memberships indexed by span id (for run membership sets). */
+  membersBySpan: Record<string, AlignmentMember[]>;
 }
 
 function indexById<T extends { id: string }>(items: T[]): Record<string, T> {
@@ -51,8 +53,10 @@ export function normalizeWorkspace(snapshot: WorkspaceSnapshot): NormalizedWorks
   }
 
   const membersByGroup: Record<string, AlignmentMember[]> = {};
+  const membersBySpan: Record<string, AlignmentMember[]> = {};
   for (const member of snapshot.alignment_members) {
     (membersByGroup[member.alignment_group_id] ??= []).push(member);
+    (membersBySpan[member.span_id] ??= []).push(member);
   }
 
   return {
@@ -66,5 +70,6 @@ export function normalizeWorkspace(snapshot: WorkspaceSnapshot): NormalizedWorks
     groupsById,
     alignmentMembers: snapshot.alignment_members,
     membersByGroup,
+    membersBySpan,
   };
 }
