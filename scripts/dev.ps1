@@ -43,7 +43,10 @@
 #   - if port 5432, 8000 or 5173 is occupied in a way the launcher cannot
 #     safely identify/reuse, the script FAILS with actionable output and
 #     never kills the unknown process;
-#   - the launcher stops ONLY the FastAPI/Vite processes it started itself;
+#   - the launcher stops ONLY the FastAPI/Vite processes it started itself
+#     (from the FIRST Start-Process onward every control-flow path — startup
+#     failure, early process exit, health timeout, Ctrl+C — runs the same
+#     finally cleanup of its own process trees; G2-F03);
 #   - repeated invocation is safe and idempotent with respect to persisted
 #     data (running the Compose service again is a no-op, migrations only
 #     move forward, .env is never overwritten).
@@ -115,6 +118,26 @@ function Wait-PostgresHealthy {
         Start-Sleep -Seconds 1
     }
     return $false
+}
+
+function Stop-ChildProcessTree {
+    param([System.Diagnostics.Process]$Process)
+    # G2-F03: stops ONLY a process tree this launcher created itself (via
+    # Start-Process -PassThru). taskkill /T /F affects that process and its
+    # descendants — never unknown/foreign processes, never port owners the
+    # launcher did not start, never PostgreSQL containers/volumes/data.
+    if ($null -eq $Process) {
+        return
+    }
+    try {
+        if ($Process.HasExited) {
+            return
+        }
+        & taskkill /PID $Process.Id /T /F 2>$null | Out-Null
+    } catch {
+        # The process is already gone or no longer inspectable — nothing
+        # to stop.
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -247,87 +270,98 @@ foreach ($check in @(@{ Port = 8000; What = 'the FastAPI development server' }, 
 
 # ---------------------------------------------------------------------------
 # Start FastAPI + Vite (the only processes this script may manage)
+#
+# G2-F03: from the FIRST Start-Process onward, ALL control flow lives
+# inside the try below — startup failures (a failed Start-Process, an early
+# process exit, a health-check timeout, an unexpected exception) and the
+# normal Ctrl+C shutdown all run the finally cleanup, which stops only the
+# processes this launcher started. On a startup failure the script exits
+# non-zero AFTER cleanup (Fail -> exit 1; the finally runs first).
 # ---------------------------------------------------------------------------
-
-Write-Step 'Starting the FastAPI development server (uvicorn, port 8000)...'
-$apiLogOut = Join-Path $env:TEMP 'linguagraph-api.out.log'
-$apiLogErr = Join-Path $env:TEMP 'linguagraph-api.err.log'
-$apiProc = Start-Process -FilePath 'uv' `
-    -ArgumentList @('run', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000') `
-    -WorkingDirectory $ApiRoot `
-    -WindowStyle Hidden `
-    -RedirectStandardOutput $apiLogOut `
-    -RedirectStandardError $apiLogErr `
-    -PassThru
-
-Write-Step 'Starting the Vite development server (port 5173, --strictPort)...'
-$viteLogOut = Join-Path $env:TEMP 'linguagraph-web.out.log'
-$viteLogErr = Join-Path $env:TEMP 'linguagraph-web.err.log'
-$viteProc = Start-Process -FilePath 'npm.cmd' `
-    -ArgumentList @('run', 'dev', '--', '--port', '5173', '--host', '127.0.0.1', '--strictPort') `
-    -WorkingDirectory $WebRoot `
-    -WindowStyle Hidden `
-    -RedirectStandardOutput $viteLogOut `
-    -RedirectStandardError $viteLogErr `
-    -PassThru
-
-# ---------------------------------------------------------------------------
-# Verify API health
-# ---------------------------------------------------------------------------
-
-Write-Step 'Waiting for the API health endpoint...'
-$healthy = $false
-for ($i = 0; $i -lt 60; $i++) {
-    if ($apiProc.HasExited) {
-        Fail "The FastAPI process exited early (code $($apiProc.ExitCode)). See $apiLogErr"
-    }
-    if ($viteProc.HasExited) {
-        Fail "The Vite process exited early (code $($viteProc.ExitCode)) — the port may be occupied or the build failed. See $viteLogErr"
-    }
-    try {
-        $response = Invoke-WebRequest -Uri $ApiHealthUrl -UseBasicParsing -TimeoutSec 2
-        if ($response.StatusCode -eq 200) {
-            $healthy = $true
-            break
-        }
-    } catch {
-        # not up yet — keep waiting
-    }
-    Start-Sleep -Seconds 1
-}
-
-if (-not $healthy) {
-    Fail "The API did not become healthy at $ApiHealthUrl within 60 seconds. See $apiLogErr and $viteLogErr"
-}
-
-Write-Host ''
-Write-Host 'LinguaGraph is running:' -ForegroundColor Green
-Write-Host "  Frontend : $FrontendUrl" -ForegroundColor Green
-Write-Host "  API      : $ApiHealthUrl" -ForegroundColor Green
-Write-Host '  API docs : http://localhost:8000/docs' -ForegroundColor Green
-Write-Host '  Logs     : ' -NoNewline
-Write-Host "$apiLogErr / $viteLogErr" -ForegroundColor DarkGray
-
-if ($OpenBrowser) {
-    Start-Process $FrontendUrl
-}
-
-Write-Host ''
-Write-Host 'Press Ctrl+C to stop LinguaGraph (stops only the FastAPI and Vite processes started by this launcher).' -ForegroundColor Yellow
 
 try {
+    Write-Step 'Starting the FastAPI development server (uvicorn, port 8000)...'
+    $apiLogOut = Join-Path $env:TEMP 'linguagraph-api.out.log'
+    $apiLogErr = Join-Path $env:TEMP 'linguagraph-api.err.log'
+    $apiProc = Start-Process -FilePath 'uv' `
+        -ArgumentList @('run', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000') `
+        -WorkingDirectory $ApiRoot `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $apiLogOut `
+        -RedirectStandardError $apiLogErr `
+        -PassThru
+
+    Write-Step 'Starting the Vite development server (port 5173, --strictPort)...'
+    $viteLogOut = Join-Path $env:TEMP 'linguagraph-web.out.log'
+    $viteLogErr = Join-Path $env:TEMP 'linguagraph-web.err.log'
+    $viteProc = Start-Process -FilePath 'npm.cmd' `
+        -ArgumentList @('run', 'dev', '--', '--port', '5173', '--host', '127.0.0.1', '--strictPort') `
+        -WorkingDirectory $WebRoot `
+        -WindowStyle Hidden `
+        -RedirectStandardOutput $viteLogOut `
+        -RedirectStandardError $viteLogErr `
+        -PassThru
+
+    # ------------------------------------------------------------------
+    # Verify API health
+    # ------------------------------------------------------------------
+
+    Write-Step 'Waiting for the API health endpoint...'
+    $healthy = $false
+    for ($i = 0; $i -lt 60; $i++) {
+        if ($apiProc.HasExited) {
+            Fail "The FastAPI process exited early (code $($apiProc.ExitCode)). See $apiLogErr"
+        }
+        if ($viteProc.HasExited) {
+            Fail "The Vite process exited early (code $($viteProc.ExitCode)) — the port may be occupied or the build failed. See $viteLogErr"
+        }
+        try {
+            $response = Invoke-WebRequest -Uri $ApiHealthUrl -UseBasicParsing -TimeoutSec 2
+            if ($response.StatusCode -eq 200) {
+                $healthy = $true
+                break
+            }
+        } catch {
+            # not up yet — keep waiting
+        }
+        Start-Sleep -Seconds 1
+    }
+
+    if (-not $healthy) {
+        Fail "The API did not become healthy at $ApiHealthUrl within 60 seconds. See $apiLogErr and $viteLogErr"
+    }
+
+    Write-Host ''
+    Write-Host 'LinguaGraph is running:' -ForegroundColor Green
+    Write-Host "  Frontend : $FrontendUrl" -ForegroundColor Green
+    Write-Host "  API      : $ApiHealthUrl" -ForegroundColor Green
+    Write-Host '  API docs : http://localhost:8000/docs' -ForegroundColor Green
+    Write-Host '  Logs     : ' -NoNewline
+    Write-Host "$apiLogErr / $viteLogErr" -ForegroundColor DarkGray
+
+    if ($OpenBrowser) {
+        Start-Process $FrontendUrl
+    }
+
+    Write-Host ''
+    Write-Host 'Press Ctrl+C to stop LinguaGraph (stops only the FastAPI and Vite processes started by this launcher).' -ForegroundColor Yellow
+
+    # Normal run: wait until Ctrl+C (the finally below then stops only the
+    # self-started FastAPI/Vite process trees).
     while ($true) {
         Start-Sleep -Seconds 3600
     }
+} catch {
+    # Any unexpected startup/runtime failure: report and exit non-zero.
+    # Cleanup of self-started children runs in the finally below BEFORE
+    # the process exits. (Ctrl+C is not routed through catch; it is handled
+    # by the finally alone, preserving normal shutdown semantics.)
+    Fail "LinguaGraph startup failed: $($_.Exception.Message)"
 } finally {
     # Stop ONLY the processes this launcher started (tree kill: the uv/npm
     # wrappers and their children). Persisted data is never touched.
-    if ($null -ne $viteProc -and -not $viteProc.HasExited) {
-        & taskkill /PID $viteProc.Id /T /F 2>$null | Out-Null
-    }
-    if ($null -ne $apiProc -and -not $apiProc.HasExited) {
-        & taskkill /PID $apiProc.Id /T /F 2>$null | Out-Null
-    }
+    Stop-ChildProcessTree $viteProc
+    Stop-ChildProcessTree $apiProc
     Write-Host ''
-    Write-Host 'LinguaGraph stopped. PostgreSQL container and all data are untouched.' -ForegroundColor Yellow
+    Write-Host 'Launcher cleanup complete: stopped only the FastAPI/Vite processes started by this launcher. PostgreSQL container and all data are untouched.' -ForegroundColor Yellow
 }
