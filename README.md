@@ -407,11 +407,27 @@ foundation and the M0.4 selection engine (PR #8), frontend-only:
   authoritative workspace refetch; no optimistic persisted-domain mutation —
   the authoritative workspace invalidate/refetch remains the read authority.
 
-Deliberately NOT implemented in M0.6 (deferred to later checkpoints):
-automatic alignment, NLP, LLM, translation, dictionaries, linguistic
-relations, authentication, collaboration, pagination, virtualization,
-synchronized scrolling, complex connector routing (M0.7 / later), any
-backend production change, schema change or migration.
+Deliberately NOT implemented in M0.6 (deferred beyond M0.6 / later
+checkpoints; no checkpoint is pre-assigned): automatic alignment, NLP, LLM,
+translation, dictionaries, linguistic relations, authentication,
+collaboration, pagination, virtualization, synchronized scrolling, complex
+connector routing.
+
+M0.6 scope truth (frontend-only checkpoint):
+
+- no backend production change — the backend PATCH/DELETE alignment
+  endpoints from M0.5 are reused as-is;
+- no database schema change and no Alembic migration (Alembic remains at
+  `0002 (head)`);
+- no npm dependency addition;
+- no shared text-engine redesign (`shared/text/offset|selection|
+  segmentation` untouched);
+- no dedicated alignment GET/list endpoint;
+- no add-member-to-existing-alignment UI (the golden-path fixture shaping
+  uses the backend PATCH capability as TEST SETUP only, and the M0.6
+  frontend itself contains no add-member surface);
+- no Redux/Zustand or any new state framework (React Context +
+  TanStack Query + the existing reducer are the whole state stack).
 
 No Alembic migration was required for M0.6 (frontend-only; Alembic remains
 at `0002 (head)`).

@@ -578,13 +578,38 @@ Golden path (apps/web/e2e/golden-path.spec.ts):
   connector participation, remove FR, reload persistence, delete group,
   and orphan Span cleanup proof at the API/workspace level.
 
-M0.6 deliberately did NOT implement (deferred to later checkpoints):
+M0.6 deliberately did NOT implement (deferred beyond M0.6 / later
+checkpoints; no checkpoint is pre-assigned):
 
 - automatic alignment, NLP, LLM, translation, dictionaries, linguistic
   relations, authentication, collaboration, pagination, virtualization,
-  synchronized scrolling, complex connector routing (M0.7 / later);
-- any backend production change, schema change, or migration (M0.6 is
-  frontend-only; Alembic remains at `0002 (head)`).
+  synchronized scrolling, complex connector routing.
+
+M0.6 scope truth (frontend-only checkpoint):
+
+- no backend production change — the backend PATCH/DELETE alignment
+  endpoints from M0.5 are reused as-is;
+- no database schema change and no Alembic migration (Alembic remains at
+  `0002 (head)`);
+- no npm dependency addition;
+- no shared text-engine redesign (`shared/text/offset|selection|
+  segmentation` untouched);
+- no dedicated alignment GET/list endpoint;
+- no add-member-to-existing-alignment UI (the golden-path fixture shaping
+  uses the backend PATCH capability as TEST SETUP only, and the M0.6
+  frontend itself contains no add-member surface);
+- no Redux/Zustand or any new state framework (React Context +
+  TanStack Query + the existing reducer are the whole state stack).
+
+M0.6 implementation branch status:
+
+- historical / merged implementation branch:
+  `m0.6-alignment-visualization`;
+- current status: **merged implementation branch — awaiting post-closeout
+  cleanup**;
+- branch deletion happens only AFTER this durable closure commit (and any
+  follow-up review fixes) have been reviewed and landed;
+- the branch is NOT yet deleted (locally or remotely).
 
 M0.6 review-hardening record (all resolved during human review, none open):
 
