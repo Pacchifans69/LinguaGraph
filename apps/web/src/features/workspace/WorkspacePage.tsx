@@ -131,6 +131,14 @@ function WorkspaceBody({
   const indexOf = (id: string) => panelOrder.indexOf(id);
   const lastIndex = panelOrder.length - 1;
 
+  // M0.6 (R1-F01): explicit panel-layout revision for connector geometry.
+  // Panel reorder / hide / show can move rendered text while the overlay
+  // container dimensions stay identical, so ResizeObserver alone cannot
+  // detect those changes. Any change to the order or the visible set must
+  // invalidate connector geometry. (Ids never contain '|', so the join is
+  // unambiguous.)
+  const layoutKey = `${panelOrder.join('|')}#${visiblePanels.join('|')}`;
+
   function requestDelete(versionId: string, label: string) {
     deleteMutation.mutate(
       { versionId, force: false },
@@ -242,6 +250,7 @@ function WorkspaceBody({
           alignmentId={effectiveAlignmentId}
           membersByGroup={savedAlignments.membersByGroup}
           registry={spanRegistry}
+          layoutKey={layoutKey}
         />
       </div>
 

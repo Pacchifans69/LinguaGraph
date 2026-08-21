@@ -752,4 +752,268 @@ describe('TextPanel (M0.6 alignment visualization)', () => {
     );
     expect(view.container.querySelector('.alignment-chooser')).toBeNull();
   });
+
+  it('does not activate an alignment when a native drag selection is present (R1-F02)', () => {
+    const { container, enRuns, deRuns } = renderTwoPanels({
+      enGroups: ['group-alpha'],
+      deSpans: [{ id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] }],
+    });
+    // A non-collapsed native selection INSIDE the EN content root — the tail
+    // of a text drag that ends with a click event.
+    const textNode = enRuns[1].firstChild;
+    const range = document.createRange();
+    range.setStart(textNode as Node, 0);
+    range.setEnd(textNode as Node, 4);
+    const { removeAllRanges } = stubSelection(range);
+
+    fireEvent.click(enRuns[1]);
+    // No activation anywhere in the group.
+    expect(enRuns[1].classList.contains('run-active')).toBe(false);
+    expect(deRuns[1].classList.contains('run-active')).toBe(false);
+    // The native selection was NOT mutated just to make activation work.
+    expect(removeAllRanges).not.toHaveBeenCalled();
+    expect(contentRoot(container).textContent).toBe(EN_CONTENT);
+  });
+
+  it('does not open the ambiguity chooser when a native drag selection is present (R1-F02)', () => {
+    const { container, enRuns } = renderTwoPanels({
+      enGroups: ['group-alpha', 'group-beta'],
+      deSpans: [{ id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] }],
+    });
+    const textNode = enRuns[1].firstChild;
+    const range = document.createRange();
+    range.setStart(textNode as Node, 0);
+    range.setEnd(textNode as Node, 4);
+    stubSelection(range);
+
+    fireEvent.click(enRuns[1]);
+    expect(container.querySelector('.alignment-chooser')).toBeNull();
+  });
+
+  it('still activates on an ordinary click with a collapsed selection (R1-F02)', () => {
+    const { enRuns, deRuns } = renderTwoPanels({
+      enGroups: ['group-alpha'],
+      deSpans: [{ id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] }],
+    });
+    const textNode = enRuns[1].firstChild;
+    const collapsed = document.createRange();
+    collapsed.setStart(textNode as Node, 2);
+    collapsed.setEnd(textNode as Node, 2);
+    stubSelection(collapsed);
+
+    fireEvent.click(enRuns[1]);
+    expect(enRuns[1].classList.contains('run-active')).toBe(true);
+    expect(deRuns[1].classList.contains('run-active')).toBe(true);
+  });
+
+  it('does not block activation for an unrelated selection elsewhere on the page (R1-F02)', () => {
+    const { enRuns, deRuns } = renderTwoPanels({
+      enGroups: ['group-alpha'],
+      deSpans: [{ id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] }],
+    });
+    // A non-collapsed selection living ENTIRELY outside the canonical
+    // content root (e.g. another panel) must not block local activation.
+    const outside = document.createElement('div');
+    outside.textContent = 'unrelated text';
+    document.body.appendChild(outside);
+    const range = document.createRange();
+    range.setStart(outside.firstChild as Node, 0);
+    range.setEnd(outside.firstChild as Node, 9);
+    stubSelection(range);
+
+    fireEvent.click(enRuns[1]);
+    expect(enRuns[1].classList.contains('run-active')).toBe(true);
+    expect(deRuns[1].classList.contains('run-active')).toBe(true);
+    outside.remove();
+  });
+
+  it('chooser candidates come from CURRENT run membership, not the stored run (R1-F03)', () => {
+    const registry = new RenderedSpanRegistry();
+    const enRuns = runsWithGroups(EN_CONTENT, [
+      { id: 'span-en', start: 2, end: 17, groups: ['group-alpha', 'group-beta'] },
+    ]);
+    const deRuns = runsWithGroups(DE_CONTENT, [
+      { id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] },
+    ]);
+    const groupIds = new Set(['group-alpha', 'group-beta', 'group-gamma']);
+    const view = render(
+      <WorkspaceProvider
+        documentId="doc-1"
+        serverVersions={[
+          { id: 'tv-en', contentHash: 'h-en' },
+          { id: 'tv-de', contentHash: 'h-de' },
+        ]}
+        serverAlignmentGroupIds={['group-alpha', 'group-beta', 'group-gamma']}
+      >
+        <TextPanel
+          version={enVersion}
+          runs={enRuns}
+          onHide={() => {}}
+          spanRegistry={registry}
+          survivingGroupIds={groupIds}
+        />
+        <TextPanel
+          version={deVersion}
+          runs={deRuns}
+          onHide={() => {}}
+          spanRegistry={registry}
+          survivingGroupIds={groupIds}
+        />
+      </WorkspaceProvider>,
+    );
+    const enRun = Array.from(
+      contentRoot(view.container).querySelectorAll('[data-run]'),
+    )[1] as HTMLElement;
+    fireEvent.click(enRun);
+    const optionTexts = () =>
+      Array.from(view.container.querySelectorAll('.alignment-chooser-option')).map(
+        (el) => el.textContent,
+      );
+    expect(optionTexts()).toEqual(['Alignment group-al', 'Alignment group-be']);
+
+    // t1: the SAME coordinates now belong to group-alpha + group-gamma.
+    // group-beta is still globally alive (survivingGroupIds keeps it) but no
+    // longer belongs to this run — it must NOT be offered.
+    view.rerender(
+      <WorkspaceProvider
+        documentId="doc-1"
+        serverVersions={[
+          { id: 'tv-en', contentHash: 'h-en' },
+          { id: 'tv-de', contentHash: 'h-de' },
+        ]}
+        serverAlignmentGroupIds={['group-alpha', 'group-beta', 'group-gamma']}
+      >
+        <TextPanel
+          version={enVersion}
+          runs={runsWithGroups(EN_CONTENT, [
+            { id: 'span-en', start: 2, end: 17, groups: ['group-gamma', 'group-alpha'] },
+          ])}
+          onHide={() => {}}
+          spanRegistry={registry}
+          survivingGroupIds={groupIds}
+        />
+        <TextPanel
+          version={deVersion}
+          runs={deRuns}
+          onHide={() => {}}
+          spanRegistry={registry}
+          survivingGroupIds={groupIds}
+        />
+      </WorkspaceProvider>,
+    );
+    expect(optionTexts()).toEqual(['Alignment group-al', 'Alignment group-ga']);
+    expect(optionTexts()).not.toContain('Alignment group-be');
+  });
+
+  it('closes the chooser when the current run is no longer ambiguous (R1-F03)', () => {
+    const registry = new RenderedSpanRegistry();
+    const enRuns = runsWithGroups(EN_CONTENT, [
+      { id: 'span-en', start: 2, end: 17, groups: ['group-alpha', 'group-beta'] },
+    ]);
+    const deRuns = runsWithGroups(DE_CONTENT, [
+      { id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] },
+    ]);
+    const groupIds = new Set(['group-alpha', 'group-beta']);
+    const view = render(
+      <WorkspaceProvider
+        documentId="doc-1"
+        serverVersions={[
+          { id: 'tv-en', contentHash: 'h-en' },
+          { id: 'tv-de', contentHash: 'h-de' },
+        ]}
+        serverAlignmentGroupIds={['group-alpha', 'group-beta']}
+      >
+        <TextPanel
+          version={enVersion}
+          runs={enRuns}
+          onHide={() => {}}
+          spanRegistry={registry}
+          survivingGroupIds={groupIds}
+        />
+        <TextPanel
+          version={deVersion}
+          runs={deRuns}
+          onHide={() => {}}
+          spanRegistry={registry}
+          survivingGroupIds={groupIds}
+        />
+      </WorkspaceProvider>,
+    );
+    const enRun = Array.from(
+      contentRoot(view.container).querySelectorAll('[data-run]'),
+    )[1] as HTMLElement;
+    fireEvent.click(enRun);
+    expect(view.container.querySelectorAll('.alignment-chooser-option')).toHaveLength(2);
+
+    // Same coordinates, but the membership changed to a SINGLE group: the
+    // ambiguity is gone and the chooser must close.
+    view.rerender(
+      <WorkspaceProvider
+        documentId="doc-1"
+        serverVersions={[
+          { id: 'tv-en', contentHash: 'h-en' },
+          { id: 'tv-de', contentHash: 'h-de' },
+        ]}
+        serverAlignmentGroupIds={['group-alpha', 'group-beta']}
+      >
+        <TextPanel
+          version={enVersion}
+          runs={runsWithGroups(EN_CONTENT, [
+            { id: 'span-en', start: 2, end: 17, groups: ['group-alpha'] },
+          ])}
+          onHide={() => {}}
+          spanRegistry={registry}
+          survivingGroupIds={groupIds}
+        />
+        <TextPanel
+          version={deVersion}
+          runs={deRuns}
+          onHide={() => {}}
+          spanRegistry={registry}
+          survivingGroupIds={groupIds}
+        />
+      </WorkspaceProvider>,
+    );
+    expect(view.container.querySelector('.alignment-chooser')).toBeNull();
+  });
+
+  it('orders chooser candidates deterministically at the boundary (R1-F03)', () => {
+    const registry = new RenderedSpanRegistry();
+    // Deliberately UNSORTED membership — segmentation would pre-sort, but the
+    // chooser boundary must order its own candidates deterministically.
+    const unsortedRuns: RunDescriptor[] = [
+      { start: 0, end: 2, text: 'I ', spanIds: [], alignmentGroupIds: [] },
+      {
+        start: 2,
+        end: 17,
+        text: 'look forward to',
+        spanIds: ['s1'],
+        alignmentGroupIds: ['group-zeta', 'group-alpha'],
+      },
+      { start: 17, end: 38, text: ' seeing you tomorrow.', spanIds: [], alignmentGroupIds: [] },
+    ];
+    const view = render(
+      <WorkspaceProvider
+        documentId="doc-1"
+        serverVersions={[{ id: 'tv-en', contentHash: 'h-en' }]}
+        serverAlignmentGroupIds={['group-zeta', 'group-alpha']}
+      >
+        <TextPanel
+          version={enVersion}
+          runs={unsortedRuns}
+          onHide={() => {}}
+          spanRegistry={registry}
+          survivingGroupIds={new Set(['group-zeta', 'group-alpha'])}
+        />
+      </WorkspaceProvider>,
+    );
+    const enRun = Array.from(
+      contentRoot(view.container).querySelectorAll('[data-run]'),
+    )[1] as HTMLElement;
+    fireEvent.click(enRun);
+    const options = Array.from(
+      view.container.querySelectorAll('.alignment-chooser-option'),
+    ).map((el) => el.textContent);
+    expect(options).toEqual(['Alignment group-al', 'Alignment group-ze']);
+  });
 });

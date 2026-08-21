@@ -23,9 +23,14 @@
  * - recompute lifecycle (section M): state-driven recompute on
  *   active/hovered/snapshot changes plus event-driven recompute for
  *   ``scroll`` (capture — scroll events do not bubble), ``resize``,
- *   ResizeObserver on the overlay, all coalesced through a single
- *   ``requestAnimationFrame``; listeners are attached ONLY while an
- *   effective alignment exists and are fully detached otherwise.
+ *   ResizeObserver on the overlay, and the explicit panel-layout revision
+ *   (R1-F01), all coalesced through a single ``requestAnimationFrame``;
+ *   listeners are attached ONLY while an effective alignment exists and are
+ *   fully detached otherwise;
+ * - geometry carries provenance (R1-F04): connector lines render only when
+ *   they were computed for the CURRENT effective alignment id, so stale
+ *   geometry from a previous alignment (including across ``A -> null -> B``)
+ *   can never be displayed.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -42,6 +47,16 @@ export interface ConnectorOverlayProps {
   alignmentId: string | null;
   membersByGroup: Record<string, AlignmentMember[]>;
   registry: RenderedSpanRegistry;
+  /**
+   * M0.6 (R1-F01): stable panel-layout revision derived from the current
+   * ``panelOrder`` + ``visiblePanels``. Panel reorder / hide / show can move
+   * rendered text without changing the observed SVG/container dimensions, so
+   * ResizeObserver alone cannot reliably detect those layout changes. When
+   * this key changes, connector geometry is explicitly invalidated through
+   * the same requestAnimationFrame-coalesced mechanism as every other
+   * invalidation source.
+   */
+  layoutKey: string;
 }
 
 export interface ConnectorLine {
@@ -51,22 +66,36 @@ export interface ConnectorLine {
   y2: number;
 }
 
+/**
+ * Connector geometry WITH provenance (M0.6 R1-F04): the alignment id the
+ * lines were computed for. Lines may only be rendered when this id matches
+ * the CURRENT effective alignment id, so stale geometry from a previous
+ * alignment can never render under a new one (including across an
+ * ``A -> null -> B`` transition, where the component unmounts/remounts the
+ * SVG but must not resurrect old lines).
+ */
+export interface ConnectorGeometry {
+  alignmentId: string;
+  lines: ConnectorLine[];
+}
+
 export function ConnectorOverlay({
   alignmentId,
   membersByGroup,
   registry,
+  layoutKey,
 }: ConnectorOverlayProps) {
   const svgRef = useRef<SVGSVGElement | null>(null);
-  const [lines, setLines] = useState<ConnectorLine[] | null>(null);
+  const [geometry, setGeometry] = useState<ConnectorGeometry | null>(null);
 
   const compute = useCallback((): void => {
     if (alignmentId === null) {
-      setLines(null);
+      setGeometry(null);
       return;
     }
     const svg = svgRef.current;
     if (svg === null) {
-      setLines(null);
+      setGeometry(null);
       return;
     }
     const overlayRect = svg.getBoundingClientRect();
@@ -77,7 +106,7 @@ export function ConnectorOverlay({
     const anchors = computeAnchors(visibleRectsByMember);
     if (anchors === null) {
       // Fewer than 2 visible members: render no connectors (section K).
-      setLines(null);
+      setGeometry(null);
       return;
     }
     const next: ConnectorLine[] = anchors.anchors.map((anchor: Point) => ({
@@ -86,7 +115,7 @@ export function ConnectorOverlay({
       x2: anchors.hub.x,
       y2: anchors.hub.y,
     }));
-    setLines(next);
+    setGeometry({ alignmentId, lines: next });
   }, [alignmentId, membersByGroup, registry]);
 
   // Latest-render ref so the stable scheduler always invalidates against the
@@ -105,12 +134,15 @@ export function ConnectorOverlay({
     });
   }, []);
 
-  // State-driven recompute: effective alignment / snapshot / registry inputs.
+  // State-driven recompute: effective alignment / snapshot / registry
+  // inputs, PLUS the explicit panel-layout revision (R1-F01: panel
+  // reorder/hide/show invalidates geometry even when the container
+  // dimensions do not change).
   useEffect(() => {
     if (alignmentId !== null) {
       schedule();
     }
-  }, [alignmentId, membersByGroup, registry, schedule]);
+  }, [alignmentId, membersByGroup, registry, layoutKey, schedule]);
 
   // Event-driven recompute + listener lifecycle (section M): listeners exist
   // ONLY while an effective alignment is present.
@@ -158,8 +190,8 @@ export function ConnectorOverlay({
       data-testid="connector-overlay"
       aria-hidden="true"
     >
-      {lines !== null
-        ? lines.map((line, index) => (
+      {geometry !== null && geometry.alignmentId === alignmentId
+        ? geometry.lines.map((line, index) => (
             <line
               key={index}
               className="connector-line"

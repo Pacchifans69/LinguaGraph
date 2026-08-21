@@ -39,6 +39,8 @@ class ResizeObserverStub {
   static instances: ResizeObserverStub[] = [];
   observed: Element[] = [];
   disconnected = false;
+  /** How often the callback was invoked (proves no manual triggering). */
+  triggerCount = 0;
   private callback: ResizeObserverCallback;
 
   constructor(callback: ResizeObserverCallback) {
@@ -57,6 +59,7 @@ class ResizeObserverStub {
   }
 
   trigger(): void {
+    this.triggerCount += 1;
     this.callback([], this as unknown as ResizeObserver);
   }
 }
@@ -122,6 +125,7 @@ interface MountResult {
     alignmentId?: string | null;
     membersByGroup?: Record<string, AlignmentMember[]>;
     registry?: RenderedSpanRegistry;
+    layoutKey?: string;
   }) => void;
 }
 
@@ -139,12 +143,14 @@ function OverlayFixture({
   alignmentId,
   membersByGroup,
   runsPerSpan,
+  layoutKey,
 }: {
   members: AlignmentMember[];
   registry: RenderedSpanRegistry;
   alignmentId: string | null;
   membersByGroup: Record<string, AlignmentMember[]>;
   runsPerSpan?: Record<string, number>;
+  layoutKey: string;
 }) {
   return (
     <div className="panels-container">
@@ -168,6 +174,7 @@ function OverlayFixture({
         alignmentId={alignmentId}
         membersByGroup={membersByGroup}
         registry={registry}
+        layoutKey={layoutKey}
       />
     </div>
   );
@@ -175,7 +182,11 @@ function OverlayFixture({
 
 function mountOverlay(
   members: AlignmentMember[],
-  options: { rects?: Record<string, RectData[]>; runsPerSpan?: Record<string, number> } = {},
+  options: {
+    rects?: Record<string, RectData[]>;
+    runsPerSpan?: Record<string, number>;
+    layoutKey?: string;
+  } = {},
 ): MountResult {
   const registry = new RenderedSpanRegistry();
   const rectSpies: Record<string, ReturnType<typeof vi.spyOn>> = {};
@@ -192,6 +203,7 @@ function mountOverlay(
       alignmentId="group-1"
       membersByGroup={membersByGroup}
       runsPerSpan={options.runsPerSpan}
+      layoutKey={options.layoutKey ?? 'layout-a'}
     />,
   );
   const container = view.container;
@@ -250,6 +262,7 @@ function mountOverlay(
           }
           membersByGroup={props.membersByGroup ?? membersByGroup}
           runsPerSpan={options.runsPerSpan}
+          layoutKey={props.layoutKey ?? options.layoutKey ?? 'layout-a'}
         />,
       ),
   };
@@ -292,6 +305,7 @@ describe('ConnectorOverlay rendering', () => {
         alignmentId={null}
         membersByGroup={{}}
         registry={new RenderedSpanRegistry()}
+        layoutKey="layout-a"
       />,
     );
     expect(screen.queryByTestId('connector-overlay')).toBeNull();
@@ -578,5 +592,116 @@ describe('ConnectorOverlay recompute lifecycle (section M)', () => {
     });
     flushRaf();
     expect(clientRectReads('span-1', mount)).toBe(readsBefore);
+  });
+
+  it('recomputes when the panel layout key changes (R1-F01) — no scroll/resize/ResizeObserver', () => {
+    const mount = mountOverlay([member('span-1'), member('span-2')], {
+      rects: {
+        'span-1': [rect(120, 70, 100, 20)],
+        'span-2': [rect(500, 70, 100, 20)],
+      },
+      layoutKey: 'panel-a|panel-b#panel-a,panel-b',
+    });
+    flushRaf();
+    expect(lineCoords()).toHaveLength(2);
+    const readsBefore = clientRectReads('span-1', mount);
+
+    // Panel reorder: A|B -> B|A. The container dimensions are UNCHANGED and
+    // NO scroll/resize/ResizeObserver event is fired — the layout key change
+    // itself must be the invalidation source. The run moved to its new
+    // position so a recompute must observe the new rects.
+    mount.setRects('span-1', [rect(120, 270, 100, 20)]);
+    mount.rerender({ layoutKey: 'panel-b|panel-a#panel-a,panel-b' });
+
+    // The rAF has not run yet: the layout change must not have caused any
+    // synchronous measurement.
+    expect(clientRectReads('span-1', mount)).toBe(readsBefore);
+    flushRaf();
+    // Exactly one recompute from the layout invalidation, reading fresh rects.
+    expect(clientRectReads('span-1', mount)).toBe(readsBefore + 1);
+    expect(lineCoords()).toHaveLength(2);
+    // The ResizeObserver callback was never invoked by this test.
+    expect(ResizeObserverStub.instances[0].triggerCount).toBe(0);
+  });
+
+  it('never renders stale geometry under a new alignment before its rAF runs (R1-F04 A -> B)', () => {
+    // Two groups: group-1 members on the upper line, group-2 lower.
+    const mount = mountOverlay(
+      [
+        member('span-1', 'group-1'),
+        member('span-2', 'group-1'),
+        member('span-3', 'group-2'),
+        member('span-4', 'group-2'),
+      ],
+      {
+        rects: {
+          'span-1': [rect(120, 70, 100, 20)],
+          'span-2': [rect(500, 70, 100, 20)],
+          'span-3': [rect(120, 200, 100, 20)],
+          'span-4': [rect(500, 200, 100, 20)],
+        },
+      },
+    );
+    flushRaf();
+    // group-1 geometry: hub y = 30 (overlay-relative).
+    expect(lineCoords()).toHaveLength(2);
+    expect(new Set(lineCoords().map(([, , , y2]) => y2))).toEqual(
+      new Set([30]),
+    );
+
+    // Switch the effective alignment to group-2. Its rAF has NOT run yet:
+    // the stale group-1 lines must NOT render under group-2.
+    mount.rerender({ alignmentId: 'group-2' });
+    expect(screen.getByTestId('connector-overlay')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('connector-overlay').querySelectorAll('line'),
+    ).toHaveLength(0);
+
+    // After group-2 geometry recomputes, its lines render normally (hub y
+    // = 160 for the lower members).
+    flushRaf();
+    const lines = lineCoords();
+    expect(lines).toHaveLength(2);
+    expect(new Set(lines.map(([, , , y2]) => y2))).toEqual(new Set([160]));
+  });
+
+  it('never resurrects old geometry across A -> null -> B (R1-F04)', () => {
+    const mount = mountOverlay(
+      [
+        member('span-1', 'group-1'),
+        member('span-2', 'group-1'),
+        member('span-3', 'group-2'),
+        member('span-4', 'group-2'),
+      ],
+      {
+        rects: {
+          'span-1': [rect(120, 70, 100, 20)],
+          'span-2': [rect(500, 70, 100, 20)],
+          'span-3': [rect(120, 200, 100, 20)],
+          'span-4': [rect(500, 200, 100, 20)],
+        },
+      },
+    );
+    flushRaf();
+    expect(lineCoords()).toHaveLength(2);
+
+    // A -> null: the overlay unmounts (state persists internally).
+    mount.rerender({ alignmentId: null });
+    flushRaf();
+    expect(screen.queryByTestId('connector-overlay')).toBeNull();
+
+    // null -> B: the SVG remounts; the old group-1 geometry must NOT be
+    // rendered for group-2 until its own geometry is computed.
+    mount.rerender({ alignmentId: 'group-2' });
+    const remountedSvg = screen.getByTestId('connector-overlay');
+    // The remounted SVG is a fresh element: re-install its layout stub.
+    stubBoundingRect(remountedSvg, OVERLAY_RECT);
+    expect(remountedSvg).toBeInTheDocument();
+    expect(remountedSvg.querySelectorAll('line')).toHaveLength(0);
+
+    flushRaf();
+    const lines = lineCoords();
+    expect(lines).toHaveLength(2);
+    expect(new Set(lines.map(([, , , y2]) => y2))).toEqual(new Set([160]));
   });
 });

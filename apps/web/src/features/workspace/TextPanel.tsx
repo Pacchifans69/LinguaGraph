@@ -33,7 +33,13 @@
  * - a run in several groups: pointer enter sets NO group (ambiguous cue
  *   only), click opens a minimal explicit group chooser OUTSIDE the content
  *   root; hovering/focusing an option previews that group, activating it
- *   sets activeAlignmentId and closes the chooser.
+ *   sets activeAlignmentId and closes the chooser;
+ * - R1-F02: a click that is the tail of a native drag selection inside the
+ *   canonical content root NEVER activates an alignment or opens the
+ *   chooser (the selection is inspected, never mutated);
+ * - R1-F03: the chooser stores only the stable ``{start, end}`` run locator
+ *   and re-resolves the CURRENT run from the current runs array on every
+ *   render, so its candidates always reflect current alignment membership.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -57,15 +63,45 @@ export interface TextPanelProps {
   survivingGroupIds?: ReadonlySet<string>;
 }
 
-/** Deterministic chooser candidate ordering: the run's sorted group ids. */
+/**
+ * R1-F02: a native drag selection inside this panel's canonical content root
+ * must NOT be interpreted as alignment activation. A normal browser text
+ * drag ends with ``mousedown -> drag -> mouseup -> click``; without this
+ * guard the trailing click would activate an alignment (or open the
+ * ambiguity chooser) right after the user merely selected text.
+ *
+ * A selection is relevant to THIS panel when at least one range endpoint
+ * lies inside the canonical content root (the containment authority). A
+ * collapsed/empty selection or a selection living entirely elsewhere on the
+ * page never blocks local activation. The selection is never mutated here.
+ */
+function hasNonCollapsedSelectionInRoot(
+  selection: Selection | null,
+  root: Node,
+): boolean {
+  if (selection === null || selection.rangeCount === 0) {
+    return false;
+  }
+  const range = selection.getRangeAt(0);
+  if (range.collapsed) {
+    return false;
+  }
+  return (
+    root.contains(range.startContainer) || root.contains(range.endContainer)
+  );
+}
+
+/** Deterministic chooser candidate ordering: explicit sort at the boundary. */
 function candidateGroupIds(
   run: RunDescriptor,
   survivingGroupIds: ReadonlySet<string> | undefined,
 ): string[] {
   const candidates = survivingGroupIds
     ? run.alignmentGroupIds.filter((id) => survivingGroupIds.has(id))
-    : run.alignmentGroupIds;
-  return candidates;
+    : [...run.alignmentGroupIds];
+  // Never rely on an incidental upstream array ordering contract — the
+  // chooser boundary orders its own candidates deterministically.
+  return candidates.sort();
 }
 
 export function TextPanel({
@@ -88,9 +124,42 @@ export function TextPanel({
     setActiveAlignment,
   } = useWorkspaceState();
   const [stagingError, setStagingError] = useState<string | null>(null);
-  // M0.6 ambiguity chooser: the multi-group run the user clicked. Local to
-  // the panel; rendered OUTSIDE the canonical content root.
-  const [ambiguousRun, setAmbiguousRun] = useState<RunDescriptor | null>(null);
+  // M0.6 ambiguity chooser (R1-F03): only the STABLE run LOCATOR is kept in
+  // local state — never a full RunDescriptor. The run is re-resolved from
+  // the CURRENT runs array on every render, so chooser candidates always
+  // reflect the CURRENT alignment membership of these coordinates.
+  const [ambiguousRunLocator, setAmbiguousRunLocator] = useState<{
+    start: number;
+    end: number;
+  } | null>(null);
+
+  // Resolve the current run for the stored locator (coordinates are a unique
+  // deterministic identity: segmentation boundaries strictly increase).
+  const ambiguousRun = useMemo(
+    () =>
+      ambiguousRunLocator === null
+        ? null
+        : (runs.find(
+            (run) =>
+              run.start === ambiguousRunLocator.start &&
+              run.end === ambiguousRunLocator.end,
+          ) ?? null),
+    [ambiguousRunLocator, runs],
+  );
+  const ambiguousCandidates = useMemo(
+    () =>
+      ambiguousRun === null
+        ? []
+        : candidateGroupIds(ambiguousRun, survivingGroupIds),
+    [ambiguousRun, survivingGroupIds],
+  );
+  // Close the chooser when the run disappeared or is no longer ambiguous
+  // (fewer than 2 surviving candidate groups on the CURRENT run).
+  useEffect(() => {
+    if (ambiguousRunLocator !== null && ambiguousCandidates.length < 2) {
+      setAmbiguousRunLocator(null);
+    }
+  }, [ambiguousRunLocator, ambiguousCandidates]);
 
   const isCurrentSelection = currentSelection?.textVersionId === version.id;
 
@@ -142,28 +211,6 @@ export function TextPanel({
       );
     }
   }
-
-  // M0.6: the chooser stays consistent with the CURRENT snapshot — when the
-  // clicked run (or its candidate set) no longer exists, the chooser closes.
-  const ambiguousCandidates = useMemo(
-    () =>
-      ambiguousRun === null
-        ? []
-        : candidateGroupIds(ambiguousRun, survivingGroupIds),
-    [ambiguousRun, survivingGroupIds],
-  );
-  useEffect(() => {
-    if (ambiguousRun === null) {
-      return;
-    }
-    const stillRendered = runs.some(
-      (run) =>
-        run.start === ambiguousRun.start && run.end === ambiguousRun.end,
-    );
-    if (!stillRendered || ambiguousCandidates.length < 2) {
-      setAmbiguousRun(null);
-    }
-  }, [ambiguousRun, runs, ambiguousCandidates]);
 
   return (
     <section
@@ -235,15 +282,29 @@ export function TextPanel({
                 }
               }}
               onClick={() => {
+                // R1-F02: the trailing click of a native drag selection must
+                // never activate an alignment or open the chooser. Only a
+                // collapsed/no selection (an ordinary click) may activate.
+                const rootElement = contentRootRef.current;
+                if (
+                  rootElement !== null &&
+                  hasNonCollapsedSelectionInRoot(
+                    window.getSelection(),
+                    rootElement,
+                  )
+                ) {
+                  return;
+                }
                 if (groupCount === 1) {
                   // Activate the unambiguous group; active visualization
                   // persists after pointer leave (no toggle-off in Round 1).
                   setActiveAlignment(run.alignmentGroupIds[0]);
-                  setAmbiguousRun(null);
+                  setAmbiguousRunLocator(null);
                 } else if (groupCount > 1) {
                   // Ambiguous target: open the explicit chooser instead of
-                  // arbitrarily picking run.alignmentGroupIds[0].
-                  setAmbiguousRun(run);
+                  // arbitrarily picking run.alignmentGroupIds[0]. Only the
+                  // stable coordinates are stored (R1-F03).
+                  setAmbiguousRunLocator({ start: run.start, end: run.end });
                 }
               }}
             >
@@ -271,7 +332,7 @@ export function TextPanel({
             {stagingError}
           </p>
         ) : null}
-        {ambiguousRun !== null ? (
+        {ambiguousRun !== null && ambiguousCandidates.length >= 2 ? (
           <div
             className="alignment-chooser"
             role="group"
@@ -303,7 +364,7 @@ export function TextPanel({
                     onClick={() => {
                       // Successful activation closes the chooser.
                       setActiveAlignment(groupId);
-                      setAmbiguousRun(null);
+                      setAmbiguousRunLocator(null);
                     }}
                   >
                     Alignment {groupId.slice(0, 8)}
@@ -315,7 +376,7 @@ export function TextPanel({
               type="button"
               className="alignment-chooser-cancel"
               onClick={() => {
-                setAmbiguousRun(null);
+                setAmbiguousRunLocator(null);
                 setHoveredAlignment(null);
               }}
             >
