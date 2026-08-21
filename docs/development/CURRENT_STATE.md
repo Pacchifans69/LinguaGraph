@@ -605,11 +605,11 @@ M0.6 implementation branch status:
 
 - historical / merged implementation branch:
   `m0.6-alignment-visualization`;
-- current status: **merged implementation branch — awaiting post-closeout
-  cleanup**;
-- branch deletion happens only AFTER this durable closure commit (and any
-  follow-up review fixes) have been reviewed and landed;
-- the branch is NOT yet deleted (locally or remotely).
+- post-closeout branch cleanup: **COMPLETE**;
+- the local `m0.6-alignment-visualization` branch and the corresponding
+  `origin/m0.6-alignment-visualization` branch were deleted after the durable
+  closure commits were human-reviewed and landed on `main`;
+- M0.7 must not reuse the historical M0.6 implementation branch as its base.
 
 M0.6 review-hardening record (all resolved during human review, none open):
 
