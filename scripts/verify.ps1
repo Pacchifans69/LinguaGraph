@@ -22,7 +22,12 @@
 #                                        destructive-test target)
 #              uv run alembic current   (expects 0002 (head))
 #              uv run alembic check     (no schema drift)
-#   frontend : npm ci (only when node_modules is missing/stale)
+#   frontend : npm ci                    (ALWAYS runs — reproducible
+#                                         verification means the exact
+#                                         committed lockfile tree is
+#                                         installed every run; never
+#                                         skipped or recorded as a
+#                                         shortcut)
 #              npm run lint
 #              npm run typecheck
 #              npm run test
@@ -198,20 +203,13 @@ Invoke-VerifyStep 'backend: uv run alembic check (no schema drift)' $ApiRoot @('
 # Frontend verification
 # ---------------------------------------------------------------------------
 
-$lockFile = Join-Path $WebRoot 'package-lock.json'
-$modulesDir = Join-Path $WebRoot 'node_modules'
-$needNpmCi = $true
-if ((Test-Path $modulesDir) -and (Test-Path $lockFile)) {
-    if ((Get-Item $modulesDir).LastWriteTime -ge (Get-Item $lockFile).LastWriteTime) {
-        $needNpmCi = $false
-    }
-}
-if ($needNpmCi) {
-    Invoke-VerifyStep 'frontend: npm ci (from the committed lockfile)' $WebRoot @('npm', 'ci')
-} else {
-    Write-Step 'frontend: node_modules already present and newer than the lockfile — skipping npm ci.'
-    Record-Step 'frontend: npm ci (skipped — dependencies fresh)' $true
-}
+# G2-F01: `npm ci` ALWAYS runs. verify.ps1 is reproducible verification
+# proof: the exact committed lockfile tree must be installed on every run.
+# There is no node_modules-freshness shortcut here (that optimization
+# belongs to dev.ps1, a startup convenience launcher — never to a
+# verification command), and a skipped dependency-install step is never
+# recorded as PASS.
+Invoke-VerifyStep 'frontend: npm ci (from the committed lockfile)' $WebRoot @('npm', 'ci')
 
 Invoke-VerifyStep 'frontend: npm run lint' $WebRoot @('npm', 'run', 'lint')
 Invoke-VerifyStep 'frontend: npm run typecheck' $WebRoot @('npm', 'run', 'typecheck')
