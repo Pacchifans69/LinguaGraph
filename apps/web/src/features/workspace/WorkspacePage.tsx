@@ -36,6 +36,7 @@ import {
 import { useWorkspaceState } from './state/workspaceContext';
 import { isApiError } from '../../shared/api/errors';
 import { EmptyState, ErrorMessage, LoadingMessage } from '../../shared/ui/feedback';
+import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
 
 interface PendingForceDelete {
   versionId: string;
@@ -229,6 +230,11 @@ function WorkspaceBody({
                   <button
                     type="button"
                     aria-label={`Delete ${version.label}`}
+                    // M0.7 W3 hardening: while ANY TextVersion delete request
+                    // is in flight every delete control is disabled, so a
+                    // repeated click can never fire a duplicate destructive
+                    // request.
+                    disabled={deleteMutation.isPending}
                     onClick={() => requestDelete(version.id, version.label)}
                   >
                     Delete
@@ -300,31 +306,41 @@ function WorkspaceBody({
       <ImportPanel documentId={documentId} />
 
       {pendingForceDelete ? (
-        <div className="confirm-dialog-backdrop" role="presentation">
-          <div
-            className="confirm-dialog"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="force-delete-heading"
-          >
-            <h3 id="force-delete-heading">Delete text version permanently?</h3>
-            <p>
-              “{pendingForceDelete.label}” is part of one or more alignments.
-              Deleting it will permanently remove its annotations, and any
-              alignment group that becomes invalid (for example, a group left
-              with members from a single text version) will also be deleted.
-              This cannot be undone.
-            </p>
-            <div className="confirm-dialog-actions">
-              <button type="button" onClick={() => setPendingForceDelete(null)}>
-                Cancel
-              </button>
-              <button type="button" className="danger" onClick={confirmForceDelete}>
-                Delete permanently
-              </button>
-            </div>
+        <ConfirmDialog
+          headingId="force-delete-heading"
+          onClose={() => setPendingForceDelete(null)}
+        >
+          <h3 id="force-delete-heading">Delete text version permanently?</h3>
+          <p>
+            “{pendingForceDelete.label}” is part of one or more alignments.
+            Deleting it will permanently remove its annotations, and any
+            alignment group that becomes invalid (for example, a group left
+            with members from a single text version) will also be deleted.
+            This cannot be undone.
+          </p>
+          <div className="confirm-dialog-actions">
+            <button
+              type="button"
+              // M0.7 W3 hardening: while the force-delete request is in
+              // flight the dialog is inert — neither cancel nor confirm can
+              // fire a second mutation or close the dialog mid-request.
+              disabled={deleteMutation.isPending}
+              onClick={() => setPendingForceDelete(null)}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="danger"
+              disabled={deleteMutation.isPending}
+              onClick={confirmForceDelete}
+            >
+              {deleteMutation.isPending
+                ? 'Deleting…'
+                : 'Delete permanently'}
+            </button>
           </div>
-        </div>
+        </ConfirmDialog>
       ) : null}
     </div>
   );

@@ -108,4 +108,31 @@ describe('ProjectsPage', () => {
     const alert = await screen.findByRole('alert');
     expect(within(alert).getByText(/INTERNAL_ERROR/)).toBeInTheDocument();
   });
+
+  it('surfaces a failed project delete as a visible API error (M0.7 W3)', async () => {
+    installFetchMock([
+      [
+        '/projects',
+        (_url, init) => {
+          if (init?.method === 'DELETE') {
+            return json(500, {
+              code: 'INTERNAL_ERROR',
+              message: 'an unexpected internal error occurred',
+              details: {},
+            });
+          }
+          return json(200, [PROJECT]);
+        },
+      ],
+    ]);
+    renderWithProviders(<ProjectsPage />);
+    await screen.findByText('Corpus');
+
+    // The failing delete must NOT fail silently: the stable envelope is
+    // displayed and the row survives.
+    fireEvent.click(screen.getByRole('button', { name: 'Delete project Corpus' }));
+    const alert = await screen.findByRole('alert');
+    expect(within(alert).getByText(/INTERNAL_ERROR/)).toBeInTheDocument();
+    expect(screen.getByText('Corpus')).toBeInTheDocument();
+  });
 });

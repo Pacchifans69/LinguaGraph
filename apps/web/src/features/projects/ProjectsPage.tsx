@@ -58,6 +58,11 @@ export function ProjectsPage() {
         {createProject.isError ? <ErrorMessage error={createProject.error} /> : null}
       </form>
 
+      {/* M0.7 W3 hardening: a failed project delete must never fail silently
+          — the stable API error is surfaced with the same envelope as every
+          other mutation failure. */}
+      {deleteProject.isError ? <ErrorMessage error={deleteProject.error} /> : null}
+
       {projectsQuery.isPending ? (
         <LoadingMessage>Loading projects…</LoadingMessage>
       ) : projectsQuery.isError ? (
