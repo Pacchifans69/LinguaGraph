@@ -22,7 +22,7 @@ import {
 import { useWorkspace, type WorkspaceSnapshot } from '../workspace/api';
 import { ApiError } from '../../shared/api/client';
 import { renderWithProviders } from '../../test/harness';
-import { installFetchMock, json } from '../../test/mockFetch';
+import { installFetchMock, json, type MockResponse } from '../../test/mockFetch';
 import type { PendingSpan } from '../../shared/text/types';
 
 function emptySnapshot(): WorkspaceSnapshot {
@@ -364,5 +364,137 @@ describe('useUpdateAlignment / useDeleteAlignment (M0.6 Round 2)', () => {
     );
     // Failure never triggers a refetch beyond the initial load.
     expect(workspaceFetches).toBe(1);
+  });
+});
+
+describe('mutation settlement awaits the authoritative refetch (R2-F01)', () => {
+  const updatedAlignment = {
+    id: 'al-1',
+    document_id: 'doc-1',
+    note: 'new note',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    members: [],
+  };
+
+  it('keeps the update mutation unsettled until the workspace refetch resolves', async () => {
+    let workspaceCalls = 0;
+    let resolveRefetch!: (v: MockResponse) => void;
+    const refetchPromise = new Promise<MockResponse>((resolve) => {
+      resolveRefetch = resolve;
+    });
+    let patched = false;
+    installFetchMock([
+      [
+        '/workspace',
+        () => {
+          workspaceCalls += 1;
+          if (workspaceCalls === 1) {
+            return json(200, emptySnapshot());
+          }
+          // The authoritative refetch triggered by the mutation: deferred.
+          return refetchPromise;
+        },
+      ],
+      [
+        '/alignments/',
+        () => {
+          patched = true;
+          return json(200, updatedAlignment);
+        },
+      ],
+    ]);
+
+    let settled = 0;
+    function Harness() {
+      useWorkspace('doc-1');
+      const update = useUpdateAlignment('doc-1', 'al-1');
+      return (
+        <div>
+          <button
+            onClick={() =>
+              update.mutate(
+                { note: 'new note' },
+                { onSettled: () => settled++ },
+              )
+            }
+          >
+            update
+          </button>
+          <span data-testid="status">{update.status}</span>
+        </div>
+      );
+    }
+
+    renderWithProviders(<Harness />);
+    await waitFor(() => expect(workspaceCalls).toBe(1));
+    fireEvent.click(screen.getByRole('button', { name: 'update' }));
+
+    // The HTTP PATCH has already succeeded...
+    await waitFor(() => expect(patched).toBe(true));
+    // ...but the mutation must NOT settle while the workspace refetch is
+    // still unresolved.
+    expect(settled).toBe(0);
+
+    // Only after the authoritative refetch resolves does the mutation settle.
+    await waitFor(() => {
+      resolveRefetch({ status: 200, body: emptySnapshot() });
+    });
+    await waitFor(() => expect(settled).toBe(1));
+  });
+
+  it('keeps the delete mutation unsettled until the workspace refetch resolves', async () => {
+    let workspaceCalls = 0;
+    let resolveRefetch!: (v: MockResponse) => void;
+    const refetchPromise = new Promise<MockResponse>((resolve) => {
+      resolveRefetch = resolve;
+    });
+    let deleted = false;
+    installFetchMock([
+      [
+        '/workspace',
+        () => {
+          workspaceCalls += 1;
+          if (workspaceCalls === 1) {
+            return json(200, emptySnapshot());
+          }
+          return refetchPromise;
+        },
+      ],
+      [
+        '/alignments/',
+        () => {
+          deleted = true;
+          return json(204, undefined);
+        },
+      ],
+    ]);
+
+    let settled = 0;
+    function Harness() {
+      useWorkspace('doc-1');
+      const del = useDeleteAlignment('doc-1', 'al-1');
+      return (
+        <div>
+          <button
+            onClick={() => del.mutate(undefined, { onSettled: () => settled++ })}
+          >
+            delete
+          </button>
+        </div>
+      );
+    }
+
+    renderWithProviders(<Harness />);
+    await waitFor(() => expect(workspaceCalls).toBe(1));
+    fireEvent.click(screen.getByRole('button', { name: 'delete' }));
+
+    await waitFor(() => expect(deleted).toBe(true));
+    expect(settled).toBe(0);
+
+    await waitFor(() => {
+      resolveRefetch({ status: 200, body: emptySnapshot() });
+    });
+    await waitFor(() => expect(settled).toBe(1));
   });
 });

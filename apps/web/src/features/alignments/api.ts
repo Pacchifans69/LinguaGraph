@@ -112,6 +112,12 @@ export type AlignmentWithMembers = CreatedAlignment;
  * - mutation key is alignment-scoped: ['alignment-update', alignmentId];
  * - on success the authoritative workspace snapshot is invalidated/refetched
  *   (NO optimistic persisted-domain state — the backend remains authority);
+ * - R2-F01: onSuccess AWAITS the invalidation/refetch, so the mutation does
+ *   not settle until the active authoritative workspace refetch completes —
+ *   the workspace mutation freeze therefore stays active across HTTP
+ *   success -> invalidation -> refetch -> settle. A refetch failure cannot
+ *   corrupt an already-successful mutation (the invalidation promise is
+ *   absorbed), but the freeze still covers the refetch attempt window.
  * - `alignmentId` may be null (no active group): the hook is inert until a
  *   concrete id is provided and mutate() is called.
  */
@@ -127,8 +133,10 @@ export function useUpdateAlignment(
         `/api/v1/alignments/${alignmentId}`,
         input,
       ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
+    onSuccess: async () => {
+      await queryClient
+        .invalidateQueries({ queryKey: workspaceKeys.detail(documentId) })
+        .catch(() => undefined);
     },
   });
 }
@@ -140,7 +148,10 @@ export function useUpdateAlignment(
  * - mutation key is alignment-scoped: ['alignment-delete', alignmentId];
  * - on success the authoritative workspace snapshot is invalidated/refetched;
  *   the deleted group is reconciled out of active/hovered state by the
- *   existing snapshot reconciliation (never faked client-side).
+ *   existing snapshot reconciliation (never faked client-side);
+ * - R2-F01: onSuccess AWAITS the invalidation/refetch (see
+ *   useUpdateAlignment) so the mutation — and therefore the workspace
+ *   mutation freeze — stays active until the authoritative refetch settles.
  */
 export function useDeleteAlignment(
   documentId: string,
@@ -151,8 +162,10 @@ export function useDeleteAlignment(
     mutationKey: ['alignment-delete', alignmentId],
     mutationFn: () =>
       apiClient.del<void>(`/api/v1/alignments/${alignmentId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
+    onSuccess: async () => {
+      await queryClient
+        .invalidateQueries({ queryKey: workspaceKeys.detail(documentId) })
+        .catch(() => undefined);
     },
   });
 }

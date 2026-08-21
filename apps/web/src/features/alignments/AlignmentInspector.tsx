@@ -108,11 +108,26 @@ export function AlignmentInspector({
     }
   }, [group?.note, noteDirty, noteDraft]);
 
-  // ---- confirmation state -------------------------------------------------
-  const [pendingRemoveMemberId, setPendingRemoveMemberId] = useState<
+  // ---- confirmation state (R2-F02: bound to their targets) ----------------
+  // Destructive confirmations are NEVER targetless booleans: each stores the
+  // identity of the group (and for member removal, the member) it was armed
+  // for. A confirmation renders and may execute only while its target still
+  // matches the CURRENT authoritative active group/member set; when the
+  // active group changes, stale confirmations close and are reset so they
+  // cannot resurrect when switching back.
+  const [pendingDeleteGroupId, setPendingDeleteGroupId] = useState<
     string | null
   >(null);
-  const [pendingDelete, setPendingDelete] = useState(false);
+  const [pendingRemove, setPendingRemove] = useState<{
+    groupId: string;
+    memberId: string;
+  } | null>(null);
+
+  // Active group changed: stale confirmations must close and never reappear.
+  useEffect(() => {
+    setPendingDeleteGroupId(null);
+    setPendingRemove(null);
+  }, [group?.id]);
 
   // ---- note editing -------------------------------------------------------
   const noteUnchanged = (group?.note ?? '') === noteDraft;
@@ -129,7 +144,9 @@ export function AlignmentInspector({
     // The workspace freeze flag is set synchronously (before the request
     // starts) so no second same-group mutation can be started. The draft
     // stays dirty until the refetched server note confirms the save (see
-    // the reconciliation effect above).
+    // the reconciliation effect above). R2-F03: starting a PATCH clears any
+    // stale DELETE error so the latest operation owns the error surface.
+    deleteMutation.reset();
     setAlignmentMutationPending(true);
     updateMutation.mutate(
       { note: noteDraft === '' ? null : noteDraft },
@@ -168,33 +185,48 @@ export function AlignmentInspector({
     if (
       group === null ||
       isMutatingAlignment ||
-      pendingRemoveMemberId === null
+      pendingRemove === null ||
+      // The confirmation only executes for the group/member it was armed
+      // for, and the member must still exist in the CURRENT authoritative
+      // member set (R2-F02).
+      pendingRemove.groupId !== group.id ||
+      !members.some((member) => member.id === pendingRemove.memberId)
     ) {
       return;
     }
     // FULL REPLACEMENT SET semantics: read the CURRENT authoritative
     // members, remove X, convert the rest to coordinates only.
     const remaining = members.filter(
-      (member) => member.id !== pendingRemoveMemberId,
+      (member) => member.id !== pendingRemove.memberId,
     );
     const replacement: AlignmentMemberInput[] = remaining
       .map((member) => memberToMemberInput(member, spansById))
       .filter((input): input is AlignmentMemberInput => input !== null);
     const payload: UpdateAlignmentInput = { members: replacement };
+    // R2-F03: starting a PATCH clears any stale DELETE error.
+    deleteMutation.reset();
     setAlignmentMutationPending(true);
     updateMutation.mutate(payload, {
       onSettled: () => {
         setAlignmentMutationPending(false);
-        setPendingRemoveMemberId(null);
+        setPendingRemove(null);
       },
     });
   }
 
   // ---- delete alignment ---------------------------------------------------
   function handleConfirmDelete() {
-    if (group === null || isMutatingAlignment) {
+    if (
+      group === null ||
+      isMutatingAlignment ||
+      // The confirmation only executes for the group it was armed for
+      // (R2-F02): a stale G1 confirmation can never delete G2.
+      pendingDeleteGroupId !== group.id
+    ) {
       return;
     }
+    // R2-F03: starting a DELETE clears any stale PATCH error.
+    updateMutation.reset();
     setAlignmentMutationPending(true);
     deleteMutation.mutate(undefined, {
       // Success path: the authoritative refetch + snapshot reconciliation
@@ -203,11 +235,13 @@ export function AlignmentInspector({
       // visible in the Inspector with retry available).
       onSettled: () => {
         setAlignmentMutationPending(false);
-        setPendingDelete(false);
+        setPendingDeleteGroupId(null);
       },
     });
   }
 
+  // R2-F03: with stale errors reset when the other operation starts, only
+  // the LATEST failing operation can own the error surface.
   const mutationError = updateMutation.isError
     ? updateMutation.error
     : deleteMutation.isError
@@ -218,9 +252,11 @@ export function AlignmentInspector({
     return null;
   }
 
-  const pendingRemoveMember = members.find(
-    (member) => member.id === pendingRemoveMemberId,
-  );
+  const pendingRemoveMember =
+    pendingRemove !== null && pendingRemove.groupId === group.id
+      ? (members.find((member) => member.id === pendingRemove.memberId) ??
+        null)
+      : null;
 
   return (
     <section
@@ -308,7 +344,9 @@ export function AlignmentInspector({
                   className="inspector-remove-member"
                   aria-label={`Remove member “${span?.exact_text ?? ''}”`}
                   disabled={isMutatingAlignment || !preflight.ok}
-                  onClick={() => setPendingRemoveMemberId(member.id)}
+                  onClick={() =>
+                    setPendingRemove({ groupId: group.id, memberId: member.id })
+                  }
                 >
                   Remove
                 </button>
@@ -326,13 +364,16 @@ export function AlignmentInspector({
           type="button"
           className="danger"
           disabled={isMutatingAlignment}
-          onClick={() => setPendingDelete(true)}
+          onClick={() => setPendingDeleteGroupId(group.id)}
         >
           Delete Alignment
         </button>
       </div>
 
-      {pendingRemoveMember !== undefined ? (
+      {/* R2-F02: dialogs render ONLY while their stored target still matches
+          the CURRENT active group (and member). A stale confirmation from a
+          previous group is invisible and can never execute. */}
+      {pendingRemoveMember !== null ? (
         <div className="confirm-dialog-backdrop" role="presentation">
           <div
             className="confirm-dialog"
@@ -349,7 +390,7 @@ export function AlignmentInspector({
             <div className="confirm-dialog-actions">
               <button
                 type="button"
-                onClick={() => setPendingRemoveMemberId(null)}
+                onClick={() => setPendingRemove(null)}
                 disabled={isMutatingAlignment}
               >
                 Cancel
@@ -367,7 +408,7 @@ export function AlignmentInspector({
         </div>
       ) : null}
 
-      {pendingDelete ? (
+      {pendingDeleteGroupId !== null && pendingDeleteGroupId === group.id ? (
         <div className="confirm-dialog-backdrop" role="presentation">
           <div
             className="confirm-dialog"
@@ -383,7 +424,7 @@ export function AlignmentInspector({
             <div className="confirm-dialog-actions">
               <button
                 type="button"
-                onClick={() => setPendingDelete(false)}
+                onClick={() => setPendingDeleteGroupId(null)}
                 disabled={isMutatingAlignment}
               >
                 Cancel

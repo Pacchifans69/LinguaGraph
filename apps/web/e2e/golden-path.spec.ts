@@ -616,13 +616,33 @@ test.describe('M0 golden path (M0.3 + M0.4 + M0.5 + M0.6 slices)', () => {
     };
     expect(notedBody.alignment_groups[0].note).toBe('Phrase-level correspondence');
 
-    // 30. Geometry invalidation via a real layout action: reorder the
-    //     French panel. The active connectors must remain and re-anchor.
+    // 30. Geometry invalidation via a REAL panel reorder (R2-F04): capture
+    //     the connector SVG geometry, reorder the French panel, then poll
+    //     until the geometry actually differs from the pre-reorder capture
+    //     (proving recomputation from the layout change, not just presence).
+    const captureGeometry = () =>
+      connectorLines.evaluateAll((lines) =>
+        lines.map((line) => ({
+          x1: line.getAttribute('x1'),
+          y1: line.getAttribute('y1'),
+          x2: line.getAttribute('x2'),
+          y2: line.getAttribute('y2'),
+        })),
+      );
+    const geometryBeforeReorder = await captureGeometry();
+    expect(geometryBeforeReorder).toHaveLength(4);
+
     await page
       .locator('.panel-slot', { hasText: FR_TEXT })
       .getByRole('button', { name: 'Move French right' })
       .click();
+
+    // Count stays correct, geometry re-anchors (changes from before), and
+    // the active alignment/Inspector survive the reorder.
     await expect(connectorLines).toHaveCount(4);
+    await expect
+      .poll(async () => captureGeometry())
+      .not.toEqual(geometryBeforeReorder);
     await expect(inspector).toBeVisible();
 
     // 31. Hide the French panel (member hidden): its connector disappears,

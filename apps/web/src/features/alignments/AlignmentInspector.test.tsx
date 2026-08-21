@@ -706,3 +706,395 @@ describe('AlignmentInspector mutation freeze', () => {
     d.resolve({ status: 200, body: { id: 'g1', document_id: 'doc-1', note: 'new note', created_at: 'x', updated_at: 'x', members: [] } });
   });
 });
+
+// ---------------------------------------------------------------------------
+// R2 fix-round regressions
+// ---------------------------------------------------------------------------
+
+import { useWorkspace, type WorkspaceSnapshot } from '../workspace/api';
+
+function workspaceSnapshot(): WorkspaceSnapshot {
+  return {
+    document: {
+      id: 'doc-1',
+      project_id: 'p',
+      title: 'D',
+      description: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    },
+    text_versions: [
+      version('tv-en', 'en', 'English'),
+      version('tv-de', 'de', 'German'),
+      version('tv-fr', 'fr', 'French'),
+    ],
+    spans: [
+      span('sp-en', 'tv-en', 2, 17, 'look forward to'),
+      span('sp-de', 'tv-de', 4, 21, 'freue mich darauf'),
+      span('sp-fr', 'tv-fr', 2, 12, 'ai hâte de'),
+    ],
+    alignment_groups: [group()],
+    alignment_members: [
+      member('am-en', 'sp-en'),
+      member('am-de', 'sp-de'),
+      member('am-fr', 'sp-fr'),
+    ],
+  };
+}
+
+/**
+ * Harness with a LIVE workspace observer (so invalidation triggers a real
+ * refetch) plus Inspector, and buttons to activate g1/g2.
+ */
+function LiveInspectorHarness({
+  data,
+  extraGroupIds = [],
+}: {
+  data?: InspectorData;
+  extraGroupIds?: string[];
+}) {
+  useWorkspace('doc-1');
+  const { activeAlignmentId, setActiveAlignment } = useWorkspaceState();
+  return (
+    <div>
+      <span data-testid="ws-fetches">live</span>
+      <button type="button" onClick={() => setActiveAlignment('g1')}>
+        activate g1
+      </button>
+      {extraGroupIds.map((id) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => setActiveAlignment(id)}
+        >
+          activate {id}
+        </button>
+      ))}
+      <span data-testid="active">{activeAlignmentId ?? '(null)'}</span>
+      <AlignmentInspector
+        documentId="doc-1"
+        activeAlignmentId={activeAlignmentId}
+        groupsById={data?.groupsById ?? {}}
+        membersByGroup={data?.membersByGroup ?? {}}
+        spansById={data?.spansById ?? {}}
+        versionsById={data?.versionsById ?? {}}
+        onClose={() => setActiveAlignment(null)}
+      />
+    </div>
+  );
+}
+
+function renderLiveInspector(data: InspectorData = threeLanguageData()) {
+  return renderWithProviders(
+    <WorkspaceProvider
+      documentId="doc-1"
+      serverVersions={[
+        { id: 'tv-en', contentHash: 'h-tv-en' },
+        { id: 'tv-de', contentHash: 'h-tv-de' },
+        { id: 'tv-fr', contentHash: 'h-tv-fr' },
+      ]}
+      serverAlignmentGroupIds={['g1']}
+    >
+      <LiveInspectorHarness data={data} />
+    </WorkspaceProvider>,
+  );
+}
+
+describe('mutation freeze spans the authoritative refetch (R2-F01)', () => {
+  it('keeps Inspector controls disabled until the refetch resolves (note save)', async () => {
+    let workspaceCalls = 0;
+    let resolveRefetch!: (v: MockResponse) => void;
+    const refetchPromise = new Promise<MockResponse>((resolve) => {
+      resolveRefetch = resolve;
+    });
+    let patched = false;
+    installFetchMock([
+      [
+        '/workspace',
+        () => {
+          workspaceCalls += 1;
+          if (workspaceCalls === 1) {
+            return json(200, workspaceSnapshot());
+          }
+          return refetchPromise;
+        },
+      ],
+      [
+        '/alignments/',
+        () => {
+          patched = true;
+          return json(200, {
+            id: 'g1',
+            document_id: 'doc-1',
+            note: 'new note',
+            created_at: 'x',
+            updated_at: 'x',
+            members: [],
+          });
+        },
+      ],
+    ]);
+    renderLiveInspector();
+    await waitFor(() => expect(workspaceCalls).toBe(1));
+    fireEvent.click(screen.getByRole('button', { name: 'activate g1' }));
+
+    fireEvent.change(noteTextarea(), { target: { value: 'new note' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save note' }));
+
+    // The HTTP PATCH has already succeeded, but the authoritative workspace
+    // refetch is still unresolved: the freeze MUST stay active.
+    await waitFor(() => expect(patched).toBe(true));
+    expect(screen.getByRole('button', { name: 'Save note' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Remove member “look forward to”' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Delete Alignment' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Close inspector' })).toBeDisabled();
+
+    // Only after the refetch resolves does the freeze clear.
+    await waitFor(() => {
+      resolveRefetch({ status: 200, body: workspaceSnapshot() });
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save note' })).toBeEnabled(),
+    );
+  });
+
+  it('blocks a second full-replacement mutation until the first membership refresh lands (member removal)', async () => {
+    let workspaceCalls = 0;
+    let resolveRefetch!: (v: MockResponse) => void;
+    const refetchPromise = new Promise<MockResponse>((resolve) => {
+      resolveRefetch = resolve;
+    });
+    let patches = 0;
+    installFetchMock([
+      [
+        '/workspace',
+        () => {
+          workspaceCalls += 1;
+          if (workspaceCalls === 1) {
+            return json(200, workspaceSnapshot());
+          }
+          return refetchPromise;
+        },
+      ],
+      [
+        '/alignments/',
+        () => {
+          patches += 1;
+          return json(200, {
+            id: 'g1',
+            document_id: 'doc-1',
+            note: null,
+            created_at: 'x',
+            updated_at: 'x',
+            members: [],
+          });
+        },
+      ],
+    ]);
+    renderLiveInspector();
+    await waitFor(() => expect(workspaceCalls).toBe(1));
+    fireEvent.click(screen.getByRole('button', { name: 'activate g1' }));
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove member “ai hâte de”' }),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm remove' }));
+
+    // First removal PATCH succeeded; refetch still unresolved.
+    await waitFor(() => expect(patches).toBe(1));
+    // A second stale full-replacement mutation cannot be started: every
+    // Remove control is disabled until the authoritative membership refresh.
+    expect(
+      screen.getByRole('button', { name: 'Remove member “look forward to”' }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Remove member “freue mich darauf”' }),
+    ).toBeDisabled();
+
+    await waitFor(() => {
+      resolveRefetch({ status: 200, body: workspaceSnapshot() });
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Remove member “look forward to”' }),
+      ).toBeEnabled(),
+    );
+    // Still exactly one PATCH: no stale replacement was ever started.
+    expect(patches).toBe(1);
+  });
+});
+
+describe('confirmations bind to their targets (R2-F02)', () => {
+  function twoGroupData(): InspectorData {
+    const base = threeLanguageData();
+    return {
+      ...base,
+      groupsById: {
+        g1: group(),
+        g2: { ...group(), id: 'g2' },
+      },
+      membersByGroup: {
+        g1: base.membersByGroup.g1,
+        g2: [member('am-en2', 'sp-en'), member('am-de2', 'sp-de')],
+      },
+    };
+  }
+
+  function renderTwoGroups() {
+    return renderWithProviders(
+      <WorkspaceProvider
+        documentId="doc-1"
+        serverVersions={[
+          { id: 'tv-en', contentHash: 'h-tv-en' },
+          { id: 'tv-de', contentHash: 'h-tv-de' },
+          { id: 'tv-fr', contentHash: 'h-tv-fr' },
+        ]}
+        serverAlignmentGroupIds={['g1', 'g2']}
+      >
+        <LiveInspectorHarness data={twoGroupData()} extraGroupIds={['g2']} />
+      </WorkspaceProvider>,
+    );
+  }
+
+  it('a G1 delete confirmation closes on switching to G2, cannot delete G2, and does not resurrect', async () => {
+    const deleteCalls: string[] = [];
+    installFetchMock([
+      ['/workspace', () => json(200, workspaceSnapshot())],
+      [
+        '/alignments/',
+        (url, init) => {
+          deleteCalls.push(`${init?.method} ${url}`);
+          return json(204, undefined);
+        },
+      ],
+    ]);
+    renderTwoGroups();
+    fireEvent.click(screen.getByRole('button', { name: 'activate g1' }));
+    await screen.findByRole('region', { name: 'Alignment inspector' });
+
+    // Arm the delete confirmation for G1.
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Alignment' }));
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+    // Switch the active alignment to G2: the G1 confirmation closes and
+    // must not silently retarget to G2.
+    fireEvent.click(screen.getByRole('button', { name: 'activate g2' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+
+    // A fresh confirmation on G2 deletes ONLY G2.
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Alignment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete' }));
+    await waitFor(() => expect(deleteCalls).toHaveLength(1));
+    expect(deleteCalls[0]).toBe('DELETE /api/v1/alignments/g2');
+
+    // Switch back to G1: the old G1 confirmation must NOT resurrect.
+    fireEvent.click(screen.getByRole('button', { name: 'activate g1' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('a member-removal confirmation does not resurrect after switching away and back', async () => {
+    vi.stubGlobal('fetch', vi.fn());
+    renderTwoGroups();
+    fireEvent.click(screen.getByRole('button', { name: 'activate g1' }));
+    await screen.findByRole('region', { name: 'Alignment inspector' });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove member “ai hâte de”' }),
+    );
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'activate g2' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'activate g1' }));
+    // The old member confirmation does not resurrect.
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+});
+
+describe('latest mutation error authority (R2-F03)', () => {
+  function renderErrorHarness(
+    handlers: Array<
+      [string, (url: string, init?: RequestInit) => Promise<MockResponse>]
+    >,
+  ) {
+    installFetchMock([
+      ['/workspace', () => json(200, workspaceSnapshot())],
+      ...handlers,
+    ]);
+    const view = renderLiveInspector();
+    return view;
+  }
+
+  const patchError = () =>
+    json(422, { code: 'PATCH_BROKEN', message: 'patch failed', details: {} });
+  const deleteError = () =>
+    json(500, { code: 'DELETE_BROKEN', message: 'delete failed', details: {} });
+  const patchOk = () =>
+    json(200, { id: 'g1', document_id: 'doc-1', note: 'ok', created_at: 'x', updated_at: 'x', members: [] });
+
+  it('PATCH failure then DELETE failure shows the DELETE error (latest wins)', async () => {
+    renderErrorHarness([
+      ['/alignments/', (_url, init) => (init?.method === 'DELETE' ? deleteError() : patchError())],
+    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'activate g1' }));
+    await screen.findByRole('region', { name: 'Alignment inspector' });
+
+    fireEvent.change(noteTextarea(), { target: { value: 'x' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save note' }));
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/PATCH_BROKEN/),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Alignment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete' }));
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/DELETE_BROKEN/),
+    );
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/PATCH_BROKEN/);
+  });
+
+  it('DELETE failure then PATCH failure shows the PATCH error (latest wins)', async () => {
+    renderErrorHarness([
+      ['/alignments/', (_url, init) => (init?.method === 'DELETE' ? deleteError() : patchError())],
+    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'activate g1' }));
+    await screen.findByRole('region', { name: 'Alignment inspector' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Alignment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete' }));
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/DELETE_BROKEN/),
+    );
+
+    fireEvent.change(noteTextarea(), { target: { value: 'y' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save note' }));
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/PATCH_BROKEN/),
+    );
+    expect(screen.getByRole('alert')).not.toHaveTextContent(/DELETE_BROKEN/);
+  });
+
+  it('a successful PATCH clears a stale DELETE error', async () => {
+    renderErrorHarness([
+      ['/alignments/', (_url, init) => (init?.method === 'DELETE' ? deleteError() : patchOk())],
+    ]);
+    fireEvent.click(screen.getByRole('button', { name: 'activate g1' }));
+    await screen.findByRole('region', { name: 'Alignment inspector' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Alignment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete' }));
+    await waitFor(() =>
+      expect(screen.getByRole('alert')).toHaveTextContent(/DELETE_BROKEN/),
+    );
+
+    // A subsequent successful PATCH clears the stale DELETE error and the
+    // draft/retry behavior is preserved.
+    fireEvent.change(noteTextarea(), { target: { value: 'fine' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save note' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument(),
+    );
+    expect(noteTextarea()).toHaveValue('fine');
+  });
+});
