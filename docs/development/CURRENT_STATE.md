@@ -16,10 +16,10 @@ Alembic migration history, or merged GitHub PR history.
 
 Last completed implementation checkpoint:
 
-**M0.5 — Alignment Persistence** (COMPLETE / MERGED)
+**M0.6 — Alignment Visualization** (COMPLETE / MERGED)
 
-M0.1, M0.2, M0.3, M0.4, and M0.5 have been human-reviewed, approved, and
-merged into `main`.
+M0.1, M0.2, M0.3, M0.4, M0.5, and M0.6 have been human-reviewed, approved,
+and merged into `main`.
 
 M0.3 GitHub state:
 
@@ -70,15 +70,46 @@ M0.5 lifecycle:
 The M0.5 merge commit `8d1a57b…` has no file-tree difference from the final
 reviewed implementation head `b6714d6…` (verified during Gate 3 closeout).
 
+M0.6 GitHub state:
+
+- PR #8 — `M0.6 — Alignment Visualization`
+- approved base: `aea0a45e740bb9400c7e6dc25fcc88e956a25ee0`
+- reviewed implementation lineage:
+  - `f8d53d7dc9dd0548c14fc122fd5dddfb646a6955` —
+    `feat(web): implement M0.6 visualization foundation`
+  - `fa44a767be0df7331b1ae08e8b93f19b4cf84633` —
+    `fix(web): harden M0.6 visualization interactions`
+  - `e3433799d027c27e759e7bdc44df13c209d0b8e8` —
+    `feat(web): complete M0.6 alignment inspector`
+  - `f86d6429d41e76d4093e08898a9e7879e3774c49` —
+    `fix(web): harden M0.6 inspector mutation lifecycle`
+- final reviewed implementation head: `f86d6429d41e76d4093e08898a9e7879e3774c49`
+- merge commit: `55442d4ce7f71bd28c3368de641802f942e57055`
+- merged: 2026-08-21
+
+M0.6 lifecycle:
+
+- Gate 1: PASS;
+- contract reconstruction/freeze: PASS;
+- Round 1 Human Review: PASS after bounded fixes;
+- Round 2 Human Review: PASS after bounded fixes;
+- Gate 2: PASS;
+- human merge decision: APPROVED;
+- Gate 3 closeout audit: PASS.
+
+The M0.6 merge commit `55442d4…` has no file-tree difference from the final
+reviewed implementation head `f86d642…` (verified during Gate 3 closeout).
+
 Next implementation checkpoint:
 
-**M0.6 — Alignment Visualization (NOT STARTED)**
+**M0.7 — Hardening (NOT STARTED)**
 
-- no M0.6 implementation occurred during M0.5;
-- next M0.6 work starts from the post-M0.5 merged `main` state;
-- a fresh conversation, repository-reality reconstruction, Gate 1, and
-  contract reconstruction/freeze are required before implementation;
-- do not continue from `m0.5-alignment-persistence`.
+- no M0.7 implementation has begun;
+- next M0.7 work starts from the post-M0.6 merged `main` state;
+- a fresh checkpoint conversation, repository-reality reconstruction, Gate 1,
+  contract reconstruction from the authoritative sources, and human contract
+  review/freeze are required before implementation;
+- do not reuse `m0.6-alignment-visualization` as the M0.7 base.
 
 ---
 
@@ -459,6 +490,122 @@ reconstruction; NOT solved during M0.5):
    accepted algorithm with independent Sessions/transactions, but its
    barrier does not deterministically force every possible uncommitted
    conflict interleaving.
+
+### M0.6 — Alignment Visualization
+
+Status:
+
+**COMPLETE / MERGED**
+
+GitHub:
+
+- PR #8 — `M0.6 — Alignment Visualization`
+- approved base: `aea0a45e740bb9400c7e6dc25fcc88e956a25ee0`
+- final reviewed implementation head: `f86d6429d41e76d4093e08898a9e7879e3774c49`
+- merge commit: `55442d4ce7f71bd28c3368de641802f942e57055`
+- merged: 2026-08-21
+
+Implemented (frontend-only; see section 1 for the full reviewed lineage
+`f8d53d7` → `fa44a76` → `e343379` → `f86d642`):
+
+Visualization foundation:
+
+- persisted-alignment annotation indicators (class-only, non-color-cued,
+  never per-character DOM; the canonical content root textContent invariant
+  holds);
+- `hoveredAlignmentId` / `activeAlignmentId` document-scoped ephemeral
+  state (never persisted, never in TanStack Query, never in localStorage;
+  document workspace remount clears both; snapshot reconciliation clears
+  ids whose group disappeared);
+- `active ?? hovered` connector precedence — exactly one connector set;
+- active + secondary hover highlighting (distinct non-color states);
+- deterministic overlap ambiguity chooser for multi-group runs (no
+  arbitrary first-group selection; current-run membership reconciliation);
+- keyboard-accessible persisted-alignment activation (SavedAlignments
+  index);
+- native text-selection activation guard (a drag-selection tail click never
+  activates);
+- explicit panel-layout connector invalidation, stale-geometry provenance,
+  and rAF-coalesced recomputation (see the review-hardening record below).
+
+Rendering architecture:
+
+- `RenderedSpanRegistry` (`Map<spanId, HTMLElement[]>`): the canonical
+  span→DOM bridge; semantic span identity is never discovered through
+  `querySelector`/`data-span-id` parsing;
+- multi-element / multi-ClientRect member geometry (spans split across
+  runs and wrapped lines), clipped to each owning `.text-panel-body`
+  viewport; hidden/offscreen members skipped; fewer than 2 visible anchors
+  → no connectors;
+- nearest-provisional-hub anchor selection (deterministic);
+- SVG `ConnectorOverlay` over `.panels-container`, `pointer-events: none`,
+  overlay-relative coordinates, idle listener detachment, no polling;
+- panel reorder / hide/show / scroll / resize support.
+
+Alignment Inspector:
+
+- driven only by the current normalized workspace snapshot (groupsById /
+  membersByGroup / spansById / versionsById) — no second domain store;
+- human-readable member/version/quote/offset display;
+- note editing: textarea, explicit Save (no autosave), max 4000, empty
+  draft → `{ note: null }`, no trimming, omission = unchanged; draft
+  reconciled against the authoritative note only when no unsaved edit
+  exists;
+- member removal via backend PATCH full-replacement semantics
+  (coordinate-only `{ text_version_id, start, end }` payloads);
+- frontend removal preflight: >=2 members AND >=2 distinct TextVersions
+  (backend remains authoritative);
+- delete AlignmentGroup with destructive confirmation;
+- target-scoped confirmation identity (a stale confirmation can never
+  execute against another group/member);
+- stable mutation errors (latest operation owns the error surface);
+- same-group mutation freeze while any Inspector mutation is pending (note
+  Save / Remove / Delete / Close / active switching / SavedAlignments
+  activation / ambiguity chooser activation disabled), extending through
+  the authoritative workspace refetch (the mutation awaits the refetch
+  before settling);
+- no optimistic persisted-domain mutation — authoritative workspace
+  invalidate/refetch remains the read authority.
+
+Golden path (apps/web/e2e/golden-path.spec.ts):
+
+- preserves the M0.3/M0.4/M0.5 historical proof unchanged;
+- M0.6 fixture shaping uses the backend PATCH capability as TEST SETUP only
+  (no add-member UI implied);
+- four-language EN/DE/FR/ES visualization: idle indicators, hover
+  counterpart propagation, activation → Inspector + connectors, note
+  persistence, REAL browser reorder geometry recomputation, hide/show
+  connector participation, remove FR, reload persistence, delete group,
+  and orphan Span cleanup proof at the API/workspace level.
+
+M0.6 deliberately did NOT implement (deferred to later checkpoints):
+
+- automatic alignment, NLP, LLM, translation, dictionaries, linguistic
+  relations, authentication, collaboration, pagination, virtualization,
+  synchronized scrolling, complex connector routing (M0.7 / later);
+- any backend production change, schema change, or migration (M0.6 is
+  frontend-only; Alembic remains at `0002 (head)`).
+
+M0.6 review-hardening record (all resolved during human review, none open):
+
+Round 1 review fixed:
+
+- explicit panel-layout connector invalidation (layoutKey derived from
+  panelOrder + visiblePanels);
+- native-selection click suppression;
+- stale overlap-chooser membership (chooser re-resolves the CURRENT run);
+- connector geometry provenance (stale lines can never render under a new
+  alignment).
+
+Round 2 review fixed:
+
+- mutation freeze extends through the authoritative workspace refetch;
+- destructive confirmation target identity (group/member-scoped);
+- cross-mutation error ownership (latest operation wins);
+- real E2E connector-coordinate recomputation proof during panel reorder.
+
+No Alembic migration was added in M0.6: frontend-only checkpoint; Alembic
+remains at `0002 (head)`; `alembic check` reports no schema drift.
 
 ---
 
@@ -867,6 +1014,50 @@ No SQLite implementation was introduced anywhere in the test stack.
 
 ---
 
+## 10D. M0.6 verification baseline
+
+Final reported pre-merge verification (Round 1 implementation + Round 1
+bounded review fixes + Round 2 Alignment Inspector + Round 2 bounded review
+fixes; merged 2026-08-21 via PR #8; the latest ACTUAL results below are from
+the final pre-PR candidate after the Round 2 review fixes):
+
+- Python 3.13.x (uv-pinned; `apps/api/.venv`)
+- PostgreSQL 18 (native cluster) — used by all integration tests and by the
+  Playwright E2E backend on its own disposable `linguagraph_e2e_*` database
+- Node 24.19.0 (downloaded to a local prefix; ADR-009 baseline — the
+  system-wide Node 22 was not used for verification)
+- `uv sync --frozen` — passed
+- `uv run pytest -q` — **378 passed** (unchanged from M0.5: M0.6 is
+  frontend-only and adds no backend tests)
+- `uv run alembic current` — `0002 (head)`
+- `uv run alembic check` — no schema drift detected (no new migration)
+- `npm ci` — passed
+- `npm run lint` / `npm run typecheck` — passed
+- `npm run test` — **336 passed (22 files)**: all M0.1–M0.5 tests preserved
+  plus the M0.6 suite (visualization states, annotation indicators, overlap
+  ambiguity chooser, RenderedSpanRegistry, geometry helpers, ConnectorOverlay
+  rendering + recompute lifecycle, Round 1 F01–F04 regressions, Alignment
+  Inspector rendering/note/member-removal/delete/mutation-freeze/snapshot
+  reconciliation, update/delete API hooks, Round 2 F01–F03 regressions)
+- `npm run build` — passed
+- `npx playwright test e2e/golden-path.spec.ts` — M0.3 + M0.4 + M0.5 +
+  M0.6 slice, 1 passed, against the isolated disposable E2E database: the
+  historical M0.3–M0.5 proof unchanged, then the four-language EN/DE/FR/ES
+  visualization fixture (backend-PATCH test setup), idle indicators, hover
+  counterpart propagation, activation → Inspector + connectors, note
+  persistence, real browser reorder geometry recomputation, hide/show
+  connector participation, remove FR, reload persistence, delete group, and
+  orphan Span cleanup proof
+- `git diff --check` — clean
+
+Explicitly retained: **no independent GitHub CI evidence was available or
+claimed** — verification is based on the reported local execution reviewed
+by the human process.
+
+No SQLite implementation was introduced anywhere in the test stack.
+
+---
+
 ## 11. Known non-blocking engineering notes
 
 ### Migration-test environment restoration
@@ -924,19 +1115,32 @@ Historical implementation branch: `m0.5-alignment-persistence`
 branch cleanup).
 ### M0.6 — Alignment Visualization
 
-**NOT STARTED.**
+**COMPLETE / MERGED** (PR #8; see section 1 and section 2).
 
-Owns hover/active propagation, Inspector and SVG connectors (as frozen in
-the authoritative M0 documents). M0.6 requires a fresh checkpoint
-conversation, repository-reality reconstruction from the post-M0.5 closed
-`main`, Gate 1, checkpoint contract reconstruction, human contract
-review/freeze, and only then implementation. Do not continue from
-`m0.5-alignment-persistence`.
+Delivered (frontend-only, as frozen in the authoritative M0 documents): the
+persisted-alignment visualization foundation (annotation indicators,
+hover/active ephemeral state, `active ?? hover` connector precedence,
+deterministic ambiguity chooser, keyboard-accessible activation,
+native-selection activation guard), the `RenderedSpanRegistry` + SVG
+ConnectorOverlay rendering architecture (multi-element/multi-ClientRect
+geometry, viewport clipping, nearest-hub anchors, rAF-coalesced
+recomputation, panel-layout invalidation, stale-geometry provenance), and
+the Alignment Inspector (note editing, member removal via PATCH
+full-replacement, delete with confirmation, target-scoped confirmations,
+same-group mutation freeze through the authoritative refetch, stable
+mutation errors, no optimistic persisted-domain state), closing the full
+visualization/edit/delete loop of the M0 golden path.
 
 ### M0.7 — Hardening
 
+**NOT STARTED.**
+
 Owns final integration/E2E/Unicode/accessibility/error-handling/build
-hardening.
+hardening. M0.7 must start in a fresh checkpoint conversation:
+reconstruct repository reality from the post-M0.6 closed `main`, perform
+Gate 1, reconstruct the M0.7 contract from the authoritative sources and
+the current repository, obtain human contract review/freeze, and only then
+implement. Do not reuse `m0.6-alignment-visualization` as the M0.7 base.
 
 NLP, LLM, machine translation, dictionary, linguistic knowledge graphs,
 authentication, collaboration and distributed infrastructure remain outside
@@ -946,21 +1150,20 @@ M0.
 
 ## 13. Next action
 
-M0.5 is complete and merged. The next checkpoint is M0.6 — Alignment
-Visualization, which has NOT started. A new checkpoint conversation must:
+M0.6 is complete and merged. The next checkpoint is M0.7 — Hardening,
+which has NOT started. A new checkpoint conversation must:
 
-1. synchronize and read current merged `main` (post-M0.5);
+1. synchronize and read current merged `main` (post-M0.6);
 2. perform Gate 1 (repository-reality reconstruction);
-3. reconstruct the M0.6 checkpoint contract from this file, `AGENTS.md`, the
+3. reconstruct the M0.7 checkpoint contract from this file, `AGENTS.md`, the
    authoritative pre-implementation documents, ADR-001…ADR-009, and current
    `main`;
 4. obtain human contract review/freeze;
-5. only then create the bounded M0.6 implementation branch and start
-   implementation;
-6. stop for human review before M0.7.
+5. only then create the bounded M0.7 implementation branch and start
+   implementation.
 
-Do not begin M0.6 automatically, and do not reuse
-`m0.5-alignment-persistence` as the M0.6 base.
+Do not begin M0.7 automatically, and do not reuse
+`m0.6-alignment-visualization` as the M0.7 base.
 
 ---
 
