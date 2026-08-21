@@ -1,0 +1,132 @@
+# LinguaGraph M0 CI — release-baseline verification (M0.7 W6).
+#
+# One minimal job verifying the complete M0 Definition of Done baseline on
+# the frozen ADR-009 environment:
+#
+#   - Python 3.13 (uv)                       - uv sync --frozen
+#   - Node 24                                - npm ci
+#   - PostgreSQL 18 service container        - real-PostgreSQL integration
+#                                              tests (never SQLite)
+#   - backend pytest suite                   - migration safety (0002 head)
+#   - frontend lint / typecheck / test       - production build
+#   - Playwright E2E (golden path + Unicode release blocker)
+#
+# Fail-closed rules (a skipped-integration run must NEVER count as
+# evidence):
+#
+#   - the backend suite must report ZERO skipped tests: pytest only prints
+#     the word "skipped" when at least one test skipped, so the guard step
+#     fails the job whenever the integration tests could not run against
+#     the PostgreSQL service;
+#   - the migration chain is verified on DISPOSABLE databases only
+#     (test_migrations.py creates/drops its own `linguagraph_*` databases);
+#     `alembic upgrade head`/`current`/`check` run against the fresh
+#     service database to prove empty -> head with no drift.
+#
+# Keep this workflow minimal: no matrices, no deployment, no release
+# automation, no Docker image publishing.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  m0-verification:
+    name: M0 verification (Python 3.13 / Node 24 / PostgreSQL 18)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # The PostgreSQL 18 service container. The pytest integration
+      # fixtures and the Playwright E2E backend create their OWN disposable
+      # `linguagraph_*` databases on this server (fail-closed guard in
+      # app/db/disposable.py); these variables only name the server.
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/postgres
+      TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/postgres
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv (Python 3.13)
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+          enable-cache: true
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Backend — uv sync --frozen
+        working-directory: apps/api
+        run: uv sync --frozen
+
+      - name: Backend — migration safety: empty -> head on the fresh service database
+        working-directory: apps/api
+        run: |
+          uv run alembic upgrade head
+          uv run alembic current | tee /tmp/alembic-current.log
+          grep -q "0002 (head)" /tmp/alembic-current.log
+          uv run alembic check
+
+      - name: Backend — full test suite against real PostgreSQL 18 (incl. disposable migration cycles)
+        working-directory: apps/api
+        run: uv run pytest -q 2>&1 | tee /tmp/backend-tests.log
+
+      - name: Backend — fail closed if any test skipped (integration must really run)
+        run: |
+          if grep -q "skipped" /tmp/backend-tests.log; then
+            echo "::error::backend suite reported skipped tests — PostgreSQL integration coverage did NOT run; this run cannot count as M0 CI evidence"
+            exit 1
+          fi
+          tail -5 /tmp/backend-tests.log
+
+      - name: Frontend — npm ci
+        working-directory: apps/web
+        run: npm ci
+
+      - name: Frontend — lint
+        working-directory: apps/web
+        run: npm run lint
+
+      - name: Frontend — typecheck
+        working-directory: apps/web
+        run: npm run typecheck
+
+      - name: Frontend — test suite (Vitest/RTL)
+        working-directory: apps/web
+        run: npm run test
+
+      - name: Frontend — production build
+        working-directory: apps/web
+        run: npm run build
+
+      - name: E2E — install Chromium
+        working-directory: apps/web
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E — golden path + Unicode release blocker (isolated disposable E2E databases)
+        working-directory: apps/web
+        run: npx playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts
