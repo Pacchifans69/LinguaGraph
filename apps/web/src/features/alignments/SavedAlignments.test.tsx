@@ -6,8 +6,8 @@
  * state.
  */
 
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { SavedAlignments } from './SavedAlignments';
 import type { TextVersion, WorkspaceSpan } from '../workspace/api';
 
@@ -125,5 +125,103 @@ describe('SavedAlignments', () => {
     // No note element at all; the member quote is still rendered.
     expect(document.querySelector('.saved-alignment-note')).toBeNull();
     expect(screen.getByText(/en — English: “look forward to”/)).toBeInTheDocument();
+  });
+});
+
+describe('SavedAlignments (M0.6 keyboard-accessible activation index)', () => {
+  const groups = [
+    {
+      id: 'group-aa111',
+      document_id: 'doc-1',
+      note: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    },
+    {
+      id: 'group-bb222',
+      document_id: 'doc-1',
+      note: 'second',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    },
+  ];
+  const membersByGroup = {
+    'group-aa111': [
+      { id: 'am-1', alignment_group_id: 'group-aa111', span_id: 'sp-1', created_at: 'x' },
+    ],
+    'group-bb222': [
+      { id: 'am-2', alignment_group_id: 'group-bb222', span_id: 'sp-1', created_at: 'x' },
+    ],
+  };
+
+  function renderIndex() {
+    const onActivate = vi.fn();
+    const onHover = vi.fn();
+    render(
+      <SavedAlignments
+        groups={groups}
+        membersByGroup={membersByGroup}
+        spansById={{ 'sp-1': span() }}
+        versionsById={{ 'tv-en': version() }}
+        onActivate={onActivate}
+        onHover={onHover}
+      />,
+    );
+    return { onActivate, onHover };
+  }
+
+  it('gives every persisted group a semantic keyboard activation path', () => {
+    renderIndex();
+    const activateButtons = screen.getAllByRole('button', {
+      name: /Activate alignment group-/,
+    });
+    // One activation surface per persisted group (the index stays derived
+    // from the workspace snapshot — no second server-state source).
+    expect(activateButtons).toHaveLength(2);
+    expect(
+      screen.getByRole('button', { name: 'Activate alignment group-aa' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Activate alignment group-bb' }),
+    ).toBeInTheDocument();
+  });
+
+  it('activating a group calls onActivate with the concrete group id', () => {
+    const { onActivate } = renderIndex();
+    screen.getByRole('button', { name: 'Activate alignment group-bb' }).click();
+    expect(onActivate).toHaveBeenCalledTimes(1);
+    expect(onActivate).toHaveBeenCalledWith('group-bb222');
+  });
+
+  it('hovering/focusing a saved alignment previews its group via onHover', () => {
+    const { onHover } = renderIndex();
+    const row = document.querySelector('.saved-alignment');
+    expect(row).not.toBeNull();
+    fireEvent.pointerEnter(row as HTMLElement);
+    expect(onHover).toHaveBeenLastCalledWith('group-aa111');
+    fireEvent.pointerLeave(row as HTMLElement);
+    expect(onHover).toHaveBeenLastCalledWith(null);
+
+    // Focusing the activation button also previews (keyboard path).
+    const button = screen.getByRole('button', {
+      name: 'Activate alignment group-bb',
+    });
+    fireEvent.focus(button);
+    expect(onHover).toHaveBeenLastCalledWith('group-bb222');
+    fireEvent.blur(button);
+    expect(onHover).toHaveBeenLastCalledWith(null);
+  });
+
+  it('keeps M0.5 read-only rendering when no callbacks are wired', () => {
+    render(
+      <SavedAlignments
+        groups={groups}
+        membersByGroup={membersByGroup}
+        spansById={{ 'sp-1': span() }}
+        versionsById={{ 'tv-en': version() }}
+      />,
+    );
+    expect(screen.getByText('Alignment group-aa')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Activate alignment/ })).toBeNull();
   });
 });

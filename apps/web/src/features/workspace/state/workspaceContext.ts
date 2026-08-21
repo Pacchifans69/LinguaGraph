@@ -1,6 +1,6 @@
 /**
- * Workspace context + hook (M0.3 + M0.4). Split from the provider file so the
- * provider module only exports a component (react-refresh friendliness).
+ * Workspace context + hook (M0.3 + M0.4 + M0.6). Split from the provider file
+ * so the provider module only exports a component (react-refresh friendliness).
  */
 
 import { createContext, useContext } from 'react';
@@ -15,6 +15,17 @@ export interface WorkspaceContextValue {
   currentSelection: PendingSpan | null;
   /** M0.4: explicitly staged pending members (Alignment Tray, never persisted). */
   pendingMembers: PendingSpan[];
+  /**
+   * M0.6: the AlignmentGroup id currently hovered by the pointer (or by a
+   * concrete ambiguity-chooser option). Ephemeral — never persisted.
+   */
+  hoveredAlignmentId: string | null;
+  /**
+   * M0.6: the user-activated AlignmentGroup id. Active visualization
+   * persists after pointer leave; Round 1 has no click-to-toggle-off.
+   * Ephemeral — never persisted.
+   */
+  activeAlignmentId: string | null;
   /**
    * M0.5 (Gate 2 fix): true while a Create Alignment request is in flight.
    * The pending tray is FROZEN against growth: STAGING is rejected by
@@ -44,6 +55,10 @@ export interface WorkspaceContextValue {
   removePendingMember: (member: PendingSpan) => void;
   /** Clear the whole pending tray (explicit action only). */
   clearPendingTray: () => void;
+  /** M0.6: set the hovered AlignmentGroup id (null clears). */
+  setHoveredAlignment: (alignmentId: string | null) => void;
+  /** M0.6: activate an AlignmentGroup id (null clears; no toggle in Round 1). */
+  setActiveAlignment: (alignmentId: string | null) => void;
 }
 
 export const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);

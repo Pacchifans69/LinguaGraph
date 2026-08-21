@@ -1,5 +1,5 @@
 /**
- * Workspace UI state reducer (M0.3 + M0.4).
+ * Workspace UI state reducer (M0.3 + M0.4 + M0.6).
  *
  * M0.3 state: ``visiblePanels`` / ``panelOrder`` (local preference, persisted
  * per document). M0.4 adds the ephemeral selection state:
@@ -8,6 +8,14 @@
  *   panel (NOT auto-staged);
  * - ``pendingMembers`` — the explicit Alignment Tray (ADR-007): staged
  *   selections awaiting a future Create Alignment action.
+ *
+ * M0.6 (Round 1) adds the ephemeral visualization state:
+ *
+ * - ``hoveredAlignmentId`` — the concrete AlignmentGroup under the pointer
+ *   (or the one a concrete ambiguity option is hovering/focusing);
+ * - ``activeAlignmentId`` — the user-activated AlignmentGroup (active
+ *   visualization persists after pointer leave; no click-to-toggle-off in
+ *   Round 1).
  *
  * Ephemeral rules:
  *
@@ -21,7 +29,12 @@
  *   but RETAINS its pending members;
  * - RECONCILE_PENDING drops current/pending ranges whose TextVersion
  *   disappeared or whose content hash changed; matching id+hash is retained;
+ * - RECONCILE_ALIGNMENTS drops hovered/active alignment ids that no longer
+ *   exist in the server snapshot (a deleted group can never stay visualized);
  * - Escape clears currentSelection only (component layer), never the tray;
+ * - hoveredAlignmentId / activeAlignmentId are FRONTEND-ONLY: never
+ *   persisted, never stored in TanStack Query, never written to localStorage;
+ *   a document workspace remount (provider keyed by documentId) clears both;
  * - currentSelection/pendingMembers are NEVER persisted to localStorage.
  */
 
@@ -33,6 +46,10 @@ export interface WorkspaceState {
   visiblePanels: string[];
   currentSelection: PendingSpan | null;
   pendingMembers: PendingSpan[];
+  /** M0.6: AlignmentGroup id hovered by the pointer (never persisted). */
+  hoveredAlignmentId: string | null;
+  /** M0.6: user-activated AlignmentGroup id (never persisted). */
+  activeAlignmentId: string | null;
 }
 
 export type WorkspaceAction =
@@ -44,11 +61,14 @@ export type WorkspaceAction =
       type: 'RECONCILE_PENDING';
       serverVersions: ReadonlyArray<{ id: string; contentHash: string }>;
     }
+  | { type: 'RECONCILE_ALIGNMENTS'; serverGroupIds: string[] }
   | { type: 'CAPTURE_SELECTION'; member: PendingSpan }
   | { type: 'CLEAR_SELECTION' }
   | { type: 'ADD_PENDING_MEMBER'; member: PendingSpan }
   | { type: 'REMOVE_PENDING_MEMBER'; member: PendingSpan }
-  | { type: 'CLEAR_PENDING_MEMBERS' };
+  | { type: 'CLEAR_PENDING_MEMBERS' }
+  | { type: 'SET_HOVERED_ALIGNMENT'; alignmentId: string | null }
+  | { type: 'SET_ACTIVE_ALIGNMENT'; alignmentId: string | null };
 
 export type StageRejectionReason =
   | 'NO_SELECTION'
@@ -125,7 +145,19 @@ export const initialWorkspaceState: WorkspaceState = {
   visiblePanels: [],
   currentSelection: null,
   pendingMembers: [],
+  hoveredAlignmentId: null,
+  activeAlignmentId: null,
 };
+
+/**
+ * M0.6 frozen precedence (frozen contract section E): only ONE connector set
+ * may render at a time — the ACTIVE alignment wins over the hovered one.
+ */
+export function effectiveAlignmentId(
+  state: Pick<WorkspaceState, 'activeAlignmentId' | 'hoveredAlignmentId'>,
+): string | null {
+  return state.activeAlignmentId ?? state.hoveredAlignmentId;
+}
 
 export function workspaceReducer(
   state: WorkspaceState,
@@ -206,6 +238,32 @@ export function workspaceReducer(
       };
     case 'CLEAR_PENDING_MEMBERS':
       return { ...state, pendingMembers: [] };
+    case 'SET_HOVERED_ALIGNMENT':
+      if (state.hoveredAlignmentId === action.alignmentId) {
+        return state;
+      }
+      return { ...state, hoveredAlignmentId: action.alignmentId };
+    case 'SET_ACTIVE_ALIGNMENT':
+      if (state.activeAlignmentId === action.alignmentId) {
+        return state;
+      }
+      return { ...state, activeAlignmentId: action.alignmentId };
+    case 'RECONCILE_ALIGNMENTS': {
+      const serverGroupIds = new Set(action.serverGroupIds);
+      return {
+        ...state,
+        hoveredAlignmentId:
+          state.hoveredAlignmentId !== null &&
+          serverGroupIds.has(state.hoveredAlignmentId)
+            ? state.hoveredAlignmentId
+            : null,
+        activeAlignmentId:
+          state.activeAlignmentId !== null &&
+          serverGroupIds.has(state.activeAlignmentId)
+            ? state.activeAlignmentId
+            : null,
+      };
+    }
     default:
       return state;
   }

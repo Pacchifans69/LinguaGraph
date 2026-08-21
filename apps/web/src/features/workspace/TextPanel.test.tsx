@@ -15,6 +15,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { segmentText } from '../../shared/text/segmentation';
 import type { RunDescriptor } from '../../shared/text/types';
+import { RenderedSpanRegistry } from '../../shared/rendering/spanRegistry';
 import { TextPanel } from './TextPanel';
 import type { TextVersion } from './api';
 import { WorkspaceProvider } from './state/WorkspaceProvider';
@@ -48,7 +49,12 @@ function renderPanel(version: TextVersion, runs: RunDescriptor[]) {
       documentId="doc-1"
       serverVersions={[{ id: version.id, contentHash: version.content_hash }]}
     >
-      <TextPanel version={version} runs={runs} onHide={() => {}} />
+      <TextPanel
+        version={version}
+        runs={runs}
+        onHide={() => {}}
+        spanRegistry={new RenderedSpanRegistry()}
+      />
     </WorkspaceProvider>,
   );
 }
@@ -131,7 +137,12 @@ describe('TextPanel (M0.3 behavior preserved)', () => {
     const onHide = vi.fn();
     render(
       <WorkspaceProvider documentId="doc-1" serverVersions={[{ id: 'tv-en', contentHash: 'abc' }]}>
-        <TextPanel version={version()} runs={runsFor('I look forward to seeing you tomorrow.')} onHide={onHide} />
+        <TextPanel
+          version={version()}
+          runs={runsFor('I look forward to seeing you tomorrow.')}
+          onHide={onHide}
+          spanRegistry={new RenderedSpanRegistry()}
+        />
       </WorkspaceProvider>,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Hide English A panel' }));
@@ -368,5 +379,377 @@ describe('TextPanel (M0.4 selection capture and staging)', () => {
     stubEmptySelection();
     fireEvent.mouseUp(root);
     expect(screen.getByRole('button', { name: 'Add to Alignment' })).toBeDisabled();
+  });
+});
+
+describe('TextPanel (M0.6 alignment visualization)', () => {
+  const EN_CONTENT = 'I look forward to seeing you tomorrow.';
+  const DE_CONTENT = 'Ich freue mich darauf, dich morgen zu sehen.';
+
+  interface SpanSpec {
+    id: string;
+    start: number;
+    end: number;
+    groups: string[];
+  }
+
+  function runsWithGroups(
+    content: string,
+    spans: SpanSpec[],
+  ): RunDescriptor[] {
+    const groupsBySpan = new Map(spans.map((s) => [s.id, s.groups]));
+    return segmentText(
+      content,
+      spans.map((s) => ({ id: s.id, start_offset: s.start, end_offset: s.end })),
+      (spanId) => groupsBySpan.get(spanId) ?? [],
+    );
+  }
+
+  const enVersion = version({ id: 'tv-en', label: 'English A' });
+  const deVersion = version({
+    id: 'tv-de',
+    label: 'German A',
+    language_tag: 'de',
+    content: DE_CONTENT,
+    content_hash: 'h-de',
+  });
+
+  function runElements(container: HTMLElement): HTMLElement[] {
+    // Collect runs from ALL canonical content roots (one per panel).
+    const roots = Array.from(
+      container.querySelectorAll('[data-text-content-root]'),
+    );
+    return roots.flatMap((root) =>
+      Array.from(root.querySelectorAll('[data-run]')),
+    ) as HTMLElement[];
+  }
+
+  /** All canonical content roots in render order (EN first, then DE). */
+  function allContentRoots(container: HTMLElement): HTMLElement[] {
+    return Array.from(
+      container.querySelectorAll('[data-text-content-root]'),
+    ) as HTMLElement[];
+  }
+
+  /**
+   * Render EN + DE panels under ONE WorkspaceProvider (shared hovered/active
+   * state), with the EN span [2,17) in `enGroups` and optional DE spans.
+   */
+  function renderTwoPanels(options: {
+    enGroups: string[];
+    deSpans?: SpanSpec[];
+    groupIds?: string[];
+  }) {
+    const registry = new RenderedSpanRegistry();
+    const enRuns = runsWithGroups(EN_CONTENT, [
+      { id: 'span-en', start: 2, end: 17, groups: options.enGroups },
+    ]);
+    const deRuns = runsWithGroups(DE_CONTENT, options.deSpans ?? []);
+    const view = render(
+      <WorkspaceProvider
+        documentId="doc-1"
+        serverVersions={[
+          { id: 'tv-en', contentHash: 'h-en' },
+          { id: 'tv-de', contentHash: 'h-de' },
+        ]}
+        serverAlignmentGroupIds={
+          options.groupIds ?? ['group-alpha', 'group-beta']
+        }
+      >
+        <TextPanel
+          version={enVersion}
+          runs={enRuns}
+          onHide={() => {}}
+          spanRegistry={registry}
+        />
+        <TextPanel
+          version={deVersion}
+          runs={deRuns}
+          onHide={() => {}}
+          spanRegistry={registry}
+        />
+      </WorkspaceProvider>,
+    );
+    const enRunsDom = runElements(view.container).filter(
+      (el) => el.closest('[data-text-version-id="tv-en"]') !== null,
+    );
+    const deRunsDom = runElements(view.container).filter(
+      (el) => el.closest('[data-text-version-id="tv-de"]') !== null,
+    );
+    return { ...view, registry, enRuns: enRunsDom, deRuns: deRunsDom };
+  }
+
+  it('shows an idle persisted-alignment indicator without touching canonical text', () => {
+    const { container, enRuns } = renderTwoPanels({
+      enGroups: ['group-alpha'],
+      deSpans: [{ id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] }],
+    });
+    expect(enRuns[0].classList.contains('run-aligned')).toBe(false);
+    expect(enRuns[1].classList.contains('run-aligned')).toBe(true);
+    expect(enRuns[1].classList.contains('run-hovered')).toBe(false);
+    expect(enRuns[1].classList.contains('run-active')).toBe(false);
+    const [enRoot, deRoot] = allContentRoots(container);
+    expect(enRoot.textContent).toBe(EN_CONTENT);
+    expect(deRoot.textContent).toBe(DE_CONTENT);
+  });
+
+  it('hovers the single group on pointer enter and propagates to ALL its runs', () => {
+    const { enRuns, deRuns } = renderTwoPanels({
+      enGroups: ['group-alpha'],
+      deSpans: [{ id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] }],
+    });
+    fireEvent.pointerEnter(enRuns[1]);
+    // Counterpart hover styling on the DE member (cross-panel propagation).
+    expect(deRuns[1].classList.contains('run-hovered')).toBe(true);
+    // Non-members stay untouched.
+    expect(enRuns[0].classList.contains('run-hovered')).toBe(false);
+    expect(deRuns[0].classList.contains('run-hovered')).toBe(false);
+  });
+
+  it('clears hover on pointer leave', () => {
+    const { enRuns, deRuns } = renderTwoPanels({
+      enGroups: ['group-alpha'],
+      deSpans: [{ id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] }],
+    });
+    fireEvent.pointerEnter(enRuns[1]);
+    expect(deRuns[1].classList.contains('run-hovered')).toBe(true);
+    fireEvent.pointerLeave(enRuns[1]);
+    expect(deRuns[1].classList.contains('run-hovered')).toBe(false);
+  });
+
+  it('hovering an unaligned run never sets a hovered alignment', () => {
+    const { enRuns, deRuns } = renderTwoPanels({
+      enGroups: ['group-alpha'],
+      deSpans: [{ id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] }],
+    });
+    fireEvent.pointerEnter(enRuns[0]);
+    expect(enRuns[1].classList.contains('run-hovered')).toBe(false);
+    expect(deRuns[1].classList.contains('run-hovered')).toBe(false);
+  });
+
+  it('clicking an unambiguous target activates it; active persists after leave', () => {
+    const { enRuns, deRuns, container } = renderTwoPanels({
+      enGroups: ['group-alpha'],
+      deSpans: [{ id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] }],
+    });
+    fireEvent.click(enRuns[1]);
+    expect(enRuns[1].classList.contains('run-active')).toBe(true);
+    expect(deRuns[1].classList.contains('run-active')).toBe(true);
+
+    // Active visualization persists after pointer leave.
+    fireEvent.pointerLeave(enRuns[1]);
+    expect(enRuns[1].classList.contains('run-active')).toBe(true);
+    expect(deRuns[1].classList.contains('run-active')).toBe(true);
+    const [enRoot, deRoot] = allContentRoots(container);
+    expect(enRoot.textContent).toBe(EN_CONTENT);
+    expect(deRoot.textContent).toBe(DE_CONTENT);
+  });
+
+  it('active + secondary hover coexist and are distinguishable', () => {
+    const { enRuns, deRuns } = renderTwoPanels({
+      enGroups: ['group-alpha'],
+      deSpans: [
+        { id: 'span-de-1', start: 4, end: 21, groups: ['group-alpha'] },
+        { id: 'span-de-2', start: 25, end: 30, groups: ['group-beta'] },
+      ],
+    });
+    // Activate group-alpha via the EN member.
+    fireEvent.click(enRuns[1]);
+    // Hover group-beta via its DE member (DE runs: [0,4) [4,21) [21,25)
+    // [25,30) [30,44) — the beta run is index 3).
+    fireEvent.pointerEnter(deRuns[3]);
+
+    // Active group members keep ACTIVE styling...
+    expect(enRuns[1].classList.contains('run-active')).toBe(true);
+    expect(enRuns[1].classList.contains('run-hovered')).toBe(false);
+    expect(deRuns[1].classList.contains('run-active')).toBe(true);
+    // ...while the hovered group's member gets SECONDARY hover styling.
+    expect(deRuns[3].classList.contains('run-hovered')).toBe(true);
+    expect(deRuns[3].classList.contains('run-active')).toBe(false);
+  });
+
+  it('a multi-group run never chooses a group on plain hover (ambiguous cue only)', () => {
+    const { enRuns, deRuns } = renderTwoPanels({
+      enGroups: ['group-alpha', 'group-beta'],
+      deSpans: [{ id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] }],
+    });
+    expect(enRuns[1].classList.contains('run-ambiguous')).toBe(true);
+    fireEvent.pointerEnter(enRuns[1]);
+    // No arbitrary first-group selection: hovered stays null.
+    expect(enRuns[1].classList.contains('run-hovered')).toBe(false);
+    expect(deRuns[1].classList.contains('run-hovered')).toBe(false);
+    expect(enRuns[1].classList.contains('run-active')).toBe(false);
+  });
+
+  it('clicking an ambiguous run opens a chooser OUTSIDE the content root with exact candidates', () => {
+    const { container, enRuns } = renderTwoPanels({
+      enGroups: ['group-zeta', 'group-alpha'],
+      deSpans: [{ id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] }],
+    });
+    fireEvent.click(enRuns[1]);
+
+    const chooser = container.querySelector('.alignment-chooser');
+    expect(chooser).not.toBeNull();
+    // Located OUTSIDE the canonical text root.
+    expect(contentRoot(container).contains(chooser)).toBe(false);
+    // Exact candidate groups, deterministic (sorted) order — NOT [0].
+    const options = Array.from(
+      container.querySelectorAll('.alignment-chooser-option'),
+    ).map((el) => el.textContent);
+    expect(options).toEqual([
+      'Alignment group-al',
+      'Alignment group-ze',
+    ]);
+    // Canonical text stays byte-identical.
+    const [enRoot, deRoot] = allContentRoots(container);
+    expect(enRoot.textContent).toBe(EN_CONTENT);
+    expect(deRoot.textContent).toBe(DE_CONTENT);
+  });
+
+  it('hovering/focusing a concrete chooser option previews that group', () => {
+    const { container, enRuns, deRuns } = renderTwoPanels({
+      enGroups: ['group-alpha', 'group-beta'],
+      deSpans: [
+        { id: 'span-de-1', start: 4, end: 21, groups: ['group-alpha'] },
+        { id: 'span-de-2', start: 25, end: 30, groups: ['group-beta'] },
+      ],
+    });
+    fireEvent.click(enRuns[1]);
+    const options = Array.from(
+      container.querySelectorAll('.alignment-chooser-option'),
+    ) as HTMLElement[];
+
+    // Option order: group-alpha, group-beta. Hover the beta option (DE
+    // runs: [0,4) [4,21) [21,25) [25,30) [30,44) — beta run is index 3).
+    fireEvent.pointerEnter(options[1]);
+    expect(deRuns[3].classList.contains('run-hovered')).toBe(true);
+    expect(deRuns[1].classList.contains('run-hovered')).toBe(false);
+    fireEvent.pointerLeave(options[1]);
+    expect(deRuns[3].classList.contains('run-hovered')).toBe(false);
+
+    // Focusing the alpha option previews alpha (keyboard path).
+    fireEvent.focus(options[0]);
+    expect(deRuns[1].classList.contains('run-hovered')).toBe(true);
+    expect(deRuns[3].classList.contains('run-hovered')).toBe(false);
+    fireEvent.blur(options[0]);
+    expect(deRuns[1].classList.contains('run-hovered')).toBe(false);
+  });
+
+  it('activating a concrete chooser option sets activeAlignmentId and closes', () => {
+    const { container, enRuns, deRuns } = renderTwoPanels({
+      enGroups: ['group-alpha', 'group-beta'],
+      deSpans: [
+        { id: 'span-de-1', start: 4, end: 21, groups: ['group-alpha'] },
+        { id: 'span-de-2', start: 25, end: 30, groups: ['group-beta'] },
+      ],
+    });
+    fireEvent.click(enRuns[1]);
+    const options = Array.from(
+      container.querySelectorAll('.alignment-chooser-option'),
+    ) as HTMLElement[];
+
+    // Activate the beta option: the beta member becomes ACTIVE.
+    fireEvent.click(options[1]);
+    expect(deRuns[3].classList.contains('run-active')).toBe(true);
+    expect(deRuns[1].classList.contains('run-active')).toBe(false);
+    // The chooser closes after successful activation.
+    expect(container.querySelector('.alignment-chooser')).toBeNull();
+  });
+
+  it('supports keyboard activation of chooser options (semantic buttons)', () => {
+    const { container, enRuns, deRuns } = renderTwoPanels({
+      enGroups: ['group-alpha', 'group-beta'],
+      deSpans: [{ id: 'span-de', start: 4, end: 21, groups: ['group-beta'] }],
+    });
+    fireEvent.click(enRuns[1]);
+    const options = Array.from(
+      container.querySelectorAll('.alignment-chooser-option'),
+    ) as HTMLElement[];
+
+    // Real buttons: keyboard-focusable with accessible names.
+    for (const option of options) {
+      expect(option.tagName).toBe('BUTTON');
+      expect(option.getAttribute('aria-label')).toMatch(/^Activate alignment /);
+    }
+    fireEvent.focus(options[1]);
+    expect(deRuns[1].classList.contains('run-hovered')).toBe(true);
+    // Native button activation (Enter/Space dispatch click) activates.
+    fireEvent.click(options[1]);
+    expect(deRuns[1].classList.contains('run-active')).toBe(true);
+    expect(container.querySelector('.alignment-chooser')).toBeNull();
+  });
+
+  it('the chooser lists only surviving groups after a snapshot change', () => {
+    const registry = new RenderedSpanRegistry();
+    const enRuns = runsWithGroups(EN_CONTENT, [
+      { id: 'span-en', start: 2, end: 17, groups: ['group-alpha', 'group-beta'] },
+    ]);
+    const deRuns = runsWithGroups(DE_CONTENT, [
+      { id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] },
+    ]);
+    const groupIds = new Set(['group-alpha', 'group-beta']);
+    const view = render(
+      <WorkspaceProvider
+        documentId="doc-1"
+        serverVersions={[
+          { id: 'tv-en', contentHash: 'h-en' },
+          { id: 'tv-de', contentHash: 'h-de' },
+        ]}
+        serverAlignmentGroupIds={['group-alpha', 'group-beta']}
+      >
+        <TextPanel
+          version={enVersion}
+          runs={enRuns}
+          onHide={() => {}}
+          spanRegistry={registry}
+          survivingGroupIds={groupIds}
+        />
+        <TextPanel
+          version={deVersion}
+          runs={deRuns}
+          onHide={() => {}}
+          spanRegistry={registry}
+          survivingGroupIds={groupIds}
+        />
+      </WorkspaceProvider>,
+    );
+    const enRun = Array.from(
+      contentRoot(view.container).querySelectorAll('[data-run]'),
+    )[1] as HTMLElement;
+    fireEvent.click(enRun);
+    expect(view.container.querySelectorAll('.alignment-chooser-option')).toHaveLength(2);
+
+    // Snapshot change: group-beta is deleted. The chooser re-renders with
+    // the surviving set; with only ONE surviving candidate there is no
+    // ambiguity left to resolve, so it closes.
+    const survivingOnly = new Set(['group-alpha']);
+    view.rerender(
+      <WorkspaceProvider
+        documentId="doc-1"
+        serverVersions={[
+          { id: 'tv-en', contentHash: 'h-en' },
+          { id: 'tv-de', contentHash: 'h-de' },
+        ]}
+        serverAlignmentGroupIds={['group-alpha']}
+      >
+        <TextPanel
+          version={enVersion}
+          runs={runsWithGroups(EN_CONTENT, [
+            { id: 'span-en', start: 2, end: 17, groups: ['group-alpha'] },
+          ])}
+          onHide={() => {}}
+          spanRegistry={registry}
+          survivingGroupIds={survivingOnly}
+        />
+        <TextPanel
+          version={deVersion}
+          runs={deRuns}
+          onHide={() => {}}
+          spanRegistry={registry}
+          survivingGroupIds={survivingOnly}
+        />
+      </WorkspaceProvider>,
+    );
+    expect(view.container.querySelector('.alignment-chooser')).toBeNull();
   });
 });
