@@ -122,6 +122,10 @@ export function TextPanel({
     activeAlignmentId,
     setHoveredAlignment,
     setActiveAlignment,
+    // M0.6 (Round 2): while an Inspector mutation for the active group is
+    // pending, the active group must remain stable — run-click activation
+    // and ambiguity-chooser activation are frozen.
+    isMutatingAlignment,
   } = useWorkspaceState();
   const [stagingError, setStagingError] = useState<string | null>(null);
   // M0.6 ambiguity chooser (R1-F03): only the STABLE run LOCATOR is kept in
@@ -282,6 +286,12 @@ export function TextPanel({
                 }
               }}
               onClick={() => {
+                // M0.6 (Round 2): while an Inspector mutation for the
+                // active group is pending, the active group must stay
+                // stable — no run-click activation, no chooser opening.
+                if (isMutatingAlignment) {
+                  return;
+                }
                 // R1-F02: the trailing click of a native drag selection must
                 // never activate an alignment or open the chooser. Only a
                 // collapsed/no selection (an ordinary click) may activate.
@@ -349,6 +359,7 @@ export function TextPanel({
                     type="button"
                     className="alignment-chooser-option"
                     aria-label={`Activate alignment ${groupId.slice(0, 8)}`}
+                    disabled={isMutatingAlignment}
                     onPointerEnter={() => setHoveredAlignment(groupId)}
                     onPointerLeave={() => {
                       if (hoveredAlignmentId === groupId) {
@@ -362,7 +373,11 @@ export function TextPanel({
                       }
                     }}
                     onClick={() => {
-                      // Successful activation closes the chooser.
+                      // Successful activation closes the chooser. Frozen
+                      // while an Inspector mutation is pending (Round 2).
+                      if (isMutatingAlignment) {
+                        return;
+                      }
                       setActiveAlignment(groupId);
                       setAmbiguousRunLocator(null);
                     }}

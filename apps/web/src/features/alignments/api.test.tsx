@@ -13,7 +13,12 @@
 
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { pendingToMemberInput, useCreateAlignment } from './api';
+import {
+  pendingToMemberInput,
+  useCreateAlignment,
+  useDeleteAlignment,
+  useUpdateAlignment,
+} from './api';
 import { useWorkspace, type WorkspaceSnapshot } from '../workspace/api';
 import { ApiError } from '../../shared/api/client';
 import { renderWithProviders } from '../../test/harness';
@@ -202,5 +207,162 @@ describe('useCreateAlignment', () => {
         'INSUFFICIENT_ALIGNMENT_MEMBERS: an alignment group requires at least 2 members',
       ),
     );
+  });
+});
+
+describe('useUpdateAlignment / useDeleteAlignment (M0.6 Round 2)', () => {
+  const updatedAlignment = {
+    id: 'al-1',
+    document_id: 'doc-1',
+    note: 'new note',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    members: [],
+  };
+
+  it('PATCHes the alignment endpoint with the exact body and invalidates the workspace on success', async () => {
+    let workspaceFetches = 0;
+    let patchedUrl = '';
+    let patchedBody: unknown = null;
+    installFetchMock([
+      [
+        '/workspace',
+        () => {
+          workspaceFetches += 1;
+          return json(200, emptySnapshot());
+        },
+      ],
+      [
+        '/alignments/',
+        (url, init) => {
+          patchedUrl = url;
+          patchedBody = JSON.parse(String(init?.body));
+          return json(200, updatedAlignment);
+        },
+      ],
+    ]);
+
+    function Harness() {
+      const workspace = useWorkspace('doc-1');
+      const update = useUpdateAlignment('doc-1', 'al-1');
+      return (
+        <div>
+          <span data-testid="fetches">
+            {workspace.data ? workspaceFetches : 'loading'}
+          </span>
+          <button onClick={() => update.mutate({ note: 'new note' })}>update</button>
+        </div>
+      );
+    }
+
+    renderWithProviders(<Harness />);
+    await waitFor(() => expect(screen.getByTestId('fetches')).toHaveTextContent('1'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'update' }));
+
+    await waitFor(() => expect(patchedBody).not.toBeNull());
+    expect(patchedUrl).toBe('/api/v1/alignments/al-1');
+    expect(patchedBody).toEqual({ note: 'new note' });
+
+    // The workspace query was invalidated and refetched.
+    await waitFor(() => expect(workspaceFetches).toBeGreaterThan(1));
+  });
+
+  it('DELETEs the alignment endpoint and invalidates the workspace on success', async () => {
+    let workspaceFetches = 0;
+    let deletedUrl = '';
+    let deletedMethod = '';
+    installFetchMock([
+      [
+        '/workspace',
+        () => {
+          workspaceFetches += 1;
+          return json(200, emptySnapshot());
+        },
+      ],
+      [
+        '/alignments/',
+        (url, init) => {
+          deletedUrl = url;
+          deletedMethod = String(init?.method);
+          return json(204, undefined);
+        },
+      ],
+    ]);
+
+    function Harness() {
+      const workspace = useWorkspace('doc-1');
+      const del = useDeleteAlignment('doc-1', 'al-1');
+      return (
+        <div>
+          <span data-testid="fetches">
+            {workspace.data ? workspaceFetches : 'loading'}
+          </span>
+          <button onClick={() => del.mutate()}>delete</button>
+        </div>
+      );
+    }
+
+    renderWithProviders(<Harness />);
+    await waitFor(() => expect(screen.getByTestId('fetches')).toHaveTextContent('1'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'delete' }));
+
+    await waitFor(() => expect(deletedUrl).toBe('/api/v1/alignments/al-1'));
+    expect(deletedMethod).toBe('DELETE');
+    await waitFor(() => expect(workspaceFetches).toBeGreaterThan(1));
+  });
+
+  it('surfaces the stable error envelope on PATCH failure without invalidation', async () => {
+    let workspaceFetches = 0;
+    installFetchMock([
+      [
+        '/workspace',
+        () => {
+          workspaceFetches += 1;
+          return json(200, emptySnapshot());
+        },
+      ],
+      [
+        '/alignments/',
+        () =>
+          json(422, {
+            code: 'VALIDATION_ERROR',
+            message: 'bad payload',
+            details: {},
+          }),
+      ],
+    ]);
+
+    function Harness() {
+      const workspace = useWorkspace('doc-1');
+      const update = useUpdateAlignment('doc-1', 'al-1');
+      return (
+        <div>
+          <span data-testid="fetches">
+            {workspace.data ? workspaceFetches : 'loading'}
+          </span>
+          <button onClick={() => update.mutate({ note: 'x' })}>update</button>
+          <span data-testid="status">
+            {update.isError
+              ? `${(update.error as ApiError).code}: ${update.error.message}`
+              : 'idle'}
+          </span>
+        </div>
+      );
+    }
+
+    renderWithProviders(<Harness />);
+    await waitFor(() => expect(screen.getByTestId('fetches')).toHaveTextContent('1'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'update' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('status')).toHaveTextContent(
+        'VALIDATION_ERROR: bad payload',
+      ),
+    );
+    // Failure never triggers a refetch beyond the initial load.
+    expect(workspaceFetches).toBe(1);
   });
 });

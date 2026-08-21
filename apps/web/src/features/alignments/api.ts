@@ -79,3 +79,101 @@ export function pendingToMemberInput(
     end: member.end,
   };
 }
+
+// ---------------------------------------------------------------------------
+// M0.6 (Round 2): update / delete alignment mutations.
+//
+// The existing backend routes are authoritative:
+//
+//   PATCH  /api/v1/alignments/{alignment_id}
+//   DELETE /api/v1/alignments/{alignment_id}
+//
+// PATCH semantics (frozen M0.5 contract): omission means unchanged,
+// `note: null` clears the note, `members` is the FULL REPLACEMENT SET of
+// coordinate-only members. No new GET/list endpoint is introduced.
+// ---------------------------------------------------------------------------
+
+/**
+ * PATCH body for an existing AlignmentGroup. Omitted fields are unchanged;
+ * `note: null` clears the nullable note; `members` (when present) is the
+ * complete replacement member set.
+ */
+export interface UpdateAlignmentInput {
+  note?: string | null;
+  members?: AlignmentMemberInput[];
+}
+
+/** PATCH/POST response shape: the alignment with its member list. */
+export type AlignmentWithMembers = CreatedAlignment;
+
+/**
+ * Update an existing alignment (note and/or full member replacement).
+ *
+ * - mutation key is alignment-scoped: ['alignment-update', alignmentId];
+ * - on success the authoritative workspace snapshot is invalidated/refetched
+ *   (NO optimistic persisted-domain state — the backend remains authority);
+ * - `alignmentId` may be null (no active group): the hook is inert until a
+ *   concrete id is provided and mutate() is called.
+ */
+export function useUpdateAlignment(
+  documentId: string,
+  alignmentId: string | null,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['alignment-update', alignmentId],
+    mutationFn: (input: UpdateAlignmentInput) =>
+      apiClient.patch<AlignmentWithMembers>(
+        `/api/v1/alignments/${alignmentId}`,
+        input,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
+    },
+  });
+}
+
+/**
+ * Delete an existing alignment (destructive; requires explicit confirmation
+ * at the call site).
+ *
+ * - mutation key is alignment-scoped: ['alignment-delete', alignmentId];
+ * - on success the authoritative workspace snapshot is invalidated/refetched;
+ *   the deleted group is reconciled out of active/hovered state by the
+ *   existing snapshot reconciliation (never faked client-side).
+ */
+export function useDeleteAlignment(
+  documentId: string,
+  alignmentId: string | null,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['alignment-delete', alignmentId],
+    mutationFn: () =>
+      apiClient.del<void>(`/api/v1/alignments/${alignmentId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
+    },
+  });
+}
+
+/**
+ * Convert one authoritative workspace AlignmentMember (via its span) into
+ * the coordinate-only backend member shape. The member's span lookup is the
+ * ONLY data source — exact_text/quote/prefix/suffix/contentHash/direction
+ * are never sent.
+ */
+export function memberToMemberInput(
+  member: { span_id: string },
+  spansById: Record<string, { text_version_id: string; start_offset: number; end_offset: number }>,
+): AlignmentMemberInput | null {
+  const span = spansById[member.span_id];
+  if (span === undefined) {
+    return null;
+  }
+  return {
+    text_version_id: span.text_version_id,
+    start: span.start_offset,
+    end: span.end_offset,
+  };
+}

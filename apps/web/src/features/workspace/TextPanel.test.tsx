@@ -19,6 +19,7 @@ import { RenderedSpanRegistry } from '../../shared/rendering/spanRegistry';
 import { TextPanel } from './TextPanel';
 import type { TextVersion } from './api';
 import { WorkspaceProvider } from './state/WorkspaceProvider';
+import { useWorkspaceState } from './state/workspaceContext';
 
 function version(overrides: Partial<TextVersion> = {}): TextVersion {
   return {
@@ -1015,5 +1016,128 @@ describe('TextPanel (M0.6 alignment visualization)', () => {
       view.container.querySelectorAll('.alignment-chooser-option'),
     ).map((el) => el.textContent);
     expect(options).toEqual(['Alignment group-al', 'Alignment group-ze']);
+  });
+
+  it('freezes run-click activation while an Inspector mutation is pending (R2)', () => {
+    function MutationHarness({ children }: { children: React.ReactNode }) {
+      const { setAlignmentMutationPending } = useWorkspaceState();
+      return (
+        <div>
+          <button
+            type="button"
+            onClick={() => setAlignmentMutationPending(true)}
+          >
+            start mutation
+          </button>
+          <button
+            type="button"
+            onClick={() => setAlignmentMutationPending(false)}
+          >
+            settle mutation
+          </button>
+          {children}
+        </div>
+      );
+    }
+    const registry = new RenderedSpanRegistry();
+    const enRuns = runsWithGroups(EN_CONTENT, [
+      { id: 'span-en', start: 2, end: 17, groups: ['group-alpha'] },
+    ]);
+    const deRuns = runsWithGroups(DE_CONTENT, [
+      { id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] },
+    ]);
+    const view = render(
+      <WorkspaceProvider
+        documentId="doc-1"
+        serverVersions={[
+          { id: 'tv-en', contentHash: 'h-en' },
+          { id: 'tv-de', contentHash: 'h-de' },
+        ]}
+        serverAlignmentGroupIds={['group-alpha']}
+      >
+        <MutationHarness>
+          <TextPanel
+            version={enVersion}
+            runs={enRuns}
+            onHide={() => {}}
+            spanRegistry={registry}
+          />
+          <TextPanel
+            version={deVersion}
+            runs={deRuns}
+            onHide={() => {}}
+            spanRegistry={registry}
+          />
+        </MutationHarness>
+      </WorkspaceProvider>,
+    );
+    const enRun = Array.from(
+      contentRoot(view.container).querySelectorAll('[data-run]'),
+    )[1] as HTMLElement;
+
+    // While a mutation is pending, run clicks must NOT switch the active
+    // alignment (the active group stays stable).
+    fireEvent.click(screen.getByRole('button', { name: 'start mutation' }));
+    fireEvent.click(enRun);
+    expect(enRun.classList.contains('run-active')).toBe(false);
+
+    // After the mutation settles, activation works again.
+    fireEvent.click(screen.getByRole('button', { name: 'settle mutation' }));
+    fireEvent.click(enRun);
+    expect(enRun.classList.contains('run-active')).toBe(true);
+  });
+
+  it('freezes ambiguity-chooser activation while an Inspector mutation is pending (R2)', () => {
+    function MutationHarness({ children }: { children: React.ReactNode }) {
+      const { setAlignmentMutationPending } = useWorkspaceState();
+      return (
+        <div>
+          <button
+            type="button"
+            onClick={() => setAlignmentMutationPending(true)}
+          >
+            start mutation
+          </button>
+          {children}
+        </div>
+      );
+    }
+    const registry = new RenderedSpanRegistry();
+    const enRuns = runsWithGroups(EN_CONTENT, [
+      { id: 'span-en', start: 2, end: 17, groups: ['group-alpha', 'group-beta'] },
+    ]);
+    const view = render(
+      <WorkspaceProvider
+        documentId="doc-1"
+        serverVersions={[{ id: 'tv-en', contentHash: 'h-en' }]}
+        serverAlignmentGroupIds={['group-alpha', 'group-beta']}
+      >
+        <MutationHarness>
+          <TextPanel
+            version={enVersion}
+            runs={enRuns}
+            onHide={() => {}}
+            spanRegistry={registry}
+          />
+        </MutationHarness>
+      </WorkspaceProvider>,
+    );
+    const enRun = Array.from(
+      contentRoot(view.container).querySelectorAll('[data-run]'),
+    )[1] as HTMLElement;
+
+    // Open the chooser while idle.
+    fireEvent.click(enRun);
+    expect(view.container.querySelectorAll('.alignment-chooser-option')).toHaveLength(2);
+
+    // While a mutation is pending the options are disabled: activation of a
+    // different group is impossible.
+    fireEvent.click(screen.getByRole('button', { name: 'start mutation' }));
+    const options = Array.from(
+      view.container.querySelectorAll('.alignment-chooser-option'),
+    ) as HTMLElement[];
+    expect(options[0]).toBeDisabled();
+    fireEvent.click(options[0]);
+    expect(enRun.classList.contains('run-active')).toBe(false);
   });
 });

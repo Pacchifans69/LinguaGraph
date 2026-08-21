@@ -29,6 +29,13 @@ export interface SavedAlignmentsProps {
   onActivate?: (groupId: string) => void;
   /** M0.6: preview a persisted alignment (sets/clears hoveredAlignmentId). */
   onHover?: (groupId: string | null) => void;
+  /**
+   * M0.6 (Round 2): while an Inspector mutation for the active group is in
+   * flight, activation of a DIFFERENT group is disabled (the active group
+   * must remain stable until the mutation settles). Hover previews may stay
+   * active — they never change the active alignment.
+   */
+  disabled?: boolean;
 }
 
 function shortId(id: string): string {
@@ -42,6 +49,7 @@ export function SavedAlignments({
   versionsById,
   onActivate,
   onHover,
+  disabled = false,
 }: SavedAlignmentsProps) {
   if (groups.length === 0) {
     return (
@@ -100,6 +108,7 @@ export function SavedAlignments({
                   onPointerLeave={() => onHover?.(null)}
                   onFocus={() => onHover?.(group.id)}
                   onBlur={() => onHover?.(null)}
+                  disabled={disabled}
                   onClick={() => onActivate(group.id)}
                 >
                   Activate

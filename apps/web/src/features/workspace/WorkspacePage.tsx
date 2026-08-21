@@ -28,6 +28,7 @@ import {
   useCreateAlignment,
   pendingToMemberInput,
 } from '../alignments/api';
+import { AlignmentInspector } from '../alignments/AlignmentInspector';
 import { SavedAlignments } from '../alignments/SavedAlignments';
 import {
   WorkspaceProvider,
@@ -55,6 +56,7 @@ function WorkspaceBody({
   runsByVersion: Record<string, RunDescriptor[]>;
   savedAlignments: {
     groups: ReturnType<typeof normalizeWorkspace>['alignmentGroups'];
+    groupsById: ReturnType<typeof normalizeWorkspace>['groupsById'];
     membersByGroup: ReturnType<typeof normalizeWorkspace>['membersByGroup'];
     spansById: ReturnType<typeof normalizeWorkspace>['spansById'];
     versionsById: ReturnType<typeof normalizeWorkspace>['versionsById'];
@@ -79,6 +81,7 @@ function WorkspaceBody({
     activeAlignmentId,
     setHoveredAlignment,
     setActiveAlignment,
+    isMutatingAlignment,
   } = useWorkspaceState();
   const deleteMutation = useDeleteTextVersion(documentId);
   const [pendingForceDelete, setPendingForceDelete] =
@@ -264,10 +267,26 @@ function WorkspaceBody({
         isCreating={createMutation.isPending}
       />
 
+      {/* M0.6 (Round 2): Alignment Inspector bound to activeAlignmentId.
+          All data comes from the current normalized workspace snapshot; the
+          Inspector owns its alignment-scoped update/delete mutations and
+          drives the workspace mutation-freeze flag. */}
+      <AlignmentInspector
+        documentId={documentId}
+        activeAlignmentId={activeAlignmentId}
+        groupsById={savedAlignments.groupsById}
+        membersByGroup={savedAlignments.membersByGroup}
+        spansById={savedAlignments.spansById}
+        versionsById={savedAlignments.versionsById}
+        onClose={() => setActiveAlignment(null)}
+      />
+
       {/* M0.5: minimal read-only persisted alignment representation,
           derived entirely from the authoritative workspace snapshot.
           M0.6: also the minimal keyboard-accessible alignment activation
-          index (every persisted group gets a semantic activation path). */}
+          index (every persisted group gets a semantic activation path).
+          Round 2: activation is disabled while an Inspector mutation for
+          the active group is in flight (active group must stay stable). */}
       <SavedAlignments
         groups={savedAlignments.groups}
         membersByGroup={savedAlignments.membersByGroup}
@@ -275,6 +294,7 @@ function WorkspaceBody({
         versionsById={savedAlignments.versionsById}
         onActivate={setActiveAlignment}
         onHover={setHoveredAlignment}
+        disabled={isMutatingAlignment}
       />
 
       <ImportPanel documentId={documentId} />
@@ -420,6 +440,7 @@ function DocumentWorkspacePage({ documentId }: { documentId: string }) {
           runsByVersion={runsByVersion}
           savedAlignments={{
             groups: normalized.alignmentGroups,
+            groupsById: normalized.groupsById,
             membersByGroup: normalized.membersByGroup,
             spansById: normalized.spansById,
             versionsById: normalized.versionsById,

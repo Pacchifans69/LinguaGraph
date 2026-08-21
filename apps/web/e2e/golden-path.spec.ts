@@ -1,5 +1,5 @@
 /**
- * M0 golden path — M0.3 + M0.4 + M0.5 slices.
+ * M0 golden path — M0.3 + M0.4 + M0.5 + M0.6 slices.
  *
  * M0.3 portion (document workspace):
  *
@@ -56,6 +56,19 @@ const DE_TEXT = 'Ich freue mich darauf, dich morgen zu sehen.';
 const FR_TEXT = 'J’ai hâte de te voir demain.';
 const ES_TEXT = 'Tengo ganas de verte mañana.';
 const UNI_TEXT = 'Café 🙂 mañana für français';
+
+/**
+ * M0.6 fixture helper: locate the Unicode code-point index of `quote` in
+ * `content` (ADR-001 — offsets are code points, never UTF-16 units).
+ */
+function codePointIndexOf(content: string, quote: string): number {
+  const joined = Array.from(content).join('');
+  const utf16Index = joined.indexOf(quote);
+  if (utf16Index < 0) {
+    throw new Error(`quote not found in content: ${quote}`);
+  }
+  return Array.from(joined.slice(0, utf16Index)).length;
+}
 
 /**
  * Select `text` inside one panel's canonical content root using the REAL
@@ -131,8 +144,8 @@ async function selectAndVerify(
   ).toBeEnabled();
 }
 
-test.describe('M0 golden path (M0.3 + M0.4 + M0.5 slices)', () => {
-  test('creates a project/document/versions and manages text panels', async ({
+test.describe('M0 golden path (M0.3 + M0.4 + M0.5 + M0.6 slices)', () => {
+  test('creates a project/document/versions, manages text panels, persists alignments and completes the M0.6 visualization loop', async ({
     page,
     request,
   }) => {
@@ -456,7 +469,249 @@ test.describe('M0 golden path (M0.3 + M0.4 + M0.5 slices)', () => {
     expect(afterReloadBody.alignment_groups).toHaveLength(1);
     expect(afterReloadBody.alignment_members).toHaveLength(3);
 
-    // 23. STOP — M0.6 (hover/active visualization, connectors, Inspector)
-    //     is a separate checkpoint.
+    // 23. M0.6 STOP boundary reached (historical M0.5 proof above is
+    //     complete and unchanged). The M0.6 slice continues below.
+
+    // ===================================================================
+    // M0.6 — Alignment Visualization slice
+    // ===================================================================
+
+    // 24. Shape the persisted group into the canonical four-language
+    //     visualization fixture (EN / DE / FR / ES) using the backend PATCH
+    //     capability directly. This is TEST SETUP ONLY — it does not imply
+    //     an add-member UI exists.
+    const fixtureWorkspace = await request.get(
+      `/api/v1/documents/${match?.[1]}/workspace`,
+    );
+    const fixtureBody = (await fixtureWorkspace.json()) as {
+      text_versions: Array<{ id: string; label: string }>;
+      alignment_groups: Array<{ id: string }>;
+    };
+    const versionIdByLabel = new Map(
+      fixtureBody.text_versions.map((v) => [v.label, v.id]),
+    );
+    const groupId = fixtureBody.alignment_groups[0].id;
+    // Offsets are Unicode code points (ADR-001); compute them from the
+    // canonical content so the fixture stays exact.
+    const frQuote = 'ai hâte de';
+    const esQuote = 'Tengo ganas de';
+    const frStart = codePointIndexOf(FR_TEXT, frQuote);
+    const esStart = codePointIndexOf(ES_TEXT, esQuote);
+    const fixturePatch = await request.patch(
+      `/api/v1/alignments/${groupId}`,
+      {
+        data: {
+          members: [
+            { text_version_id: versionIdByLabel.get('English'), start: 2, end: 17 },
+            { text_version_id: versionIdByLabel.get('German'), start: 4, end: 21 },
+            { text_version_id: versionIdByLabel.get('French'), start: frStart, end: frStart + Array.from(frQuote).length },
+            { text_version_id: versionIdByLabel.get('Spanish'), start: esStart, end: esStart + Array.from(esQuote).length },
+          ],
+        },
+      },
+    );
+    expect(fixturePatch.ok()).toBeTruthy();
+    const fixtureVerified = await request.get(
+      `/api/v1/documents/${match?.[1]}/workspace`,
+    );
+    const fixtureVerifiedBody = (await fixtureVerified.json()) as {
+      spans: Array<{ exact_text: string }>;
+      alignment_groups: unknown[];
+      alignment_members: unknown[];
+    };
+    expect(fixtureVerifiedBody.alignment_groups).toHaveLength(1);
+    expect(fixtureVerifiedBody.alignment_members).toHaveLength(4);
+    expect(
+      fixtureVerifiedBody.spans.map((s) => s.exact_text).sort(),
+    ).toEqual([
+      'Tengo ganas de',
+      'ai hâte de',
+      'freue mich darauf',
+      'look forward to',
+    ]);
+
+    // Reload: the four-language persisted group drives the visualization.
+    await page.reload();
+    await expect(page.locator('.text-panel')).toHaveCount(5);
+
+    // enPanel/dePanel were declared in the M0.4 slice and stay valid; the
+    // FR/ES panels get their locators here.
+    const frPanel = page.locator('.text-panel', { hasText: FR_TEXT }).first();
+    const esPanel = page.locator('.text-panel', { hasText: ES_TEXT }).first();
+    const enAlignedRun = enPanel.locator('[data-run].run-aligned').first();
+    const deAlignedRun = dePanel.locator('[data-run].run-aligned').first();
+    const frAlignedRun = frPanel.locator('[data-run].run-aligned').first();
+    const esAlignedRun = esPanel.locator('[data-run].run-aligned').first();
+    const connectorLines = page.locator('.connector-overlay .connector-line');
+
+    // 25. Idle visualization: persisted annotation indicators exist, no
+    //     active connectors, Inspector closed.
+    await expect(enAlignedRun).toBeVisible();
+    await expect(deAlignedRun).toBeVisible();
+    await expect(frAlignedRun).toBeVisible();
+    await expect(esAlignedRun).toBeVisible();
+    await expect(page.locator('.saved-alignment-member')).toHaveCount(4);
+    await expect(connectorLines).toHaveCount(0);
+    await expect(
+      page.getByRole('region', { name: 'Alignment inspector' }),
+    ).toHaveCount(0);
+
+    // 26. Hover the EN member: all four counterparts highlight and the
+    //     connector set appears.
+    await enAlignedRun.hover();
+    await expect(enAlignedRun).toHaveClass(/run-hovered/);
+    await expect(deAlignedRun).toHaveClass(/run-hovered/);
+    await expect(frAlignedRun).toHaveClass(/run-hovered/);
+    await expect(esAlignedRun).toHaveClass(/run-hovered/);
+    await expect(connectorLines).toHaveCount(4);
+
+    // 27. Hover ends: temporary styling clears and the connectors disappear
+    //     (no active alignment).
+    await page
+      .getByRole('heading', { name: /Workspace — Chapter 1/ })
+      .hover();
+    await expect(enAlignedRun).not.toHaveClass(/run-hovered/);
+    await expect(deAlignedRun).not.toHaveClass(/run-hovered/);
+    await expect(frAlignedRun).not.toHaveClass(/run-hovered/);
+    await expect(esAlignedRun).not.toHaveClass(/run-hovered/);
+    await expect(connectorLines).toHaveCount(0);
+
+    // 28. Activate: click the EN member. Active styling persists after
+    //     pointer leave, connectors persist, and the Inspector opens with
+    //     exactly the four current members.
+    await enAlignedRun.click();
+    await page
+      .getByRole('heading', { name: /Workspace — Chapter 1/ })
+      .hover();
+    await expect(enAlignedRun).toHaveClass(/run-active/);
+    await expect(deAlignedRun).toHaveClass(/run-active/);
+    await expect(frAlignedRun).toHaveClass(/run-active/);
+    await expect(esAlignedRun).toHaveClass(/run-active/);
+    await expect(connectorLines).toHaveCount(4);
+    const inspector = page.getByRole('region', {
+      name: 'Alignment inspector',
+    });
+    await expect(inspector).toBeVisible();
+    await expect(inspector.locator('.inspector-member')).toHaveCount(4);
+    await expect(inspector).toContainText('look forward to');
+    await expect(inspector).toContainText('freue mich darauf');
+    await expect(inspector).toContainText('ai hâte de');
+    await expect(inspector).toContainText('Tengo ganas de');
+
+    // 29. Edit the note: type + explicit Save, then verify the
+    //     authoritative refresh surfaces it in the Inspector and the saved
+    //     alignment list.
+    const noteInput = page.getByLabel(/Note/);
+    await noteInput.fill('Phrase-level correspondence');
+    await page.getByRole('button', { name: 'Save note' }).click();
+    await expect(noteInput).toHaveValue('Phrase-level correspondence');
+    await expect(page.locator('.saved-alignment-note')).toContainText(
+      'Phrase-level correspondence',
+    );
+    const notedSnapshot = await request.get(
+      `/api/v1/documents/${match?.[1]}/workspace`,
+    );
+    const notedBody = (await notedSnapshot.json()) as {
+      alignment_groups: Array<{ note: string | null }>;
+    };
+    expect(notedBody.alignment_groups[0].note).toBe('Phrase-level correspondence');
+
+    // 30. Geometry invalidation via a real layout action: reorder the
+    //     French panel. The active connectors must remain and re-anchor.
+    await page
+      .locator('.panel-slot', { hasText: FR_TEXT })
+      .getByRole('button', { name: 'Move French right' })
+      .click();
+    await expect(connectorLines).toHaveCount(4);
+    await expect(inspector).toBeVisible();
+
+    // 31. Hide the French panel (member hidden): its connector disappears,
+    //     the group stays active and the Inspector still lists ALL members.
+    await page.getByRole('button', { name: 'Hide French panel' }).click();
+    await expect(connectorLines).toHaveCount(3);
+    await expect(inspector.locator('.inspector-member')).toHaveCount(4);
+    await page.getByRole('button', { name: /Open French/ }).click();
+    await expect(connectorLines).toHaveCount(4);
+
+    // 32. Remove the FR member through the Inspector (explicit
+    //     confirmation), then verify the authoritative refresh.
+    await page
+      .getByRole('button', { name: 'Remove member “ai hâte de”' })
+      .click();
+    await page.getByRole('button', { name: 'Confirm remove' }).click();
+    await expect(inspector.locator('.inspector-member')).toHaveCount(3);
+    await expect(inspector).not.toContainText('ai hâte de');
+    await expect(frPanel.locator('[data-run].run-aligned')).toHaveCount(0);
+    await expect(enAlignedRun).toHaveClass(/run-active/);
+    await expect(deAlignedRun).toHaveClass(/run-active/);
+    await expect(esAlignedRun).toHaveClass(/run-active/);
+    const reducedSnapshot = await request.get(
+      `/api/v1/documents/${match?.[1]}/workspace`,
+    );
+    const reducedBody = (await reducedSnapshot.json()) as {
+      spans: Array<{ exact_text: string }>;
+      alignment_groups: unknown[];
+      alignment_members: unknown[];
+    };
+    expect(reducedBody.alignment_groups).toHaveLength(1);
+    expect(reducedBody.alignment_members).toHaveLength(3);
+    // The FR span is orphaned and cleaned up by the backend.
+    expect(
+      reducedBody.spans.map((s) => s.exact_text).sort(),
+    ).toEqual(['Tengo ganas de', 'freue mich darauf', 'look forward to']);
+
+    // 33. Reload: active state clears, Inspector closes, but the persisted
+    //     domain changes (note, FR removal) survive and indicators remain.
+    await page.reload();
+    await expect(page.locator('.text-panel')).toHaveCount(5);
+    await expect(
+      page.getByRole('region', { name: 'Alignment inspector' }),
+    ).toHaveCount(0);
+    await expect(connectorLines).toHaveCount(0);
+    await expect(page.locator('.saved-alignment-member')).toHaveCount(3);
+    await expect(
+      page.locator('.saved-alignment-note'),
+    ).toContainText('Phrase-level correspondence');
+    // The removed FR member is gone from the persisted representation.
+    await expect(
+      page.locator('.saved-alignment-member', { hasText: 'ai hâte de' }),
+    ).toHaveCount(0);
+    await expect(
+      page.locator('.text-panel', { hasText: EN_TEXT }).first().locator('[data-run].run-aligned'),
+    ).toBeVisible();
+
+    // 34. Reactivate and delete the alignment with confirmation. After the
+    //     authoritative refresh the group is gone: Inspector closed,
+    //     connectors absent, active/hover cleared, indicators gone.
+    await enAlignedRun.click();
+    await expect(inspector).toBeVisible();
+    await page.getByRole('button', { name: 'Delete Alignment' }).click();
+    await page.getByRole('button', { name: 'Confirm delete' }).click();
+    await expect(inspector).toHaveCount(0);
+    await expect(connectorLines).toHaveCount(0);
+    await expect(page.getByText('No saved alignments yet.')).toBeVisible();
+    await expect(
+      page.locator('.text-panel', { hasText: EN_TEXT }).first().locator('[data-run].run-aligned'),
+    ).toHaveCount(0);
+    await expect(
+      page.locator('.text-panel', { hasText: DE_TEXT }).first().locator('[data-run].run-aligned'),
+    ).toHaveCount(0);
+    await expect(
+      page.locator('.text-panel', { hasText: ES_TEXT }).first().locator('[data-run].run-aligned'),
+    ).toHaveCount(0);
+
+    const finalSnapshot = await request.get(
+      `/api/v1/documents/${match?.[1]}/workspace`,
+    );
+    expect(finalSnapshot.ok()).toBeTruthy();
+    const finalBody = (await finalSnapshot.json()) as {
+      spans: unknown[];
+      alignment_groups: unknown[];
+      alignment_members: unknown[];
+    };
+    expect(finalBody.alignment_groups).toHaveLength(0);
+    expect(finalBody.alignment_members).toHaveLength(0);
+    // Orphan Span cleanup: every span of the deleted group is removed.
+    expect(finalBody.spans).toHaveLength(0);
   });
 });

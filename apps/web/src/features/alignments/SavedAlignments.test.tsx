@@ -225,3 +225,59 @@ describe('SavedAlignments (M0.6 keyboard-accessible activation index)', () => {
     expect(screen.queryByRole('button', { name: /Activate alignment/ })).toBeNull();
   });
 });
+
+describe('SavedAlignments (M0.6 Round 2 mutation freeze)', () => {
+  const groups = [
+    {
+      id: 'group-aa111',
+      document_id: 'doc-1',
+      note: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    },
+  ];
+  const membersByGroup = {
+    'group-aa111': [
+      { id: 'am-1', alignment_group_id: 'group-aa111', span_id: 'sp-1', created_at: 'x' },
+    ],
+  };
+
+  it('disables activation while an Inspector mutation is pending (disabled controls, not styling only)', () => {
+    const onActivate = vi.fn();
+    render(
+      <SavedAlignments
+        groups={groups}
+        membersByGroup={membersByGroup}
+        spansById={{ 'sp-1': span() }}
+        versionsById={{ 'tv-en': version() }}
+        onActivate={onActivate}
+        onHover={() => {}}
+        disabled
+      />,
+    );
+    const activate = screen.getByRole('button', {
+      name: 'Activate alignment group-aa',
+    });
+    expect(activate).toBeDisabled();
+    fireEvent.click(activate);
+    expect(onActivate).not.toHaveBeenCalled();
+  });
+
+  it('stays enabled when no mutation is pending', () => {
+    const onActivate = vi.fn();
+    render(
+      <SavedAlignments
+        groups={groups}
+        membersByGroup={membersByGroup}
+        spansById={{ 'sp-1': span() }}
+        versionsById={{ 'tv-en': version() }}
+        onActivate={onActivate}
+        onHover={() => {}}
+      />,
+    );
+    const activate = screen.getByRole('button', {
+      name: 'Activate alignment group-aa',
+    });
+    expect(activate).toBeEnabled();
+  });
+});

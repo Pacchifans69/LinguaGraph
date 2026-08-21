@@ -148,3 +148,85 @@ describe('WorkspaceProvider (M0.6 hovered/active lifecycle)', () => {
     }
   });
 });
+
+describe('WorkspaceProvider (M0.6 Round 2 mutation freeze flag)', () => {
+  function MutationProbe() {
+    const { isMutatingAlignment, setAlignmentMutationPending } =
+      useWorkspaceState();
+    return (
+      <div>
+        <span data-testid="mutating">
+          {isMutatingAlignment ? 'pending' : 'idle'}
+        </span>
+        <button
+          type="button"
+          onClick={() => setAlignmentMutationPending(true)}
+        >
+          freeze
+        </button>
+        <button
+          type="button"
+          onClick={() => setAlignmentMutationPending(false)}
+        >
+          unfreeze
+        </button>
+      </div>
+    );
+  }
+
+  it('is ephemeral: set/clear via the workspace layer, never persisted', () => {
+    render(
+      <WorkspaceProvider
+        documentId="doc-1"
+        serverVersions={[{ id: 'tv-en', contentHash: 'h' }]}
+        serverAlignmentGroupIds={['group-a']}
+      >
+        <MutationProbe />
+      </WorkspaceProvider>,
+    );
+    expect(screen.getByTestId('mutating')).toHaveTextContent('idle');
+    act(() => {
+      screen.getByRole('button', { name: 'freeze' }).click();
+    });
+    expect(screen.getByTestId('mutating')).toHaveTextContent('pending');
+    act(() => {
+      screen.getByRole('button', { name: 'unfreeze' }).click();
+    });
+    expect(screen.getByTestId('mutating')).toHaveTextContent('idle');
+    // Never written to localStorage.
+    const stored = window.localStorage.getItem(
+      'linguagraph.workspace.preferences.v1.doc-1',
+    );
+    if (stored !== null) {
+      expect(stored).not.toContain('isMutatingAlignment');
+    }
+  });
+
+  it('resets on document workspace remount', () => {
+    const first = render(
+      <WorkspaceProvider
+        documentId="doc-1"
+        serverVersions={[{ id: 'tv-en', contentHash: 'h' }]}
+        serverAlignmentGroupIds={['group-a']}
+      >
+        <MutationProbe />
+      </WorkspaceProvider>,
+    );
+    act(() => {
+      screen.getByRole('button', { name: 'freeze' }).click();
+    });
+    expect(screen.getByTestId('mutating')).toHaveTextContent('pending');
+
+    first.unmount();
+    render(
+      <WorkspaceProvider
+        documentId="doc-2"
+        serverVersions={[{ id: 'tv-en', contentHash: 'h' }]}
+        serverAlignmentGroupIds={['group-a']}
+      >
+        <MutationProbe />
+      </WorkspaceProvider>,
+    );
+    expect(screen.getByTestId('mutating')).toHaveTextContent('idle');
+  });
+});

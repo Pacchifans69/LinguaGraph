@@ -412,6 +412,117 @@ body {
   font-size: 0.85rem;
 }
 
+/* --- alignment inspector (M0.6 Round 2) ----------------------------------- */
+
+.alignment-inspector {
+  margin-top: 1.25rem;
+  border: 1px solid #1a5fb4;
+  border-radius: 6px;
+  background-color: #f4f8fe;
+  padding: 0.625rem;
+  max-width: 44rem;
+}
+
+.alignment-inspector-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.alignment-inspector-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.inspector-note {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+.inspector-note label {
+  font-size: 0.85rem;
+  color: #333;
+}
+
+.inspector-note-length {
+  color: #777;
+  font-size: 0.8rem;
+}
+
+.inspector-note textarea {
+  font: inherit;
+  padding: 0.375rem;
+  border: 1px solid #b0b0b0;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+.inspector-save-note {
+  align-self: flex-start;
+}
+
+.inspector-members {
+  margin-top: 0.75rem;
+}
+
+.inspector-members h4 {
+  margin: 0 0 0.25rem;
+  font-size: 0.9rem;
+}
+
+.inspector-member-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.inspector-member {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.25rem 0.375rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background-color: #fff;
+}
+
+.inspector-member-info {
+  flex: 1;
+  font-size: 0.9rem;
+}
+
+.inspector-member-language {
+  font-family: monospace;
+  background-color: #e8eef7;
+  border-radius: 3px;
+  padding: 0 0.25rem;
+  font-size: 0.8rem;
+}
+
+.inspector-member-offsets {
+  font-family: monospace;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.inspector-validation {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #8a5a00;
+}
+
+.inspector-actions {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
 /* --- saved alignments (M0.5 minimal read-only persisted representation) --- */
 
 .saved-alignments {

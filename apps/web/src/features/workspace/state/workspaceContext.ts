@@ -36,6 +36,17 @@ export interface WorkspaceContextValue {
    * itself relies on it.)
    */
   isCreatingAlignment: boolean;
+  /**
+   * M0.6 (Round 2): true while ANY Inspector mutation for the active
+   * AlignmentGroup is in flight. While pending, active-group interaction is
+   * frozen across the workspace: note Save, member Remove, Delete Alignment,
+   * Inspector Close, active alignment switching, ambiguity chooser
+   * activation and SavedAlignments activation are all disabled. Ephemeral —
+   * never persisted; cleared on document workspace remount.
+   */
+  isMutatingAlignment: boolean;
+  /** M0.6 (Round 2): report mutation pending state to the workspace layer. */
+  setAlignmentMutationPending: (pending: boolean) => void;
   openPanel: (versionId: string) => void;
   hidePanel: (versionId: string) => void;
   reorderPanels: (fromIndex: number, toIndex: number) => void;
