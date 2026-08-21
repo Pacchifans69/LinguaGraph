@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import type { PendingSpan } from '../../../shared/text/types';
 import {
   canStagePendingMember,
+  effectiveAlignmentId,
   initialWorkspaceState,
   pendingRangesOverlap,
   workspaceReducer,
@@ -293,5 +294,150 @@ describe('workspaceReducer — M0.4 pending selection state', () => {
   it('starts with empty ephemeral state (never restored from storage)', () => {
     expect(initialWorkspaceState.currentSelection).toBeNull();
     expect(initialWorkspaceState.pendingMembers).toEqual([]);
+  });
+});
+
+describe('workspaceReducer (M0.6 hovered/active alignment state)', () => {
+  it('sets and clears hoveredAlignmentId', () => {
+    let state = workspaceReducer(initialWorkspaceState, {
+      type: 'SET_HOVERED_ALIGNMENT',
+      alignmentId: 'group-a',
+    });
+    expect(state.hoveredAlignmentId).toBe('group-a');
+
+    state = workspaceReducer(state, {
+      type: 'SET_HOVERED_ALIGNMENT',
+      alignmentId: null,
+    });
+    expect(state.hoveredAlignmentId).toBeNull();
+  });
+
+  it('sets, switches and clears activeAlignmentId', () => {
+    let state = workspaceReducer(initialWorkspaceState, {
+      type: 'SET_ACTIVE_ALIGNMENT',
+      alignmentId: 'group-a',
+    });
+    expect(state.activeAlignmentId).toBe('group-a');
+
+    // Switching (clicking another group) replaces the active id.
+    state = workspaceReducer(state, {
+      type: 'SET_ACTIVE_ALIGNMENT',
+      alignmentId: 'group-b',
+    });
+    expect(state.activeAlignmentId).toBe('group-b');
+
+    state = workspaceReducer(state, {
+      type: 'SET_ACTIVE_ALIGNMENT',
+      alignmentId: null,
+    });
+    expect(state.activeAlignmentId).toBeNull();
+  });
+
+  it('lets active and hovered coexist independently', () => {
+    let state = workspaceReducer(initialWorkspaceState, {
+      type: 'SET_ACTIVE_ALIGNMENT',
+      alignmentId: 'group-a',
+    });
+    state = workspaceReducer(state, {
+      type: 'SET_HOVERED_ALIGNMENT',
+      alignmentId: 'group-b',
+    });
+    expect(state.activeAlignmentId).toBe('group-a');
+    expect(state.hoveredAlignmentId).toBe('group-b');
+
+    // Clearing hover leaves active untouched.
+    state = workspaceReducer(state, {
+      type: 'SET_HOVERED_ALIGNMENT',
+      alignmentId: null,
+    });
+    expect(state.activeAlignmentId).toBe('group-a');
+    expect(state.hoveredAlignmentId).toBeNull();
+  });
+
+  it('keeps active when the same id is hovered (precedence resolved by effectiveAlignmentId)', () => {
+    let state = workspaceReducer(initialWorkspaceState, {
+      type: 'SET_ACTIVE_ALIGNMENT',
+      alignmentId: 'group-a',
+    });
+    state = workspaceReducer(state, {
+      type: 'SET_HOVERED_ALIGNMENT',
+      alignmentId: 'group-a',
+    });
+    expect(state.activeAlignmentId).toBe('group-a');
+    expect(state.hoveredAlignmentId).toBe('group-a');
+  });
+
+  it('reconciles hovered/active to null when the group disappears from the snapshot', () => {
+    let state = workspaceReducer(initialWorkspaceState, {
+      type: 'SET_HOVERED_ALIGNMENT',
+      alignmentId: 'group-gone',
+    });
+    state = workspaceReducer(state, {
+      type: 'SET_ACTIVE_ALIGNMENT',
+      alignmentId: 'group-kept',
+    });
+    state = workspaceReducer(state, {
+      type: 'RECONCILE_ALIGNMENTS',
+      serverGroupIds: ['group-kept'],
+    });
+    expect(state.hoveredAlignmentId).toBeNull();
+    expect(state.activeAlignmentId).toBe('group-kept');
+  });
+
+  it('retains hovered/active ids that still exist in the snapshot', () => {
+    let state = workspaceReducer(initialWorkspaceState, {
+      type: 'SET_HOVERED_ALIGNMENT',
+      alignmentId: 'group-a',
+    });
+    state = workspaceReducer(state, {
+      type: 'SET_ACTIVE_ALIGNMENT',
+      alignmentId: 'group-b',
+    });
+    state = workspaceReducer(state, {
+      type: 'RECONCILE_ALIGNMENTS',
+      serverGroupIds: ['group-a', 'group-b', 'group-c'],
+    });
+    expect(state.hoveredAlignmentId).toBe('group-a');
+    expect(state.activeAlignmentId).toBe('group-b');
+  });
+
+  it('does not affect pending/selection state or preferences', () => {
+    let state = workspaceReducer(initialWorkspaceState, {
+      type: 'SET_ACTIVE_ALIGNMENT',
+      alignmentId: 'group-a',
+    });
+    state = workspaceReducer(state, {
+      type: 'SET_HOVERED_ALIGNMENT',
+      alignmentId: 'group-b',
+    });
+    expect(state.currentSelection).toBeNull();
+    expect(state.pendingMembers).toEqual([]);
+    expect(state.panelOrder).toEqual([]);
+    expect(state.visiblePanels).toEqual([]);
+  });
+
+  it('starts with both visualization ids null (ephemeral, never persisted)', () => {
+    expect(initialWorkspaceState.hoveredAlignmentId).toBeNull();
+    expect(initialWorkspaceState.activeAlignmentId).toBeNull();
+  });
+});
+
+describe('effectiveAlignmentId (M0.6 frozen connector precedence)', () => {
+  it('is null when neither active nor hovered', () => {
+    expect(
+      effectiveAlignmentId({ activeAlignmentId: null, hoveredAlignmentId: null }),
+    ).toBeNull();
+  });
+
+  it('prefers active over hovered (only ONE connector set)', () => {
+    expect(
+      effectiveAlignmentId({ activeAlignmentId: 'group-a', hoveredAlignmentId: 'group-b' }),
+    ).toBe('group-a');
+  });
+
+  it('falls back to hovered when nothing is active', () => {
+    expect(
+      effectiveAlignmentId({ activeAlignmentId: null, hoveredAlignmentId: 'group-b' }),
+    ).toBe('group-b');
   });
 });

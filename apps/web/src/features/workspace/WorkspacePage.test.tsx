@@ -7,9 +7,9 @@
  * change / remount clearing (M0.4).
  */
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { WorkspacePage } from './WorkspacePage';
 import { renderPageAt, createTestQueryClient } from '../../test/harness';
@@ -1250,5 +1250,423 @@ describe('WorkspacePage (M0.4 preference-write discipline)', () => {
 
     expect(setItemSpy).not.toHaveBeenCalled();
     setItemSpy.mockRestore();
+  });
+});
+
+describe('WorkspacePage (M0.6 alignment visualization)', () => {
+  // jsdom has no ResizeObserver; the ConnectorOverlay attaches one while an
+  // effective alignment exists. A no-op stub keeps the page-level tests
+  // exercising the real wiring without a layout engine.
+  class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal('ResizeObserver', ResizeObserverStub);
+  });
+  /** Snapshot with one persisted alignment: EN [2,17) <-> DE [4,21). */
+  function alignedSnapshot(): WorkspaceSnapshot {
+    const data = snapshot();
+    data.spans = [
+      {
+        id: 'sp-en',
+        text_version_id: 'tv-en',
+        start_offset: 2,
+        end_offset: 17,
+        exact_text: 'look forward to',
+        prefix: 'I ',
+        suffix: ' seeing you tomorrow.',
+        created_at: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 'sp-de',
+        text_version_id: 'tv-de',
+        start_offset: 4,
+        end_offset: 21,
+        exact_text: 'freue mich darauf',
+        prefix: 'Ich ',
+        suffix: ', dich morgen zu sehen.',
+        created_at: '2026-01-01T00:00:00Z',
+      },
+    ];
+    data.alignment_groups = [
+      {
+        id: 'al-1',
+        document_id: 'doc-1',
+        note: null,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      },
+    ];
+    data.alignment_members = [
+      { id: 'am-en', alignment_group_id: 'al-1', span_id: 'sp-en', created_at: 'x' },
+      { id: 'am-de', alignment_group_id: 'al-1', span_id: 'sp-de', created_at: 'x' },
+    ];
+    return data;
+  }
+
+  async function renderAlignedWorkspace() {
+    installFetchMock([
+      ['/workspace', () => json(200, alignedSnapshot())],
+    ]);
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    await openEnglishPanel();
+    // With persisted alignment data the canonical text is split across runs,
+    // so wait on the root textContent (never a full-string match).
+    await waitFor(() =>
+      expect(
+        view.container.querySelector(
+          '[data-text-version-id="tv-en"] [data-text-content-root]',
+        )?.textContent,
+      ).toBe('I look forward to seeing you tomorrow.'),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open German' }));
+    await waitFor(() =>
+      expect(
+        view.container.querySelector(
+          '[data-text-version-id="tv-de"] [data-text-content-root]',
+        )?.textContent,
+      ).toBe('Ich freue mich darauf, dich morgen zu sehen.'),
+    );
+    return view;
+  }
+
+  function alignedRuns(container: HTMLElement): {
+    en: HTMLElement[];
+    de: HTMLElement[];
+  } {
+    const panels = Array.from(container.querySelectorAll('.text-panel'));
+    const enPanel = panels.find((p) =>
+      p.textContent?.includes('I look forward to'),
+    );
+    const dePanel = panels.find((p) =>
+      p.textContent?.includes('Ich freue mich darauf'),
+    );
+    const en = Array.from(
+      enPanel?.querySelectorAll('[data-run]') ?? [],
+    ) as HTMLElement[];
+    const de = Array.from(
+      dePanel?.querySelectorAll('[data-run]') ?? [],
+    ) as HTMLElement[];
+    return { en, de };
+  }
+
+  it('hover propagates across panels, activates on click, and drives the connector overlay', async () => {
+    const { container } = await renderAlignedWorkspace();
+    const { en, de } = alignedRuns(container);
+    // EN runs: [0,2) plain, [2,17) aligned, [17,38) plain.
+    expect(en[1].classList.contains('run-aligned')).toBe(true);
+    expect(de[1].classList.contains('run-aligned')).toBe(true);
+    // No overlay while idle.
+    expect(screen.queryByTestId('connector-overlay')).toBeNull();
+
+    // Hover the EN aligned run: counterpart highlight + overlay appear.
+    fireEvent.pointerEnter(en[1]);
+    expect(de[1].classList.contains('run-hovered')).toBe(true);
+    expect(screen.getByTestId('connector-overlay')).toBeInTheDocument();
+
+    // Click activates: active styling persists after pointer leave; the
+    // overlay stays because the ACTIVE alignment wins.
+    fireEvent.click(en[1]);
+    fireEvent.pointerLeave(en[1]);
+    expect(en[1].classList.contains('run-active')).toBe(true);
+    expect(de[1].classList.contains('run-active')).toBe(true);
+    expect(de[1].classList.contains('run-hovered')).toBe(false);
+    expect(screen.getByTestId('connector-overlay')).toBeInTheDocument();
+
+    // Canonical text is untouched by all visualization interactions.
+    for (const panel of Array.from(container.querySelectorAll('.text-panel'))) {
+      const root = panel.querySelector('[data-text-content-root]');
+      const versionId = root?.getAttribute('data-text-version-id');
+      const expected =
+        versionId === 'tv-en'
+          ? 'I look forward to seeing you tomorrow.'
+          : 'Ich freue mich darauf, dich morgen zu sehen.';
+      expect(root?.textContent).toBe(expected);
+    }
+  });
+
+  it('the saved-alignment index activates a group and opens the overlay', async () => {
+    const { container } = await renderAlignedWorkspace();
+    expect(screen.queryByTestId('connector-overlay')).toBeNull();
+
+    // Keyboard-accessible activation surface: the saved alignment button.
+    const activate = screen.getByRole('button', {
+      name: 'Activate alignment al-1',
+    });
+    fireEvent.focus(activate);
+    expect(screen.getByTestId('connector-overlay')).toBeInTheDocument();
+    const { en } = alignedRuns(container);
+    expect(en[1].classList.contains('run-hovered')).toBe(true);
+
+    fireEvent.click(activate);
+    expect(en[1].classList.contains('run-active')).toBe(true);
+    expect(screen.getByTestId('connector-overlay')).toBeInTheDocument();
+  });
+
+  it('overlay disappears when the hovered/active alignment is cleared by a snapshot without it', async () => {
+    let current = alignedSnapshot();
+    installFetchMock([
+      [
+        '/workspace',
+        () => json(200, current),
+      ],
+    ]);
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    await openEnglishPanel();
+    await waitFor(() =>
+      expect(
+        view.container.querySelector(
+          '[data-text-version-id="tv-en"] [data-text-content-root]',
+        )?.textContent,
+      ).toBe('I look forward to seeing you tomorrow.'),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open German' }));
+    await waitFor(() =>
+      expect(
+        view.container.querySelector(
+          '[data-text-version-id="tv-de"] [data-text-content-root]',
+        )?.textContent,
+      ).toBe('Ich freue mich darauf, dich morgen zu sehen.'),
+    );
+
+    const { en } = alignedRuns(view.container);
+    fireEvent.click(en[1]);
+    expect(screen.getByTestId('connector-overlay')).toBeInTheDocument();
+
+    // The snapshot refetches WITHOUT the alignment (deleted server-side):
+    // the provider reconciles activeAlignmentId to null -> overlay unmounts.
+    current = snapshot();
+    await act(async () => {
+      await view.queryClient.refetchQueries({ queryKey: ['workspace'] });
+    });
+    await waitFor(() =>
+      expect(screen.queryByTestId('connector-overlay')).toBeNull(),
+    );
+    // The aligned run is now a plain run again (re-query: runs remounted;
+    // without spans the whole text is ONE run, so index 0).
+    const reruns = alignedRuns(view.container);
+    expect(reruns.en[0].classList.contains('run-active')).toBe(false);
+    expect(reruns.en[0].classList.contains('run-aligned')).toBe(false);
+  });
+});
+
+describe('WorkspacePage (M0.6 Round 2 Alignment Inspector)', () => {
+  class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+
+  beforeEach(() => {
+    vi.stubGlobal('ResizeObserver', ResizeObserverStub);
+  });
+
+  const EN_TEXT = 'I look forward to seeing you tomorrow.';
+  const DE_TEXT = 'Ich freue mich darauf, dich morgen zu sehen.';
+
+  function alignedSnapshot(): WorkspaceSnapshot {
+    const data = snapshot();
+    data.spans = [
+      {
+        id: 'sp-en',
+        text_version_id: 'tv-en',
+        start_offset: 2,
+        end_offset: 17,
+        exact_text: 'look forward to',
+        prefix: 'I ',
+        suffix: ' seeing you tomorrow.',
+        created_at: '2026-01-01T00:00:00Z',
+      },
+      {
+        id: 'sp-de',
+        text_version_id: 'tv-de',
+        start_offset: 4,
+        end_offset: 21,
+        exact_text: 'freue mich darauf',
+        prefix: 'Ich ',
+        suffix: ', dich morgen zu sehen.',
+        created_at: '2026-01-01T00:00:00Z',
+      },
+    ];
+    data.alignment_groups = [
+      {
+        id: 'al-1',
+        document_id: 'doc-1',
+        note: null,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      },
+    ];
+    data.alignment_members = [
+      { id: 'am-en', alignment_group_id: 'al-1', span_id: 'sp-en', created_at: 'x' },
+      { id: 'am-de', alignment_group_id: 'al-1', span_id: 'sp-de', created_at: 'x' },
+    ];
+    return data;
+  }
+
+  /** Install the aligned workspace snapshot mock (plus extra handlers). */
+  function installAlignedWorkspaceMock(
+    extraHandlers: Array<[string, (url: string, init?: RequestInit) => Promise<MockResponse>]> = [],
+    workspaceHandler?: () => Promise<MockResponse>,
+  ) {
+    installFetchMock([
+      ['/workspace', workspaceHandler ?? (() => json(200, alignedSnapshot()))],
+      ...extraHandlers,
+    ]);
+  }
+
+  async function renderAligned() {
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    await openEnglishPanel();
+    await waitFor(() =>
+      expect(
+        view.container.querySelector(
+          '[data-text-version-id="tv-en"] [data-text-content-root]',
+        )?.textContent,
+      ).toBe(EN_TEXT),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Open German' }));
+    await waitFor(() =>
+      expect(
+        view.container.querySelector(
+          '[data-text-version-id="tv-de"] [data-text-content-root]',
+        )?.textContent,
+      ).toBe(DE_TEXT),
+    );
+    return view;
+  }
+
+  function enAlignedRun(container: HTMLElement): HTMLElement {
+    const panels = Array.from(container.querySelectorAll('.text-panel'));
+    const enPanel = panels.find((p) => p.textContent?.includes('I look forward to'));
+    const runs = Array.from(enPanel?.querySelectorAll('[data-run]') ?? []);
+    return runs[1] as HTMLElement;
+  }
+
+  it('opens the Inspector on activation and closes it via Close', async () => {
+    installAlignedWorkspaceMock();
+    const view = await renderAligned();
+    expect(screen.queryByRole('region', { name: 'Alignment inspector' })).toBeNull();
+
+    fireEvent.click(enAlignedRun(view.container));
+    const inspector = await screen.findByRole('region', {
+      name: 'Alignment inspector',
+    });
+    // Snapshot-derived members, human-readable.
+    expect(inspector).toHaveTextContent('look forward to');
+    expect(inspector).toHaveTextContent('freue mich darauf');
+    expect(inspector).toHaveTextContent('English');
+    expect(inspector).toHaveTextContent('German');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close inspector' }));
+    expect(screen.queryByRole('region', { name: 'Alignment inspector' })).toBeNull();
+    // Connector overlay also disappears (active cleared).
+    expect(screen.queryByTestId('connector-overlay')).toBeNull();
+  });
+
+  it('saves a note via PATCH and renders the authoritative refreshed note', async () => {
+    let current = alignedSnapshot();
+    let patchedBody: unknown = null;
+    installAlignedWorkspaceMock([
+      [
+        '/alignments/',
+        (_url, init) => {
+          patchedBody = JSON.parse(String(init?.body));
+          current = alignedSnapshot();
+          current.alignment_groups[0].note = 'Phrase-level correspondence';
+          return json(200, {
+            id: 'al-1',
+            document_id: 'doc-1',
+            note: 'Phrase-level correspondence',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+            members: [],
+          });
+          },
+        ],
+      ],
+      () => json(200, current),
+    );
+    const view = await renderAligned();
+    fireEvent.click(enAlignedRun(view.container));
+    await screen.findByRole('region', { name: 'Alignment inspector' });
+
+    const textarea = screen.getByLabelText(/Note/) as HTMLTextAreaElement;
+    fireEvent.change(textarea, { target: { value: 'Phrase-level correspondence' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save note' }));
+
+    await waitFor(() => expect(patchedBody).toEqual({ note: 'Phrase-level correspondence' }));
+    // Authoritative refetch: the Inspector and the saved list show the note.
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Note/)).toHaveValue(
+        'Phrase-level correspondence',
+      ),
+    );
+    expect(screen.getByText('“Phrase-level correspondence”')).toBeInTheDocument();
+  });
+
+  it('deletes the alignment with confirmation; refetch reconciles Inspector and state closed', async () => {
+    let current = alignedSnapshot();
+    let deleted = false;
+    installAlignedWorkspaceMock(
+      [
+        [
+          '/alignments/',
+          (_url, init) => {
+            expect(String(init?.method)).toBe('DELETE');
+            deleted = true;
+            current = snapshot(); // group + spans + members gone
+            return json(204, undefined);
+          },
+        ],
+      ],
+      () => json(200, current),
+    );
+    const view = await renderAligned();
+    fireEvent.click(enAlignedRun(view.container));
+    await screen.findByRole('region', { name: 'Alignment inspector' });
+    expect(screen.getByTestId('connector-overlay')).toBeInTheDocument();
+
+    // Confirmation is required; cancel first, then confirm.
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Alignment' }));
+    const dialog = screen.getByRole('alertdialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+    expect(deleted).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Alignment' }));
+    // Re-query the fresh dialog (the first one was unmounted by Cancel).
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Confirm delete',
+      }),
+    );
+
+    // After the authoritative refetch: Inspector closed, overlay gone,
+    // indicators gone, saved list empty.
+    await waitFor(() => expect(deleted).toBe(true));
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Alignment inspector' })).toBeNull(),
+    );
+    expect(screen.queryByTestId('connector-overlay')).toBeNull();
+    expect(screen.getByText('No saved alignments yet.')).toBeInTheDocument();
+    const reruns = Array.from(
+      view.container.querySelectorAll('[data-run]'),
+    ) as HTMLElement[];
+    expect(reruns.every((run) => !run.classList.contains('run-aligned'))).toBe(true);
   });
 });

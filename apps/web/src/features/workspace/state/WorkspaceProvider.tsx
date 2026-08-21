@@ -24,6 +24,7 @@ import {
   useMemo,
   useReducer,
   useRef,
+  useState,
   type ReactNode,
 } from 'react';
 import type { PendingSpan } from '../../../shared/text/types';
@@ -44,12 +45,19 @@ export interface ServerVersionRef {
 export function WorkspaceProvider({
   documentId,
   serverVersions,
+  serverAlignmentGroupIds,
   isCreatingAlignment = false,
   children,
 }: {
   documentId: string;
   /** Current server TextVersions (id + content hash) for reconciliation. */
   serverVersions: ReadonlyArray<ServerVersionRef>;
+  /**
+   * M0.6: current server AlignmentGroup ids for hovered/active
+   * reconciliation. When the snapshot changes and the hovered/active group
+   * no longer exists, that state is reconciled to null.
+   */
+  serverAlignmentGroupIds?: ReadonlyArray<string>;
   /**
    * M0.5 (Gate 2 fix): while a Create Alignment request is in flight the
    * pending tray is FROZEN — staging is rejected here (defense in depth;
@@ -68,6 +76,11 @@ export function WorkspaceProvider({
       ...(loadPreferences(id) ?? {}),
     }),
   );
+
+  // M0.6 (Round 2): ephemeral flag while an Inspector mutation for the
+  // active group is in flight. Lives in provider-local state (never the
+  // reducer, never localStorage) and resets on document remount.
+  const [isMutatingAlignment, setIsMutatingAlignment] = useState(false);
 
   // Reconcile against the current server versions. The key includes the
   // content hash so a same-id content change also reconciles (and drops)
@@ -88,6 +101,26 @@ export function WorkspaceProvider({
     });
     dispatch({ type: 'RECONCILE_PENDING', serverVersions });
   }, [versionKey, serverVersions]);
+
+  // M0.6: reconcile hovered/active alignment ids against the server
+  // AlignmentGroup set. A group that disappeared from the snapshot can never
+  // stay hovered/active. The group-id key includes every group id so any
+  // snapshot change re-runs the reconciliation.
+  const alignmentKey = (serverAlignmentGroupIds ?? [])
+    .map((id) => id)
+    .sort()
+    .join('|');
+  const previousAlignmentKey = useRef<string>('');
+  useEffect(() => {
+    if (previousAlignmentKey.current === alignmentKey) {
+      return;
+    }
+    previousAlignmentKey.current = alignmentKey;
+    dispatch({
+      type: 'RECONCILE_ALIGNMENTS',
+      serverGroupIds: [...(serverAlignmentGroupIds ?? [])],
+    });
+  }, [alignmentKey, serverAlignmentGroupIds]);
 
   // Persist per-document preferences ONLY when the actual preference state
   // changes. currentSelection/pendingMembers are ephemeral (deliberately NOT
@@ -123,7 +156,14 @@ export function WorkspaceProvider({
       visiblePanels: state.visiblePanels,
       currentSelection: state.currentSelection,
       pendingMembers: state.pendingMembers,
+      hoveredAlignmentId: state.hoveredAlignmentId,
+      activeAlignmentId: state.activeAlignmentId,
       isCreatingAlignment,
+      // M0.6 (Round 2): ephemeral mutation-freeze flag. Owned by the
+      // provider (NOT the reducer — simple wiring, never persisted, cleared
+      // on document workspace remount).
+      isMutatingAlignment,
+      setAlignmentMutationPending: setIsMutatingAlignment,
       openPanel: (versionId) => dispatch({ type: 'OPEN_PANEL', versionId }),
       hidePanel: (versionId) => dispatch({ type: 'HIDE_PANEL', versionId }),
       reorderPanels: (fromIndex, toIndex) =>
@@ -136,8 +176,12 @@ export function WorkspaceProvider({
       removePendingMember: (member: PendingSpan) =>
         dispatch({ type: 'REMOVE_PENDING_MEMBER', member }),
       clearPendingTray: () => dispatch({ type: 'CLEAR_PENDING_MEMBERS' }),
+      setHoveredAlignment: (alignmentId: string | null) =>
+        dispatch({ type: 'SET_HOVERED_ALIGNMENT', alignmentId }),
+      setActiveAlignment: (alignmentId: string | null) =>
+        dispatch({ type: 'SET_ACTIVE_ALIGNMENT', alignmentId }),
     };
-  }, [state, isCreatingAlignment]);
+  }, [state, isCreatingAlignment, isMutatingAlignment]);
 
   return (
     <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>

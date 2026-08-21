@@ -19,13 +19,16 @@ import { useDeleteTextVersion, useWorkspace, type TextVersion } from './api';
 import { normalizeWorkspace } from './normalize';
 import { segmentText } from '../../shared/text/segmentation';
 import type { RunDescriptor } from '../../shared/text/types';
+import { RenderedSpanRegistry } from '../../shared/rendering/spanRegistry';
 import { TextPanel } from './TextPanel';
 import { AlignmentTray } from './AlignmentTray';
+import { ConnectorOverlay } from './ConnectorOverlay';
 import { ImportPanel } from './ImportPanel';
 import {
   useCreateAlignment,
   pendingToMemberInput,
 } from '../alignments/api';
+import { AlignmentInspector } from '../alignments/AlignmentInspector';
 import { SavedAlignments } from '../alignments/SavedAlignments';
 import {
   WorkspaceProvider,
@@ -45,17 +48,24 @@ function WorkspaceBody({
   runsByVersion,
   savedAlignments,
   createMutation,
+  spanRegistry,
+  survivingGroupIds,
 }: {
   documentId: string;
   versionsById: Record<string, TextVersion>;
   runsByVersion: Record<string, RunDescriptor[]>;
   savedAlignments: {
     groups: ReturnType<typeof normalizeWorkspace>['alignmentGroups'];
+    groupsById: ReturnType<typeof normalizeWorkspace>['groupsById'];
     membersByGroup: ReturnType<typeof normalizeWorkspace>['membersByGroup'];
     spansById: ReturnType<typeof normalizeWorkspace>['spansById'];
     versionsById: ReturnType<typeof normalizeWorkspace>['versionsById'];
   };
   createMutation: ReturnType<typeof useCreateAlignment>;
+  /** M0.6: canonical span->DOM registry shared by all panels + the overlay. */
+  spanRegistry: RenderedSpanRegistry;
+  /** M0.6: AlignmentGroup ids surviving in the current snapshot. */
+  survivingGroupIds: ReadonlySet<string>;
 }) {
   const {
     panelOrder,
@@ -67,10 +77,19 @@ function WorkspaceBody({
     clearSelection,
     removePendingMember,
     clearPendingTray,
+    hoveredAlignmentId,
+    activeAlignmentId,
+    setHoveredAlignment,
+    setActiveAlignment,
+    isMutatingAlignment,
   } = useWorkspaceState();
   const deleteMutation = useDeleteTextVersion(documentId);
   const [pendingForceDelete, setPendingForceDelete] =
     useState<PendingForceDelete | null>(null);
+
+  // M0.6 frozen precedence (section E): only ONE connector set may render —
+  // the ACTIVE alignment wins over the hovered one.
+  const effectiveAlignmentId = activeAlignmentId ?? hoveredAlignmentId;
 
   // M0.5 Create Alignment validity (frozen contract section 20): at least 2
   // members AND at least 2 distinct TextVersions. Frontend UX mirror only —
@@ -114,6 +133,14 @@ function WorkspaceBody({
   const hidden = panelOrder.filter((id) => !visiblePanels.includes(id));
   const indexOf = (id: string) => panelOrder.indexOf(id);
   const lastIndex = panelOrder.length - 1;
+
+  // M0.6 (R1-F01): explicit panel-layout revision for connector geometry.
+  // Panel reorder / hide / show can move rendered text while the overlay
+  // container dimensions stay identical, so ResizeObserver alone cannot
+  // detect those changes. Any change to the order or the visible set must
+  // invalidate connector geometry. (Ids never contain '|', so the join is
+  // unambiguous.)
+  const layoutKey = `${panelOrder.join('|')}#${visiblePanels.join('|')}`;
 
   function requestDelete(versionId: string, label: string) {
     deleteMutation.mutate(
@@ -211,11 +238,23 @@ function WorkspaceBody({
                   version={version}
                   runs={runsByVersion[id] ?? []}
                   onHide={() => hidePanel(id)}
+                  spanRegistry={spanRegistry}
+                  survivingGroupIds={survivingGroupIds}
                 />
               </div>
             );
           })
         )}
+        {/* M0.6: SVG connector overlay for the effective alignment. It is
+            absolutely positioned over .panels-container (panels-relative
+            coordinates), never intercepts pointer events, and renders
+            nothing when no alignment is active/hovered. */}
+        <ConnectorOverlay
+          alignmentId={effectiveAlignmentId}
+          membersByGroup={savedAlignments.membersByGroup}
+          registry={spanRegistry}
+          layoutKey={layoutKey}
+        />
       </div>
 
       <AlignmentTray
@@ -228,13 +267,34 @@ function WorkspaceBody({
         isCreating={createMutation.isPending}
       />
 
+      {/* M0.6 (Round 2): Alignment Inspector bound to activeAlignmentId.
+          All data comes from the current normalized workspace snapshot; the
+          Inspector owns its alignment-scoped update/delete mutations and
+          drives the workspace mutation-freeze flag. */}
+      <AlignmentInspector
+        documentId={documentId}
+        activeAlignmentId={activeAlignmentId}
+        groupsById={savedAlignments.groupsById}
+        membersByGroup={savedAlignments.membersByGroup}
+        spansById={savedAlignments.spansById}
+        versionsById={savedAlignments.versionsById}
+        onClose={() => setActiveAlignment(null)}
+      />
+
       {/* M0.5: minimal read-only persisted alignment representation,
-          derived entirely from the authoritative workspace snapshot. */}
+          derived entirely from the authoritative workspace snapshot.
+          M0.6: also the minimal keyboard-accessible alignment activation
+          index (every persisted group gets a semantic activation path).
+          Round 2: activation is disabled while an Inspector mutation for
+          the active group is in flight (active group must stay stable). */}
       <SavedAlignments
         groups={savedAlignments.groups}
         membersByGroup={savedAlignments.membersByGroup}
         spansById={savedAlignments.spansById}
         versionsById={savedAlignments.versionsById}
+        onActivate={setActiveAlignment}
+        onHover={setHoveredAlignment}
+        disabled={isMutatingAlignment}
       />
 
       <ImportPanel documentId={documentId} />
@@ -300,6 +360,11 @@ function DocumentWorkspacePage({ documentId }: { documentId: string }) {
     [workspaceQuery.data],
   );
 
+  // M0.6: one RenderedSpanRegistry per document workspace. This component is
+  // keyed by documentId (remount on document change), so a fresh registry is
+  // created per document and old elements can never survive a remount.
+  const spanRegistry = useMemo(() => new RenderedSpanRegistry(), []);
+
   // M0.4 boundary segmentation: canonical content + persisted spans +
   // alignment memberships -> flat runs per TextVersion. Recomputed only when
   // the server snapshot changes.
@@ -344,15 +409,19 @@ function DocumentWorkspacePage({ documentId }: { documentId: string }) {
     id: version.id,
     contentHash: version.content_hash,
   }));
+  const serverAlignmentGroupIds = normalized.alignmentGroups.map(
+    (group) => group.id,
+  );
 
   return (
     // No key here: the DocumentWorkspacePage component above is keyed by
     // documentId, so the whole subtree (provider + hooks) already remounts
-    // on a document change — ephemeral selection state is cleared and panel
-    // preferences re-initialize for the new document.
+    // on a document change — ephemeral selection/visualization state is
+    // cleared and panel preferences re-initialize for the new document.
     <WorkspaceProvider
       documentId={documentId}
       serverVersions={serverVersions}
+      serverAlignmentGroupIds={serverAlignmentGroupIds}
       isCreatingAlignment={createMutation.isPending}
     >
       <section className="workspace-page">
@@ -371,11 +440,14 @@ function DocumentWorkspacePage({ documentId }: { documentId: string }) {
           runsByVersion={runsByVersion}
           savedAlignments={{
             groups: normalized.alignmentGroups,
+            groupsById: normalized.groupsById,
             membersByGroup: normalized.membersByGroup,
             spansById: normalized.spansById,
             versionsById: normalized.versionsById,
           }}
           createMutation={createMutation}
+          spanRegistry={spanRegistry}
+          survivingGroupIds={new Set(serverAlignmentGroupIds)}
         />
       </section>
     </WorkspaceProvider>
