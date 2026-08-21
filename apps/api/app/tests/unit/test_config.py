@@ -67,6 +67,16 @@ def test_environment_variable_overrides_default(monkeypatch) -> None:
 def test_dotenv_file_is_loaded(tmp_path, monkeypatch) -> None:
     # Mirrors the documented clean-checkout flow: `cp .env.example .env`
     # followed by discovery of TEST_DATABASE_URL from that file.
+    #
+    # M0.7 correction (objectively defective historical test): the test
+    # previously ran with the ambient environment untouched, but
+    # pydantic-settings precedence is env-var-over-dotenv, so an ambient
+    # TEST_DATABASE_URL (legitimately exported by CI and scripts/verify.ps1)
+    # made the assertion impossible. The test now isolates the settings
+    # environment (same as the default-value tests) so it verifies exactly
+    # the dotenv-loading behavior under every outer environment.
+    for var in _SETTINGS_ENV_VARS:
+        monkeypatch.delenv(var, raising=False)
     env_file = tmp_path / ".env"
     env_file.write_text(
         "TEST_DATABASE_URL=postgresql+psycopg://linguagraph:linguagraph@localhost:5432/linguagraph_test\n",
