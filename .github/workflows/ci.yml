@@ -83,7 +83,7 @@ jobs:
         working-directory: apps/api
         run: uv sync --frozen
 
-      - name: Backend — migration safety: empty -> head on the fresh service database
+      - name: "Backend — migration safety: empty -> head on the fresh service database"
         working-directory: apps/api
         run: |
           uv run alembic upgrade head
