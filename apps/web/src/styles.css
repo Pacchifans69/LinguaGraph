@@ -640,7 +640,13 @@ button:disabled {
   cursor: not-allowed;
 }
 
-button:focus-visible {
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible {
+  /* M0.7 W4: visible keyboard focus is never removed — every interactive
+     control (buttons, navigation links, form fields) keeps an explicit
+     focus-visible outline. */
   outline: 2px solid #1a5fb4;
   outline-offset: 1px;
 }
