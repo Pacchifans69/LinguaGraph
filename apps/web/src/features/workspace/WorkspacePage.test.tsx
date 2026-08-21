@@ -365,6 +365,16 @@ describe('WorkspacePage', () => {
     ).toBeDisabled();
     expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled();
 
+    // G2-F02: Escape must NOT close a locked destructive dialog — the
+    // dialog stays mounted and visible while the mutation is pending.
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Deleting…',
+      }),
+    ).toBeDisabled();
+
     // Resolve the delete; the dialog closes on settle (failure keeps the
     // error visible — covered by the delete-error tests).
     pendingDelete.resolve?.({ status: 204, body: null });

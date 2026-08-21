@@ -9,7 +9,13 @@
  *   button) — the destructive action is never auto-focused, so a
  *   destructive confirmation can never fire one Enter press away from an
  *   open dialog;
- * - Escape closes the dialog (same semantics as activating Cancel);
+ * - Escape closes the dialog (same semantics as activating Cancel) UNLESS
+ *   `closeDisabled` is true;
+ * - `closeDisabled` (G2-F02): while a destructive mutation is pending, the
+ *   caller locks the dialog — Escape MUST NOT call onClose and the dialog
+ *   stays mounted until the mutation settles. The caller is also
+ *   responsible for disabling its action buttons; the dialog never infers
+ *   lock state from child-button disabled attributes;
  * - on close (any path), focus is restored to the element that opened the
  *   dialog.
  *
@@ -22,22 +28,33 @@ import { useEffect, useRef, type ReactNode } from 'react';
 export interface ConfirmDialogProps {
   /** Stable id used for `aria-labelledby` (must match a heading in children). */
   headingId: string;
-  /** Callback that closes the dialog (Cancel / Escape). */
+  /** Callback that closes the dialog (Cancel / Escape when unlocked). */
   onClose: () => void;
+  /**
+   * Lock the dialog (G2-F02): when true, Escape does NOT call onClose and
+   * the dialog remains mounted. Use while a destructive mutation is
+   * pending. Must be false for Escape-to-close to work.
+   */
+  closeDisabled?: boolean;
   children: ReactNode;
 }
 
 export function ConfirmDialog({
   headingId,
   onClose,
+  closeDisabled = false,
   children,
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
-  // Keep the latest onClose without re-running the mount effect (which
-  // would re-focus / re-register listeners on every parent render).
+  // Keep the latest onClose / closeDisabled without re-running the mount
+  // effect (which would re-focus / re-register listeners on every parent
+  // render). The refs also make a lock-state change (true -> false) take
+  // effect on the next render WITHOUT remounting the dialog.
   const onCloseRef = useRef(onClose);
+  const closeDisabledRef = useRef(closeDisabled);
   useEffect(() => {
     onCloseRef.current = onClose;
+    closeDisabledRef.current = closeDisabled;
   });
 
   useEffect(() => {
@@ -57,10 +74,15 @@ export function ConfirmDialog({
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        // Capture phase + stopPropagation: the dialog owns Escape while it
-        // is open (the workspace-level selection Escape still applies to
-        // non-dialog interactions).
+        // Capture phase + stopPropagation: while this dialog is mounted it
+        // OWNS Escape — the event never falls through to other handlers
+        // (e.g. the workspace-level selection Escape). When locked, Escape
+        // is swallowed without closing; when unlocked it closes the dialog
+        // exactly like activating Cancel.
         event.stopPropagation();
+        if (closeDisabledRef.current) {
+          return;
+        }
         onCloseRef.current();
       }
     }
