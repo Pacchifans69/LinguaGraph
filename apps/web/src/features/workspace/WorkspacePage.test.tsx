@@ -313,6 +313,65 @@ describe('WorkspacePage', () => {
       expect(screen.queryByText('I look forward to seeing you tomorrow.')).not.toBeInTheDocument(),
     );
   });
+
+  it('disables delete controls and shows a pending state while a TextVersion delete is in flight (M0.7 W3)', async () => {
+    const pendingDelete: { resolve: ((value: MockResponse) => void) | null } = {
+      resolve: null,
+    };
+    installFetchMock([
+      ['/workspace', () => json(200, snapshot())],
+      [
+        '/text-versions/',
+        (url) => {
+          if (!url.includes('force=true')) {
+            // Annotated version: blocked unless force is requested. This
+            // opens the destructive confirmation dialog.
+            return json(409, {
+              code: 'TEXT_HAS_ANNOTATIONS',
+              message: 'text version is part of alignments',
+              details: {},
+            });
+          }
+          // Deferred: the force DELETE stays unresolved until the test
+          // resolves it.
+          return new Promise<MockResponse>((resolve) => {
+            pendingDelete.resolve = resolve;
+          });
+        },
+      ],
+    ]);
+    renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+
+    // Open English; the blocked delete opens the confirmation dialog.
+    fireEvent.click(await screen.findByRole('button', { name: 'Open English' }));
+    await screen.findByText('I look forward to seeing you tomorrow.');
+    fireEvent.click(screen.getByRole('button', { name: 'Delete English' }));
+    const dialog = await screen.findByRole('alertdialog');
+
+    // Confirm the force delete: the request stays pending.
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Delete permanently' }),
+    );
+
+    // While the request is in flight the dialog is inert: the destructive
+    // confirm shows a pending label and both actions are disabled, so a
+    // repeated click can never fire a duplicate destructive request.
+    expect(
+      await within(dialog).findByRole('button', { name: 'Deleting…' }),
+    ).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeDisabled();
+
+    // Resolve the delete; the dialog closes on settle (failure keeps the
+    // error visible — covered by the delete-error tests).
+    pendingDelete.resolve?.({ status: 204, body: null });
+    await waitFor(() =>
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument(),
+    );
+  });
 });
 describe('WorkspacePage (M0.4 selection and pending tray)', () => {
   it('captures a selection, stages it explicitly and shows it in the tray', async () => {

@@ -3,7 +3,7 @@
  * navigation into the workspace, create, and error presentation.
  */
 
-import { fireEvent, screen } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DocumentsPage } from './DocumentsPage';
 import { installFetchMock, json } from '../../test/mockFetch';
@@ -93,5 +93,47 @@ describe('DocumentsPage', () => {
       '/projects/proj-1/documents',
     );
     expect(await screen.findByRole('alert')).toHaveTextContent('NOT_FOUND: project not found');
+  });
+
+  it('surfaces a failed document delete as a visible API error (M0.7 W3)', async () => {
+    installFetchMock([
+      [
+        '/documents/',
+        (_url, init) => {
+          if (init?.method === 'DELETE') {
+            return json(500, {
+              code: 'INTERNAL_ERROR',
+              message: 'an unexpected internal error occurred',
+              details: {},
+            });
+          }
+          return json(404, {
+            code: 'NOT_FOUND',
+            message: 'not found',
+            details: {},
+          });
+        },
+      ],
+      [
+        '/projects/proj-1/documents',
+        () => json(200, DOCS),
+      ],
+      ['/projects/proj-1', () => json(200, PROJECT)],
+    ]);
+    renderPageAt(
+      <DocumentsPage />,
+      '/projects/:projectId/documents',
+      '/projects/proj-1/documents',
+    );
+    await screen.findByText('Le Petit Prince — Chapitre 1');
+
+    // The failing delete must NOT fail silently: the stable envelope is
+    // displayed and the row survives.
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Delete document Le Petit Prince — Chapitre 1' }),
+    );
+    const alert = await screen.findByRole('alert');
+    expect(within(alert).getByText(/INTERNAL_ERROR/)).toBeInTheDocument();
+    expect(screen.getByText('Le Petit Prince — Chapitre 1')).toBeInTheDocument();
   });
 });

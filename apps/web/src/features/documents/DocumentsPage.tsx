@@ -66,6 +66,11 @@ export function DocumentsPage() {
         {createDocument.isError ? <ErrorMessage error={createDocument.error} /> : null}
       </form>
 
+      {/* M0.7 W3 hardening: a failed document delete must never fail silently
+          — the stable API error is surfaced with the same envelope as every
+          other mutation failure. */}
+      {deleteDocument.isError ? <ErrorMessage error={deleteDocument.error} /> : null}
+
       {documentsQuery.isPending ? (
         <LoadingMessage>Loading documents…</LoadingMessage>
       ) : documentsQuery.isError ? (
