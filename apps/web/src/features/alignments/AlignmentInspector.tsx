@@ -45,6 +45,7 @@ import type {
 } from '../workspace/api';
 import { useWorkspaceState } from '../workspace/state/workspaceContext';
 import { ErrorMessage } from '../../shared/ui/feedback';
+import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
 
 /** Backend-enforced note length (mirrored at the UI boundary). */
 export const NOTE_MAX_LENGTH = 4000;
@@ -374,72 +375,64 @@ export function AlignmentInspector({
           the CURRENT active group (and member). A stale confirmation from a
           previous group is invisible and can never execute. */}
       {pendingRemoveMember !== null ? (
-        <div className="confirm-dialog-backdrop" role="presentation">
-          <div
-            className="confirm-dialog"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="inspector-remove-heading"
-          >
-            <h3 id="inspector-remove-heading">Remove this member?</h3>
-            <p>
-              “{spansById[pendingRemoveMember.span_id]?.exact_text ?? ''}”
-              will be removed from this alignment. This cannot be undone
-              without re-adding it.
-            </p>
-            <div className="confirm-dialog-actions">
-              <button
-                type="button"
-                onClick={() => setPendingRemove(null)}
-                disabled={isMutatingAlignment}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="danger"
-                disabled={isMutatingAlignment}
-                onClick={handleConfirmRemove}
-              >
-                Confirm remove
-              </button>
-            </div>
+        <ConfirmDialog
+          headingId="inspector-remove-heading"
+          onClose={() => setPendingRemove(null)}
+        >
+          <h3 id="inspector-remove-heading">Remove this member?</h3>
+          <p>
+            “{spansById[pendingRemoveMember.span_id]?.exact_text ?? ''}”
+            will be removed from this alignment. This cannot be undone
+            without re-adding it.
+          </p>
+          <div className="confirm-dialog-actions">
+            <button
+              type="button"
+              onClick={() => setPendingRemove(null)}
+              disabled={isMutatingAlignment}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="danger"
+              disabled={isMutatingAlignment}
+              onClick={handleConfirmRemove}
+            >
+              Confirm remove
+            </button>
           </div>
-        </div>
+        </ConfirmDialog>
       ) : null}
 
       {pendingDeleteGroupId !== null && pendingDeleteGroupId === group.id ? (
-        <div className="confirm-dialog-backdrop" role="presentation">
-          <div
-            className="confirm-dialog"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="inspector-delete-heading"
-          >
-            <h3 id="inspector-delete-heading">Delete this alignment?</h3>
-            <p>
-              Alignment {shortId(group.id)} and all its members will be
-              permanently deleted. This cannot be undone.
-            </p>
-            <div className="confirm-dialog-actions">
-              <button
-                type="button"
-                onClick={() => setPendingDeleteGroupId(null)}
-                disabled={isMutatingAlignment}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="danger"
-                disabled={isMutatingAlignment}
-                onClick={handleConfirmDelete}
-              >
-                Confirm delete
-              </button>
-            </div>
+        <ConfirmDialog
+          headingId="inspector-delete-heading"
+          onClose={() => setPendingDeleteGroupId(null)}
+        >
+          <h3 id="inspector-delete-heading">Delete this alignment?</h3>
+          <p>
+            Alignment {shortId(group.id)} and all its members will be
+            permanently deleted. This cannot be undone.
+          </p>
+          <div className="confirm-dialog-actions">
+            <button
+              type="button"
+              onClick={() => setPendingDeleteGroupId(null)}
+              disabled={isMutatingAlignment}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="danger"
+              disabled={isMutatingAlignment}
+              onClick={handleConfirmDelete}
+            >
+              Confirm delete
+            </button>
           </div>
-        </div>
+        </ConfirmDialog>
       ) : null}
     </section>
   );
