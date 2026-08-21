@@ -309,6 +309,10 @@ function WorkspaceBody({
         <ConfirmDialog
           headingId="force-delete-heading"
           onClose={() => setPendingForceDelete(null)}
+          // G2-F02: while the force-delete request is in flight the dialog
+          // is LOCKED — Escape must not close it (Cancel/Confirm are
+          // disabled below as well).
+          closeDisabled={deleteMutation.isPending}
         >
           <h3 id="force-delete-heading">Delete text version permanently?</h3>
           <p>

@@ -378,6 +378,10 @@ export function AlignmentInspector({
         <ConfirmDialog
           headingId="inspector-remove-heading"
           onClose={() => setPendingRemove(null)}
+          // G2-F02: while any Inspector mutation for the active group is
+          // pending, the destructive dialog is LOCKED — Escape must not
+          // close it (Cancel/Confirm are disabled below as well).
+          closeDisabled={isMutatingAlignment}
         >
           <h3 id="inspector-remove-heading">Remove this member?</h3>
           <p>
@@ -409,6 +413,10 @@ export function AlignmentInspector({
         <ConfirmDialog
           headingId="inspector-delete-heading"
           onClose={() => setPendingDeleteGroupId(null)}
+          // G2-F02: while any Inspector mutation for the active group is
+          // pending, the destructive dialog is LOCKED — Escape must not
+          // close it (Cancel/Confirm are disabled below as well).
+          closeDisabled={isMutatingAlignment}
         >
           <h3 id="inspector-delete-heading">Delete this alignment?</h3>
           <p>
