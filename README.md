@@ -19,11 +19,15 @@ PR #5, PR #6, PR #7, and PR #8). M0.6 merged as
 implementation head `f86d6429d41e76d4093e08898a9e7879e3774c49` on the
 approved base `aea0a45e740bb9400c7e6dc25fcc88e956a25ee0`.
 
-The next checkpoint is **M0.7 — Hardening** (**NOT STARTED**). M0.7 must
-not begin from this closeout task: it requires a fresh checkpoint
-conversation, repository-reality reconstruction from current merged `main`,
-Gate 1, contract reconstruction from the authoritative sources, and human
-contract review/freeze before any implementation branch is created.
+**M0.7 — Hardening** is the current implementation checkpoint
+(**IN PROGRESS** on the `m0.7-hardening` branch, implementation candidate
+awaiting Gate 2 / human review — NOT yet merged, NOT COMPLETE). It delivers
+the full M0 verification, the Unicode release-blocker E2E
+(`apps/web/e2e/unicode.spec.ts`), error/loading/empty-state and
+accessibility hardening, migration-safety proof (disposable databases
+only), the GitHub Actions CI workflow (`.github/workflows/ci.yml`), the
+Windows launchers (`scripts/dev.ps1`, `scripts/verify.ps1`) and the durable
+as-built documentation under `docs/`.
 
 M0 proves the closed loop: *create project → create parallel document → add
 arbitrary-language text versions → select spans → create alignment group →
@@ -55,15 +59,22 @@ Authoritative documents:
 - `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md`
 - `docs/development/CURRENT_STATE.md` — durable engineering handoff
 - `docs/adr/` — accepted architecture decisions (ADR-001 … ADR-009)
+- `docs/README.md` — durable documentation navigation index
+- `docs/architecture/ARCHITECTURE.md`, `docs/api/api-contract.md`,
+  `docs/testing/testing-strategy.md`, `docs/testing/manual-acceptance.md`
+  — as-built M0.7 documentation
 
 ## Repository layout
 
 ```text
 apps/api/            FastAPI backend (Python 3.13, uv)
 apps/web/            React + TypeScript + Vite frontend (Node 24)
-docs/                Pre-implementation records, ADRs
+docs/                Pre-implementation records, ADRs, as-built docs
 infra/postgres/      PostgreSQL bootstrap scripts
 compose.yml          PostgreSQL 18 local development service
+scripts/             dev.ps1 (run) and verify.ps1 (verify) — Windows
+.github/workflows/   ci.yml — M0 release-baseline CI (Python 3.13 /
+                     Node 24 / PostgreSQL 18 service container)
 ```
 
 ## Prerequisites (ADR-009 environment baseline)
@@ -165,6 +176,21 @@ and all destructive checks run only against disposable databases
 
 ## Running
 
+### One command (Windows, M0.7)
+
+```powershell
+.\scripts\dev.ps1
+```
+
+Safe, non-destructive launcher: checks Docker/uv/Node 24, starts the
+PostgreSQL 18 Compose service (reuses it when already running), initializes
+`apps/api/.env` only if absent (an existing `.env` is never touched),
+syncs dependencies without rewriting lockfiles, applies forward migrations
+only, starts FastAPI (port 8000) and Vite (port 5173), verifies API
+health, and prints <http://localhost:5173>. Port conflicts fail closed —
+it never kills processes it did not start, never deletes volumes/data, and
+never downgrades or resets the database.
+
 ### Backend (port 8000)
 
 ```bash
@@ -193,6 +219,19 @@ Open <http://localhost:5173>. The Vite dev server proxies `/api` to
 (`CORS_ORIGINS` in `apps/api/.env` is the allow-list for direct calls).
 
 ## Verification commands
+
+### One command (Windows, M0.7)
+
+```powershell
+.\scripts\verify.ps1
+```
+
+Thin orchestration over the authoritative verification commands below
+(backend pytest with real PostgreSQL, Alembic current/check, frontend
+lint/typecheck/test/build, Playwright golden path + Unicode release
+blocker). Stops and exits non-zero on the first failure; preserves
+development data (destructive migration cycles run on disposable databases
+only, inside pytest).
 
 Backend (from `apps/api`):
 
@@ -437,8 +476,17 @@ at `0002 (head)`).
 ```bash
 cd apps/web
 npx playwright install chromium      # one-time browser download
-npx playwright test e2e/golden-path.spec.ts
+npx playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts
 ```
+
+`e2e/golden-path.spec.ts` is the historical M0.3–M0.6 golden-path proof.
+`e2e/unicode.spec.ts` (M0.7) is the Unicode **release blocker** for
+`Café 🙂 mañana für français`: it drives the complete real-user chain
+(rendered canonical DOM → native browser Selection/Range → JS UTF-16
+boundary → code-point conversion → alignment mutation → backend validation
+→ server-derived `exact_text` → PostgreSQL persistence → reload → persisted
+rendering → highlighting), with selections before/at/after the surrogate
+pair and direct assertions of the persisted code-point offsets.
 
 ### E2E database isolation (mandatory)
 
@@ -505,6 +553,17 @@ FR member (with orphan-Span cleanup at the API level), reload persistence
 (note + removal), and delete AlignmentGroup with full cleanup
 (groups/members/spans all empty).
 
+## CI (M0.7)
+
+`.github/workflows/ci.yml` verifies the M0 release baseline on every push /
+pull request: Python 3.13 (`uv sync --frozen`), Node 24 (`npm ci`),
+PostgreSQL 18 service container, backend pytest suite (real PostgreSQL
+integration), migration safety (`alembic upgrade head`/`current`/`check`),
+frontend lint/typecheck/test/build, and Playwright (golden path + Unicode
+release blocker). A fail-closed guard step fails the job whenever the
+backend suite reports skipped tests, so a run without real PostgreSQL
+integration coverage can never count as M0 CI evidence.
+
 ## Known limitations
 
 - Docker is not available in every development environment; `compose.yml` is
@@ -526,3 +585,12 @@ FR member (with orphan-Span cleanup at the API level), reload persistence
 - M0.4 enforces code-point boundaries only: combining sequences are
   preserved but never moved or merged (no grapheme-cluster editing), and
   `Intl.Segmenter` is not a coordinate authority.
+- M0.7 retains (unchanged) the deferred same-AlignmentGroup concurrent
+  PATCH limitation — no general backend concurrency-control protocol.
+
+## CI status honesty (M0.7)
+
+Workflow configuration is not CI evidence: only an actual completed
+GitHub Actions run counts. Check the repository's Actions tab for the
+latest run of `.github/workflows/ci.yml`; this README never claims a green
+CI run that has not happened.
