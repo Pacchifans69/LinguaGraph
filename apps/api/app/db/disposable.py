@@ -27,10 +27,11 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
 from app.core.config import get_settings
+from app.db.session import create_bounded_engine
 
 # Reserved namespace shared by pytest fixtures and the E2E wrapper.
 DISPOSABLE_DB_PREFIX = "linguagraph_"
@@ -98,7 +99,10 @@ def create_disposable_database(prefix: str = E2E_DB_PREFIX) -> tuple[object, obj
     target_url = url.set(database=db_name)
     assert_disposable_db_url(target_url, required_prefix=DISPOSABLE_DB_PREFIX)
 
-    admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
+    # HRA-F05 (R2): bounded connect timeout via the shared helper — an
+    # unreachable configured server must fail the disposable-DB lifecycle
+    # quickly instead of hanging before the first integration test body.
+    admin_engine = create_bounded_engine(admin_url, isolation_level="AUTOCOMMIT")
     with admin_engine.connect() as conn:
         conn.execute(text(f'CREATE DATABASE "{db_name}"'))
     return admin_engine, target_url
@@ -113,7 +117,9 @@ def drop_disposable_database(admin_engine, target_url) -> None:
     db_name = make_url(target_url).database
     assert_disposable_db_url(target_url, required_prefix=DISPOSABLE_DB_PREFIX)
     admin_engine.dispose()
-    cleanup = create_engine(
+    # HRA-F05 (R2): bounded connect timeout (shared helper) — the cleanup
+    # connection must never hang on an unreachable server either.
+    cleanup = create_bounded_engine(
         make_url(target_url).set(database="postgres"), isolation_level="AUTOCOMMIT"
     )
     try:

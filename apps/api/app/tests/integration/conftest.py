@@ -18,7 +18,7 @@ import os
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import Settings
@@ -66,9 +66,12 @@ def disposable_db_url() -> str:
 @pytest.fixture(scope="session")
 def db_engine(disposable_db_url: str):
     """SQLAlchemy engine bound to the disposable database."""
-    from app.db.session import apply_utc_timezone
+    from app.db.session import apply_utc_timezone, create_bounded_engine
 
-    engine = create_engine(disposable_db_url, pool_pre_ping=True)
+    # HRA-F05 (R2): bounded connect timeout via the shared helper — an
+    # unreachable configured server fails fast instead of hanging the
+    # integration session before the first test body.
+    engine = create_bounded_engine(disposable_db_url, pool_pre_ping=True)
     apply_utc_timezone(engine)
     yield engine
     engine.dispose()

@@ -34,9 +34,12 @@ def test_create_and_drop_disposable_database() -> None:
         migrate_to_head(target_url.render_as_string(hide_password=False))
 
         # The Alembic version table exists at HEAD.
-        from sqlalchemy import create_engine, text
+        from sqlalchemy import text
 
-        engine = create_engine(target_url.render_as_string(hide_password=False))
+        from app.db.session import create_bounded_engine
+
+        # HRA-F05 (R2): bounded connect timeout (shared helper).
+        engine = create_bounded_engine(target_url.render_as_string(hide_password=False))
         try:
             with engine.connect() as conn:
                 assert (
@@ -51,9 +54,12 @@ def test_create_and_drop_disposable_database() -> None:
         drop_disposable_database(admin_engine, target_url)
 
     # After the drop the database no longer exists.
-    from sqlalchemy import create_engine, text
+    from sqlalchemy import text
 
-    check = create_engine(
+    from app.db.session import create_bounded_engine
+
+    # HRA-F05 (R2): bounded connect timeout (shared helper).
+    check = create_bounded_engine(
         make_url(target_url).set(database="postgres"), isolation_level="AUTOCOMMIT"
     )
     try:

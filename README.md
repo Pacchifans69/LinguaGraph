@@ -262,7 +262,7 @@ Environment-driven via `apps/api/app/core/config.py` (pydantic-settings):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `DATABASE_URL` | `postgresql+psycopg://linguagraph:linguagraph@localhost:5432/linguagraph` | PostgreSQL connection |
+| `DATABASE_URL` | `postgresql+psycopg://linguagraph:linguagraph@127.0.0.1:5432/linguagraph` | PostgreSQL connection (explicit IPv4 loopback — deterministic on Windows, where `localhost` may resolve to `::1` first; HRA-F05) |
 | `TEST_DATABASE_URL` | unset (falls back to `DATABASE_URL`) | server for disposable test databases |
 | `CORS_ORIGINS` | `http://localhost:5173` | comma-separated allow-list |
 | `MAX_TEXT_VERSION_CODEPOINTS` | `1000000` | max canonical text length |
