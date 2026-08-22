@@ -9,6 +9,8 @@ cover environment-variable and dotenv loading behavior.
 import os
 from pathlib import Path
 
+import pytest
+
 from app.core.config import Settings
 
 # Environment variables that map to Settings fields.
@@ -29,6 +31,10 @@ _IPV4_LOOPBACK_DEFAULT = "postgresql+psycopg://linguagraph:linguagraph@127.0.0.1
 # apps/api/.env.example (repo-provided defaults for the local Docker Compose
 # PostgreSQL 18 service).
 _API_ENV_EXAMPLE = Path(__file__).resolve().parents[3] / ".env.example"
+
+# apps/api/alembic.ini (Alembic configuration — must stay ASCII-only, see
+# test_alembic_ini_is_ascii_portable).
+_API_ALEMBIC_INI = Path(__file__).resolve().parents[3] / "alembic.ini"
 
 
 def isolated_settings(monkeypatch, **overrides) -> Settings:
@@ -150,3 +156,20 @@ def test_integration_server_url_falls_back_to_database_url(monkeypatch) -> None:
         test_database_url=None,
     )
     assert settings.integration_server_url.endswith("/linguagraph")
+
+
+def test_alembic_ini_is_ascii_portable() -> None:
+    # HRA-F05-A02: Alembic's ConfigParser reads INI files using the platform
+    # locale encoding. On the supported Windows runtime the locale is
+    # cp936/GBK, so ANY non-ASCII byte in apps/api/alembic.ini (e.g. UTF-8
+    # em-dash punctuation) raises UnicodeDecodeError before migrations can
+    # run. The repository INI must therefore remain ASCII-only — this test
+    # fails on any byte that would need non-ASCII decoding.
+    raw = _API_ALEMBIC_INI.read_bytes()
+    try:
+        raw.decode("ascii")
+    except UnicodeDecodeError as exc:
+        pytest.fail(
+            "apps/api/alembic.ini must be ASCII-only: Alembic's ConfigParser "
+            f"decodes INI files with the platform locale on Windows. {exc}"
+        )
