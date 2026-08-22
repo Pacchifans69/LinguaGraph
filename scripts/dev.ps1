@@ -270,11 +270,18 @@ if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
 
 # stdout-only capture through the boundary: stderr never contaminates the
 # parsed node version.
+# HRA-F06: parse with an explicit [regex]::Match object — the automatic
+# regex match-state variable is NOT guaranteed to be populated after a
+# comparison expression under Set-StrictMode -Version Latest in a fresh
+# Windows PowerShell 5.1 process (VariableIsUndefined), which aborted the
+# script on the valid-version path.
 $nodeVersion = (Invoke-Native 'node' @('--version') -RedirectStandardErrorToNull)
-if ($nodeVersion -notmatch '^v(\d+)\.') {
+$nodeVersionMatch = [regex]::Match([string]$nodeVersion, '^v(\d+)\.')
+if (-not $nodeVersionMatch.Success) {
     Fail 'Node.js is not installed or not on PATH. ADR-009 requires Node 24 LTS.'
 }
-if ([int]$Matches[1] -ne 24) {
+$nodeMajorVersion = [int]$nodeVersionMatch.Groups[1].Value
+if ($nodeMajorVersion -ne 24) {
     Fail "Node 24 LTS is required (ADR-009) but 'node --version' reports $nodeVersion. Adjust PATH or use a version manager (nvm/fnm) so Node 24 is active, then re-run."
 }
 
