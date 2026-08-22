@@ -125,6 +125,44 @@ function Wait-PostgresHealthy {
     return $false
 }
 
+function Get-PostgresContainerState {
+    # HRA-F01: Windows PowerShell 5.1 clean-first-run abort fix.
+    #
+    # Returns 'running' when the EXACT container name exists and is running,
+    # and 'absent' when it does not exist (a NORMAL first-run state).
+    #
+    # Why: probing a missing container with
+    #   docker inspect --format '{{.State.Running}}' <name>
+    # emits Docker stderr, which Windows PowerShell 5.1 surfaces as a
+    # TERMINATING NativeCommandError under $ErrorActionPreference='Stop' —
+    # aborting the clean first run before `docker compose up -d postgres`.
+    #
+    # This probe instead ENUMERATES existing RUNNING containers with an
+    # anchored exact-name filter (`^/<name>$`): a successful empty result
+    # IS absence, so `docker inspect` is never called for a container that
+    # is not known to exist. Similarly named containers (e.g.
+    # `linguagraph-postgres-x`) never match the anchored filter.
+    #
+    # Genuine Docker/daemon/probe failures FAIL CLOSED with an actionable
+    # error (thrown, never returned as 'absent'): the narrow try/catch
+    # translates the PS 5.1 terminating error, and the $LASTEXITCODE check
+    # covers non-throwing shells.
+    param([string]$Name)
+    $filter = "name=^/$Name`$"
+    try {
+        $found = @(& docker ps --filter $filter --format '{{.Names}}')
+    } catch {
+        throw "Failed to probe Docker for container '$Name' ($($_.Exception.Message)). The Docker engine may be unavailable — start Docker Desktop and re-run. (fail closed: never treated as 'container absent')"
+    }
+    if ($LASTEXITCODE -ne 0) {
+        throw "docker ps failed (exit $LASTEXITCODE) while probing for container '$Name'. The Docker engine may be unavailable — start Docker Desktop and re-run. (fail closed: never treated as 'container absent')"
+    }
+    if ($found.Count -eq 0) {
+        return 'absent'
+    }
+    return 'running'
+}
+
 Write-Host 'LinguaGraph verification (M0.7 W8) — proving the repository is green.' -ForegroundColor Green
 Write-Host 'Development data is preserved: no downgrade, no reset, no volume deletion.' -ForegroundColor DarkGray
 Write-Host ''
@@ -158,8 +196,12 @@ if ([int]$Matches[1] -ne 24) {
 # ---------------------------------------------------------------------------
 
 Write-Step 'Ensuring the PostgreSQL 18 Compose service is running...'
-$containerRunning = (& docker inspect --format '{{.State.Running}}' $PgContainer 2>$null)
-if ($containerRunning -eq 'true') {
+
+# HRA-F01: absence probe (enumeration with anchored exact-name filter) —
+# never `docker inspect` on a possibly-missing container under
+# $ErrorActionPreference='Stop' (PS 5.1 terminating NativeCommandError).
+$pgState = Get-PostgresContainerState -Name $PgContainer
+if ($pgState -eq 'running') {
     Write-Step "Compose container '$PgContainer' is already running — reusing it."
 } elseif (Test-PortInUse 5432) {
     Fail 'Port 5432 is occupied by a process the verification cannot safely identify as the LinguaGraph Compose container. Stop the conflicting server and re-run (the wrapper never kills unknown processes).'
