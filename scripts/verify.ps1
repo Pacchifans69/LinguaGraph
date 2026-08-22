@@ -118,7 +118,18 @@ function Invoke-Native {
         if ($RedirectStandardErrorToNull) {
             & $resolved.Source @ArgumentList 2>$null
         } elseif ($MergeStandardError) {
-            & $resolved.Source @ArgumentList 2>&1
+            # HRA-F03: normalize every merged record to PLAIN TEXT. Windows
+            # PowerShell 5.1 renders native stderr as ErrorRecord objects;
+            # when they reach the host they display as NativeCommandError
+            # diagnostics (CategoryInfo / FullyQualifiedErrorId blocks) even
+            # though the command succeeded. .ToString() yields the raw line,
+            # so successful stderr (e.g. 'npm warn deprecated ...', alembic
+            # INFO) displays as an ordinary text line while the exit code
+            # stays the authoritative success signal. Genuine diagnostics
+            # remain visible — nothing is suppressed. Parsed-stdout mode
+            # (-RedirectStandardErrorToNull) is deliberately NOT affected.
+            & $resolved.Source @ArgumentList 2>&1 |
+                ForEach-Object { $_.ToString() }
         } else {
             & $resolved.Source @ArgumentList
         }
