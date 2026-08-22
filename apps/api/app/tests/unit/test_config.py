@@ -7,6 +7,7 @@ cover environment-variable and dotenv loading behavior.
 """
 
 import os
+from pathlib import Path
 
 from app.core.config import Settings
 
@@ -19,6 +20,15 @@ _SETTINGS_ENV_VARS = (
     "MAX_REQUEST_BODY_BYTES",
     "LOG_LEVEL",
 )
+
+# Repository-provided deterministic local PostgreSQL endpoint (HRA-F05 R1):
+# explicit IPv4 loopback — on Windows, `localhost` may resolve to ::1 first,
+# where no PostgreSQL listens, stalling connection establishment.
+_IPV4_LOOPBACK_DEFAULT = "postgresql+psycopg://linguagraph:linguagraph@127.0.0.1:5432/linguagraph"
+
+# apps/api/.env.example (repo-provided defaults for the local Docker Compose
+# PostgreSQL 18 service).
+_API_ENV_EXAMPLE = Path(__file__).resolve().parents[3] / ".env.example"
 
 
 def isolated_settings(monkeypatch, **overrides) -> Settings:
@@ -35,6 +45,41 @@ def test_default_database_url_targets_postgresql(monkeypatch) -> None:
     # The accepted baseline is PostgreSQL; the default URL must never be SQLite.
     settings = isolated_settings(monkeypatch)
     assert settings.database_url.startswith("postgresql+psycopg://")
+
+
+def test_default_database_url_uses_deterministic_ipv4_loopback(monkeypatch) -> None:
+    # HRA-F05 (R1): the built-in local PostgreSQL default must use the
+    # explicit IPv4 loopback 127.0.0.1 — `localhost` is address-family
+    # ambiguous on Windows (resolves to ::1 first, where no PostgreSQL
+    # listens) and stalls connection establishment.
+    settings = isolated_settings(monkeypatch)
+    assert settings.database_url == _IPV4_LOOPBACK_DEFAULT
+
+
+def test_env_example_uses_deterministic_ipv4_endpoint() -> None:
+    # HRA-F05 (R1): the repository-provided .env.example must point both the
+    # development and the disposable-test-server endpoints at the explicit
+    # IPv4 loopback, matching the built-in default.
+    example = _API_ENV_EXAMPLE.read_text(encoding="utf-8")
+    assert "DATABASE_URL=postgresql+psycopg://linguagraph:linguagraph@127.0.0.1:5432/linguagraph" in example
+    assert "TEST_DATABASE_URL=postgresql+psycopg://linguagraph:linguagraph@127.0.0.1:5432/linguagraph_test" in example
+    # The frontend/CORS origin stays on localhost:5173 — HRA-F05 concerns
+    # the PostgreSQL endpoint only.
+    assert "CORS_ORIGINS=http://localhost:5173" in example
+
+
+def test_custom_database_url_hosts_are_preserved_verbatim(monkeypatch) -> None:
+    # HRA-F05 (R4): arbitrary caller-provided PostgreSQL hostnames/remote
+    # endpoints are NEVER rewritten to 127.0.0.1 — the fix changes only the
+    # built-in default.
+    custom_db = "postgresql+psycopg://user:pass@db.internal.example.com:5433/warehouse"
+    custom_test = "postgresql+psycopg://user:pass@pg-prod.example.com:5432/sandbox"
+    monkeypatch.setenv("DATABASE_URL", custom_db)
+    monkeypatch.setenv("TEST_DATABASE_URL", custom_test)
+    settings = Settings(_env_file=None)
+    assert settings.database_url == custom_db
+    assert settings.test_database_url == custom_test
+    assert settings.integration_server_url == custom_test
 
 
 def test_cors_origins_parsed_from_comma_separated_value(monkeypatch) -> None:
@@ -79,13 +124,13 @@ def test_dotenv_file_is_loaded(tmp_path, monkeypatch) -> None:
         monkeypatch.delenv(var, raising=False)
     env_file = tmp_path / ".env"
     env_file.write_text(
-        "TEST_DATABASE_URL=postgresql+psycopg://linguagraph:linguagraph@localhost:5432/linguagraph_test\n",
+        "TEST_DATABASE_URL=postgresql+psycopg://linguagraph:linguagraph@127.0.0.1:5432/linguagraph_test\n",
         encoding="utf-8",
     )
     settings = Settings(_env_file=str(env_file))
     assert (
         settings.test_database_url
-        == "postgresql+psycopg://linguagraph:linguagraph@localhost:5432/linguagraph_test"
+        == "postgresql+psycopg://linguagraph:linguagraph@127.0.0.1:5432/linguagraph_test"
     )
 
 

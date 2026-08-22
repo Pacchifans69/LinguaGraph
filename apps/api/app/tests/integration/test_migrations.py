@@ -23,7 +23,9 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
+
+from app.db.session import create_bounded_engine
 
 from app.db.disposable import (
     create_disposable_database,
@@ -49,7 +51,9 @@ HEAD_TABLES = [
 
 
 def _public_tables(url: str) -> list[str]:
-    engine = create_engine(url)
+    # HRA-F05 (R2): bounded connect timeout (shared helper) — migration
+    # verification must never hang on an unreachable endpoint.
+    engine = create_bounded_engine(url)
     try:
         with engine.connect() as conn:
             return sorted(
@@ -104,7 +108,8 @@ def test_migrate_from_zero_to_head(disposable_db_url: str) -> None:
     # the resulting schema and the recorded revision.
     assert _public_tables(disposable_db_url) == HEAD_TABLES
 
-    engine = create_engine(disposable_db_url)
+    # HRA-F05 (R2): bounded connect timeout (shared helper).
+    engine = create_bounded_engine(disposable_db_url)
     try:
         with engine.connect() as conn:
             version_num = conn.execute(

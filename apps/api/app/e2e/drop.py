@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import argparse
 
-from sqlalchemy import create_engine
 from sqlalchemy.engine import make_url
+
+from app.db.session import create_bounded_engine
 
 from app.db.disposable import (
     E2E_DB_PREFIX,
@@ -34,7 +35,8 @@ def main() -> int:
     # Fail closed: refuse anything outside the E2E disposable namespace.
     assert_disposable_db_url(target_url, required_prefix=E2E_DB_PREFIX)
 
-    admin_engine = create_engine(
+    # HRA-F05 (R2): bounded connect timeout (shared helper).
+    admin_engine = create_bounded_engine(
         target_url.set(database="postgres"), isolation_level="AUTOCOMMIT"
     )
     drop_disposable_database(admin_engine, target_url)

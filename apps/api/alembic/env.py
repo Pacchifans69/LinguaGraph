@@ -11,7 +11,7 @@ from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import pool
 
 # Make `app` importable when running from any working directory.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -46,9 +46,16 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode with a live connection."""
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
+    # HRA-F05 (R2): the online engine goes through the shared bounded-connect
+    # helper (same finite psycopg connect timeout as the application engine
+    # and the disposable-DB lifecycle), so `alembic upgrade/current/check`
+    # can never wait indefinitely on an unreachable PostgreSQL endpoint.
+    # The URL source is unchanged: alembic.ini's `sqlalchemy.url`, overridden
+    # by the DATABASE_URL environment variable in env.py above.
+    from app.db.session import create_bounded_engine
+
+    connectable = create_bounded_engine(
+        config.get_main_option("sqlalchemy.url"),
         poolclass=pool.NullPool,
     )
 

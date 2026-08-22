@@ -28,6 +28,31 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
 
+# HRA-F05 (R2): finite, reasonable psycopg TCP connect timeout for ALL
+# PostgreSQL connection establishment. On Windows, `localhost` may resolve
+# to ::1 first where no PostgreSQL listens; without a connect timeout the
+# client can wait indefinitely (or for the OS address-family fallback)
+# before connecting — pytest then hangs before the first integration test
+# body. 5 seconds bounds the failure while remaining generous for normal
+# local startup. Every connection path required by M0.7 verification
+# (disposable DB lifecycle, Alembic online commands) and the application
+# engine shares this behavior via create_bounded_engine().
+DB_CONNECT_TIMEOUT_SECONDS = 5
+
+
+def create_bounded_engine(url, **kwargs):  # type: ignore[no-untyped-def]
+    """``create_engine`` with a finite psycopg connect timeout (HRA-F05 R2).
+
+    Adds ``connect_timeout=DB_CONNECT_TIMEOUT_SECONDS`` to the psycopg
+    connect arguments unless the caller already provided one (explicit
+    caller values win via ``setdefault``). All other ``create_engine``
+    keyword arguments pass through unchanged, so callers keep their
+    existing pool/URL semantics — only connection establishment is bounded.
+    """
+    connect_args = dict(kwargs.pop("connect_args", None) or {})
+    connect_args.setdefault("connect_timeout", DB_CONNECT_TIMEOUT_SECONDS)
+    return create_engine(url, connect_args=connect_args, **kwargs)
+
 
 def apply_utc_timezone(engine) -> None:  # type: ignore[no-untyped-def]
     """Register a connect listener that pins PostgreSQL sessions to UTC.
@@ -50,7 +75,7 @@ def apply_utc_timezone(engine) -> None:  # type: ignore[no-untyped-def]
             cursor.close()
 
 
-engine = create_engine(get_settings().database_url, pool_pre_ping=True)
+engine = create_bounded_engine(get_settings().database_url, pool_pre_ping=True)
 apply_utc_timezone(engine)
 
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)

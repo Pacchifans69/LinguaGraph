@@ -19,7 +19,14 @@ class Settings(BaseSettings):
     )
 
     database_url: str = (
-        "postgresql+psycopg://linguagraph:linguagraph@localhost:5432/linguagraph"
+        # HRA-F05 (R1): the repository-provided local PostgreSQL default uses
+        # the explicit IPv4 loopback. On Windows, `localhost` may resolve to
+        # ::1 FIRST, where no PostgreSQL listens, which can stall connection
+        # establishment until the address-family fallback (or a connect
+        # timeout). 127.0.0.1 is deterministic for the local Docker Compose
+        # PostgreSQL 18 service. Caller-provided DATABASE_URL values are
+        # never rewritten — this is only the built-in default.
+        "postgresql+psycopg://linguagraph:linguagraph@127.0.0.1:5432/linguagraph"
     )
     test_database_url: str | None = None
     cors_origins: str = "http://localhost:5173"
