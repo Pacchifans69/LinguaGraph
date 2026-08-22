@@ -7,14 +7,21 @@ behavior, and indexes — per M0_PREIMPLEMENTATION_REPORT.md sections 4-5.
 """
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
+
+from app.db.session import create_bounded_engine
 
 pytestmark = pytest.mark.integration
 
 
 @pytest.fixture()
 def conn(disposable_db_url: str):
-    engine = create_engine(disposable_db_url)
+    # HRA-F05 (R2): bounded connect timeout via the shared helper — a
+    # pre-existing .env may still resolve `localhost` to ::1 first on
+    # Windows (R3 forbids rewriting it), and this schema-inspection
+    # connection must never hang indefinitely like the rest of the
+    # verification paths.
+    engine = create_bounded_engine(disposable_db_url)
     try:
         with engine.connect() as connection:
             yield connection
