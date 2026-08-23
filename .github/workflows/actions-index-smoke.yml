@@ -1,0 +1,17 @@
+name: actions-index-smoke
+
+on:
+  push:
+    branches:
+      - diagnostic/actions-indexing
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: scheduler smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Reach a real job
+        run: echo "GitHub Actions scheduler reached a real job"
