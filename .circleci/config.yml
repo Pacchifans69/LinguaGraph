@@ -1,0 +1,295 @@
+version: 2.1
+
+jobs:
+  m0-7-external-proof:
+    machine:
+      image: ubuntu-2404:current
+    resource_class: medium
+    working_directory: ~/project
+    environment:
+      EXPECTED_CANDIDATE_SHA: "580e27cbea09e50f40782a92da426e7332e8a54d"
+      EXPECTED_CHECKOUT_BRANCH: "m0.7-hardening"
+      EXPECTED_CONFIG_REPO: "Pacchifans69/LinguaGraph"
+      EXPECTED_CONFIG_REF: "refs/heads/ci/m0.7-external-proof"
+      EXPECTED_CONFIG_PATH: ".circleci/config.yml"
+      UV_PYTHON: "3.13"
+      DATABASE_URL: "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/postgres"
+      TEST_DATABASE_URL: "postgresql+psycopg://postgres:postgres@127.0.0.1:5432/postgres"
+
+    steps:
+      - checkout
+
+      - run:
+          name: "E04 — prove exact candidate and split-source provenance"
+          command: |
+            set -euo pipefail
+
+            pipeline_revision="<< pipeline.git.revision >>"
+            checkout_branch="<< pipeline.git.branch >>"
+            checkout_owner="<< pipeline.git.repo_owner >>"
+            checkout_repo="<< pipeline.git.repo_name >>"
+            config_repo="<< pipeline.config.repository.name >>"
+            config_ref="<< pipeline.config.ref >>"
+            config_sha="<< pipeline.config.sha >>"
+            config_path="<< pipeline.config.file_path >>"
+            actual_head="$(git rev-parse HEAD)"
+
+            printf '%s\n' \
+              "expected_candidate_sha=${EXPECTED_CANDIDATE_SHA}" \
+              "pipeline_git_revision=${pipeline_revision}" \
+              "git_rev_parse_head=${actual_head}" \
+              "checkout_branch=${checkout_branch}" \
+              "checkout_repository=${checkout_owner}/${checkout_repo}" \
+              "config_repository=${config_repo}" \
+              "config_ref=${config_ref}" \
+              "config_sha=${config_sha}" \
+              "config_path=${config_path}"
+
+            test "${pipeline_revision}" = "${EXPECTED_CANDIDATE_SHA}"
+            test "${actual_head}" = "${EXPECTED_CANDIDATE_SHA}"
+            test "${checkout_branch}" = "${EXPECTED_CHECKOUT_BRANCH}"
+            test "${checkout_owner}/${checkout_repo}" = "Pacchifans69/LinguaGraph"
+            test "${config_repo}" = "${EXPECTED_CONFIG_REPO}"
+            test "${config_ref}" = "${EXPECTED_CONFIG_REF}"
+            test "${config_path}" = "${EXPECTED_CONFIG_PATH}"
+
+            # The application candidate must remain the original frozen tree.
+            # The CircleCI config exists only on the config-source branch.
+            if git cat-file -e "${EXPECTED_CANDIDATE_SHA}:.circleci/config.yml" 2>/dev/null; then
+              echo "candidate unexpectedly contains .circleci/config.yml"
+              exit 1
+            fi
+
+            test -z "$(git status --porcelain)"
+
+            mkdir -p .proof-artifacts
+            {
+              echo "expected_candidate_sha=${EXPECTED_CANDIDATE_SHA}"
+              echo "pipeline_git_revision=${pipeline_revision}"
+              echo "git_rev_parse_head=${actual_head}"
+              echo "checkout_branch=${checkout_branch}"
+              echo "checkout_repository=${checkout_owner}/${checkout_repo}"
+              echo "config_repository=${config_repo}"
+              echo "config_ref=${config_ref}"
+              echo "config_sha=${config_sha}"
+              echo "config_path=${config_path}"
+            } > .proof-artifacts/provenance.txt
+
+      - run:
+          name: "Runtime — install uv and Python 3.13"
+          command: |
+            set -euo pipefail
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "${BASH_ENV}"
+            source "${BASH_ENV}"
+
+            uv python install 3.13
+            python_bin="$(uv python find 3.13)"
+            python_version="$("${python_bin}" -c 'import platform, sys; assert sys.version_info[:2] == (3, 13); print(platform.python_version())')"
+            echo "Python ${python_version}"
+            printf 'python=%s\n' "${python_version}" >> .proof-artifacts/runtime-versions.txt
+
+      - run:
+          name: "Runtime — install Node 24"
+          command: |
+            set -euo pipefail
+            export NVM_DIR="$HOME/.nvm"
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.7/install.sh | bash
+            {
+              echo 'export NVM_DIR="$HOME/.nvm"'
+              echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"'
+            } >> "${BASH_ENV}"
+            source "${BASH_ENV}"
+
+            nvm install 24
+            nvm alias default 24
+            node_version="$(node --version)"
+            node_major="$(node -p 'process.versions.node.split(".")[0]')"
+            test "${node_major}" = "24"
+            echo "Node ${node_version}"
+            echo "npm $(npm --version)"
+            printf 'node=%s\nnpm=%s\n' "${node_version}" "$(npm --version)" >> .proof-artifacts/runtime-versions.txt
+
+      - run:
+          name: "Runtime — start and prove PostgreSQL 18"
+          command: |
+            set -euo pipefail
+            docker pull postgres:18
+            docker run --detach \
+              --name linguagraph-postgres18 \
+              --env POSTGRES_USER=postgres \
+              --env POSTGRES_PASSWORD=postgres \
+              --env POSTGRES_DB=postgres \
+              --publish 5432:5432 \
+              postgres:18
+
+            ready=0
+            for _ in $(seq 1 30); do
+              if docker exec linguagraph-postgres18 pg_isready -U postgres -d postgres >/dev/null 2>&1; then
+                ready=1
+                break
+              fi
+              sleep 2
+            done
+            test "${ready}" = "1"
+
+            postgres_version="$(docker exec linguagraph-postgres18 psql -U postgres -d postgres -Atc 'show server_version')"
+            case "${postgres_version}" in
+              18.*) ;;
+              *)
+                echo "PostgreSQL major-version mismatch: ${postgres_version}"
+                exit 1
+                ;;
+            esac
+
+            echo "PostgreSQL ${postgres_version}"
+            printf 'postgresql=%s\n' "${postgres_version}" >> .proof-artifacts/runtime-versions.txt
+
+      - run:
+          name: "Backend — uv sync --frozen"
+          command: |
+            set -euo pipefail
+            source "${BASH_ENV}"
+            cd apps/api
+            uv sync --frozen
+            uv run python -c 'import platform, sys; assert sys.version_info[:2] == (3, 13); print("backend-python=" + platform.python_version())'
+
+      - run:
+          name: "Backend — migration safety: empty -> head"
+          command: |
+            set -euo pipefail
+            source "${BASH_ENV}"
+            cd apps/api
+            uv run alembic upgrade head
+            uv run alembic current | tee ../../.proof-artifacts/alembic-current.log
+            grep -q "0002 (head)" ../../.proof-artifacts/alembic-current.log
+            uv run alembic check
+
+      - run:
+          name: "Backend — full real-PostgreSQL test suite"
+          command: |
+            set -euo pipefail
+            source "${BASH_ENV}"
+            cd apps/api
+            uv run pytest -q 2>&1 | tee ../../.proof-artifacts/backend-tests.log
+
+      - run:
+          name: "Backend — fail closed on any skipped test"
+          command: |
+            set -euo pipefail
+            if grep -q "skipped" .proof-artifacts/backend-tests.log; then
+              echo "backend suite reported skipped tests; PostgreSQL integration proof is invalid"
+              exit 1
+            fi
+            tail -5 .proof-artifacts/backend-tests.log
+
+      - run:
+          name: "Frontend — npm ci"
+          command: |
+            set -euo pipefail
+            source "${BASH_ENV}"
+            cd apps/web
+            test "$(node -p 'process.versions.node.split(".")[0]')" = "24"
+            npm ci
+
+      - run:
+          name: "Frontend — lint"
+          command: |
+            set -euo pipefail
+            source "${BASH_ENV}"
+            cd apps/web
+            npm run lint
+
+      - run:
+          name: "Frontend — typecheck"
+          command: |
+            set -euo pipefail
+            source "${BASH_ENV}"
+            cd apps/web
+            npm run typecheck
+
+      - run:
+          name: "Frontend — Vitest/RTL"
+          command: |
+            set -euo pipefail
+            source "${BASH_ENV}"
+            cd apps/web
+            npm run test
+
+      - run:
+          name: "Frontend — production build"
+          command: |
+            set -euo pipefail
+            source "${BASH_ENV}"
+            cd apps/web
+            npm run build
+
+      - run:
+          name: "E2E — install Chromium and system dependencies"
+          command: |
+            set -euo pipefail
+            source "${BASH_ENV}"
+            cd apps/web
+            npx playwright install --with-deps chromium
+
+      - run:
+          name: "E2E — golden path + Unicode release blocker"
+          command: |
+            set -euo pipefail
+            source "${BASH_ENV}"
+            cd apps/web
+            npx playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts
+
+      - run:
+          name: "E2E — prove disposable database cleanup"
+          command: |
+            set -euo pipefail
+            leftovers="$(docker exec linguagraph-postgres18 psql -U postgres -d postgres -Atc \
+              "select datname from pg_database where datname like 'linguagraph_%' order by datname;")"
+            printf '%s\n' "${leftovers}" > .proof-artifacts/post-e2e-databases.txt
+            if [ -n "${leftovers}" ]; then
+              echo "disposable LinguaGraph databases remain after E2E:"
+              printf '%s\n' "${leftovers}"
+              exit 1
+            fi
+
+      - run:
+          name: "Candidate integrity — tracked tree preserved"
+          command: |
+            set -euo pipefail
+            if ! git diff --quiet || ! git diff --cached --quiet; then
+              echo "tracked candidate tree changed during verification"
+              git status --short
+              git diff
+              git diff --cached
+              exit 1
+            fi
+            echo "tracked candidate tree preserved"
+
+      - run:
+          name: "Collect audit artifacts"
+          when: always
+          command: |
+            set +e
+            mkdir -p .proof-artifacts
+            git status --short > .proof-artifacts/final-git-status.txt
+            git rev-parse HEAD > .proof-artifacts/final-head.txt
+            docker ps -a --filter name=linguagraph-postgres18 > .proof-artifacts/postgres-container.txt
+            if [ -d apps/web/test-results ]; then
+              tar -czf .proof-artifacts/playwright-test-results.tgz -C apps/web test-results
+            fi
+
+      - run:
+          name: "Cleanup PostgreSQL container"
+          when: always
+          command: |
+            docker rm -f linguagraph-postgres18 >/dev/null 2>&1 || true
+
+      - store_artifacts:
+          path: .proof-artifacts
+          destination: m0.7-external-proof
+
+workflows:
+  m0-7-external-proof:
+    jobs:
+      - m0-7-external-proof
