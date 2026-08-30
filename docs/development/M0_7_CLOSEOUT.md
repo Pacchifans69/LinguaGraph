@@ -24,7 +24,7 @@ are not themselves an implementation contract.
 Repository: `Pacchifans69/LinguaGraph`
 
 - approved M0.7 base: `7b3e61c547a7831275ae5fb01458ed0bdd7c202c`
-- formal implementation branch: `m0.7-hardening`
+- historical formal implementation branch: `m0.7-hardening`
 - final reviewed / externally proven candidate:
   `580e27cbea09e50f40782a92da426e7332e8a54d`
 - candidate parent: `d89fe820e544cfa68e3ba48d265a1a7bce27bc55`
@@ -34,7 +34,10 @@ Repository: `Pacchifans69/LinguaGraph`
   base
 
 The candidate remained frozen and unmodified through the accepted external
-Gate 2 proof, Human Diff Review, and Human Runtime Acceptance.
+Gate 2 proof, Human Diff Review, and Human Runtime Acceptance. The historical
+implementation branch was deleted only after merge, Gate 3, and durable-state
+closure were complete; the candidate commit and its provenance remain in Git
+history and the retained proof records.
 
 ## 3. Gate 2
 
@@ -64,7 +67,9 @@ Evidence includes:
   `580e27c…`, failed in ~3 s with no executed steps;
 - post-merge `main` run #9 (`33306945264`), job `99245049374`, durable
   implementation SHA `697b019…`, again failed pre-step with no executed
-  steps / usable job logs.
+  steps / usable job logs;
+- subsequent docs-only durable-state runs through run #11 continued the same
+  pre-step pattern, so no provider recovery occurred before branch cleanup.
 
 Therefore:
 
@@ -218,14 +223,14 @@ Verified after merge:
 
 1. PR #9 is closed and `merged=true`.
 2. `main` points to `697b019dc2820c67dacbc0b58a718e198ab655be`
-   before this documentation closeout commit.
+   before the documentation closeout commits.
 3. Candidate tree and durable implementation main tree are exactly identical.
 4. No candidate content was lost or added by the rebase merge.
 5. M0.7 introduced no schema revision, dependency/lockfile drift, or ADR
    change.
 6. Alembic head remains `0002`.
-7. The post-merge GitHub Actions run reproduced the same pre-step external
-   failure; it does not create a new application correctness finding and does
+7. The post-merge GitHub Actions runs reproduced the same pre-step external
+   failure; they do not create a new application correctness finding and do
    not close `G2-X01`.
 8. Human Diff Review and Human Runtime Acceptance remain PASS.
 9. The accepted CircleCI proof remains tied to the exact frozen candidate;
@@ -250,12 +255,11 @@ closeout all are satisfied:
   green under the approved external proof;
 - clean database migration to HEAD: green;
 - production frontend build: green;
-- durable documentation: completed by the M0.7 implementation and this
-  closeout;
+- durable documentation: completed by the M0.7 implementation and closeout;
 - architecture-level release blocker: core schema remains language-neutral,
   with no EN/DE/FR/ES-specific schema structure.
 
-## 8. Durable state after closeout
+## 8. Durable state and cleanup
 
 Durable truths:
 
@@ -264,8 +268,8 @@ Durable truths:
 - M0: **COMPLETE**;
 - PR #9: merged via rebase;
 - formal reviewed/proven candidate: `580e27c…`;
-- durable implementation merge lineage: `main@697b019…` before this docs
-  closeout commit;
+- durable implementation merge lineage: `main@697b019…` immediately after
+  rebase merge;
 - candidate/main implementation trees: exactly equal;
 - Gate 2: **PASS under approved External Infrastructure Exception**;
 - GitHub Actions provider proof: **BLOCKED / EXTERNAL**;
@@ -274,6 +278,40 @@ Durable truths:
 - ADR-001 … ADR-009: accepted/frozen; ADR-009 unchanged;
 - Alembic head: `0002`.
 
-The implementation branch and external/diagnostic proof artifacts are retained
-until the separate branch/proof cleanup step. Cleanup is intentionally not
-part of this Gate 3 closeout commit.
+### 8.1 Implementation-branch cleanup
+
+**PASS.**
+
+After Gate 3 and durable-state closure:
+
+- the user performed an exact-SHA-guarded cleanup with `origin/main` fixed at
+  `04a948b32ed23a5a13d4ce84e747e1ccd4830fe3` and the historical candidate
+  ref fixed at `580e27cbea09e50f40782a92da426e7332e8a54d`;
+- local `m0.7-hardening` was deleted;
+- remote `origin/m0.7-hardening` was deleted and pruned;
+- the final human-reported branch listing contained no local or remote
+  `m0.7-hardening` ref;
+- GitHub was independently queried after deletion and returned HTTP 404
+  `Branch not found` for `m0.7-hardening`.
+
+The branch deletion does not erase the historical candidate commit, PR #9,
+CircleCI proof provenance, or the Gate 3 candidate→rebase-main tree-identity
+record.
+
+### 8.2 Proof/diagnostic retention
+
+Proof cleanup is intentionally **DEFERRED while `G2-X01` remains OPEN /
+EXTERNAL**. The following support evidence is retained rather than deleted:
+
+- `ci/m0.7-external-proof@7ae9ce47570c8581423ed2932daf99d417acf52e`;
+- `diagnostic/actions-indexing@e825a785883357d877d12003dc59615ea2bf586e`;
+- historical CI/setup refs including `m0.7-ci-proof` and
+  `circleci-project-setup`;
+- `Pacchifans69/linguagraph-ci-proof-@920a6ee1eda077539bf3dc60964dac6a5eb25b94`;
+- `Pacchifans69/actions-runner-probe@e3a96b0b49a5612bf43d209d8e2991df95dc30a5`;
+- CircleCI pipeline/job metadata, configuration snapshot, manifest and SHA256
+  proof inventory;
+- GitHub Actions failed-run diagnostics and the private support-ticket record.
+
+Those records may be reconsidered only after later human review, especially if
+GitHub-hosted-runner proof eventually succeeds and `G2-X01` is closed.

@@ -51,7 +51,8 @@ M0.7 lifecycle:
 - human merge decision: APPROVED;
 - PR #9: MERGED;
 - Gate 3 post-merge integrity: PASS;
-- durable-state closure: PASS.
+- durable-state closure: PASS;
+- implementation-branch cleanup: PASS.
 
 The External Infrastructure Exception is part of the M0.7 evidence record, not
 an ADR replacement:
@@ -63,14 +64,23 @@ an ADR replacement:
   `Pacchifans69/linguagraph-ci-proof-@920a6ee1eda077539bf3dc60964dac6a5eb25b94`;
 - ADR-009: unchanged.
 
-The post-merge `main@697b019…` GitHub Actions run reproduced the same
-pre-step hosted-runner failure (no executed job steps), so provider recovery
-has NOT occurred and `G2-X01` remains open. If GitHub-hosted runners later
-recover, rerun the frozen workflow on the then-current durable release
-lineage before closing `G2-X01`.
+The post-merge GitHub Actions runs continued to reproduce the same pre-step
+hosted-runner failure (no executed job steps), so provider recovery has NOT
+occurred and `G2-X01` remains open. If GitHub-hosted runners later recover,
+rerun the frozen workflow on the then-current durable release lineage before
+closing `G2-X01`.
+
+Cleanup status:
+
+- historical implementation branch `m0.7-hardening` was deleted locally and
+  remotely after durable-state closure; GitHub independently returned 404 for
+  the remote branch after deletion;
+- diagnostic/support refs, CircleCI proof metadata/artifacts, the external
+  config repository, and the public runner-probe repository remain retained
+  evidence while `G2-X01` is open.
 
 See `docs/development/M0_7_CLOSEOUT.md` for the full Gate 2 / Human Review /
-merge / Gate 3 evidence ledger.
+merge / Gate 3 / cleanup evidence ledger.
 
 ## Post-M0 rule
 
@@ -88,8 +98,8 @@ milestone. Before any post-M0 implementation:
 - obtain explicit human contract approval/freeze;
 - only then create/use a new implementation branch.
 
-Do not reuse `m0.7-hardening` as a post-M0 implementation branch. It is a
-historical implementation/proof ref pending the separate cleanup step.
+Do not recreate or reuse the deleted historical `m0.7-hardening` branch as a
+post-M0 implementation branch.
 
 Do not reopen frozen architecture decisions silently. ADR-001 … ADR-009 and
 the frozen M0 invariants remain the baseline until an explicitly governed

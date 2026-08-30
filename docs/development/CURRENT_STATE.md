@@ -49,7 +49,8 @@ section 2.
 
 - approved M0.7 base:
   `7b3e61c547a7831275ae5fb01458ed0bdd7c202c`
-- formal branch: `m0.7-hardening`
+- historical formal branch: `m0.7-hardening` (deleted after Gate 3 durable
+  closure during the separate cleanup step)
 - final reviewed / externally proven candidate:
   `580e27cbea09e50f40782a92da426e7332e8a54d`
 - candidate parent:
@@ -113,7 +114,8 @@ base, 0 behind, with merge base exactly the approved base.
 - Human Merge Decision: APPROVED;
 - PR #9: MERGED via rebase;
 - Gate 3 post-merge integrity: PASS;
-- durable-state closure: PASS.
+- durable-state closure: PASS;
+- implementation-branch cleanup: PASS.
 
 Full closeout ledger:
 
@@ -139,10 +141,10 @@ provenance, integrity, or retained evidence.
 
 The repeated failure pattern is pre-step: jobs fail before checkout or any
 workflow step begins. Evidence includes the frozen candidate runs, diagnostic
-workflows, an independent public runner probe, PR #9 run #8, and post-merge
-`main` run #9.
+workflows, an independent public runner probe, PR #9 run #8, post-merge
+`main` run #9, and later docs-only durable-state runs through run #11.
 
-Post-merge evidence:
+Post-merge implementation evidence:
 
 - run: `33306945264` (run #9, push to `main`);
 - head: `697b019dc2820c67dacbc0b58a718e198ab655be`;
@@ -150,6 +152,9 @@ Post-merge evidence:
 - result: failure before any workflow step;
 - executed steps: none;
 - usable job logs: none.
+
+Later docs-only durable tips reproduced the same pre-step pattern; provider
+recovery still had not occurred when implementation-branch cleanup completed.
 
 This does not constitute a new application correctness failure and does not
 close `G2-X01`. The exact internal provider root cause is not asserted.
@@ -403,17 +408,32 @@ The following are accepted/non-blocking at M0 closure:
 
 ## 11. Cleanup status
 
-At this durable-state closure point:
+**Implementation-branch cleanup: PASS.**
 
-- `m0.7-hardening` is retained at exact candidate `580e27c…`;
-- diagnostic/support GitHub refs and the external config repository are
-  retained as evidence;
-- the CircleCI proof artifacts/metadata are retained;
-- cleanup has **not** yet been performed.
+After Gate 3 and durable-state closure:
 
-Branch/proof cleanup is a separate post-closeout step. It must not erase the
-durable evidence necessary to explain the External Infrastructure Exception
-or the candidate → rebase-main provenance bridge.
+- the historical `m0.7-hardening@580e27c…` implementation branch was deleted
+  locally and remotely under exact-SHA guards;
+- the final human-reported `git branch -a` listing contained neither local nor
+  `origin/m0.7-hardening`;
+- GitHub independently returned HTTP 404 `Branch not found` for
+  `m0.7-hardening` after deletion.
+
+Proof/diagnostic evidence is intentionally retained while `G2-X01` remains
+**OPEN / EXTERNAL**. Retained evidence includes:
+
+- `ci/m0.7-external-proof@7ae9ce47570c8581423ed2932daf99d417acf52e`;
+- `diagnostic/actions-indexing@e825a785883357d877d12003dc59615ea2bf586e`;
+- historical CI/setup refs `m0.7-ci-proof` and `circleci-project-setup`;
+- external config repository
+  `Pacchifans69/linguagraph-ci-proof-@920a6ee1eda077539bf3dc60964dac6a5eb25b94`;
+- public runner probe
+  `Pacchifans69/actions-runner-probe@e3a96b0b49a5612bf43d209d8e2991df95dc30a5`;
+- CircleCI proof artifacts/metadata and GitHub Actions diagnostic history.
+
+These retained proof fixtures must not be confused with active implementation
+branches. Reconsider their cleanup only after a later human review, especially
+if provider-specific GitHub Actions proof succeeds and `G2-X01` is closed.
 
 ---
 
@@ -431,4 +451,5 @@ direction only. Before implementing any post-M0 milestone:
 5. obtain human contract approval/freeze;
 6. create a new implementation branch from the approved durable `main` base.
 
-Do not reuse `m0.7-hardening` as a post-M0 implementation branch.
+Do not recreate or reuse the deleted historical `m0.7-hardening` branch as a
+post-M0 implementation branch.
