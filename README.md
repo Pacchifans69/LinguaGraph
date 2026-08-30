@@ -267,7 +267,7 @@ npm.cmd run lint
 npm.cmd run typecheck
 npm.cmd run test
 npm.cmd run build
-npm.cmd exec playwright test -- golden-path.spec.ts unicode.spec.ts
+npx.cmd playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts
 ```
 
 A full release-baseline proof requires real PostgreSQL integration tests. A
