@@ -1,596 +1,362 @@
 # LinguaGraph
 
-**Interactive Multilingual Contrastive Linguistics Environment** — a desktop-grade
-workbench for reading parallel texts side by side, selecting text spans, and
-building multilingual alignment groups by hand.
+**Interactive Multilingual Contrastive Linguistics Environment** — a
+language-neutral workbench for reading parallel texts side by side, selecting
+canonical text spans, and building persistent multilingual alignment groups by
+hand.
 
-Primary target languages: English, German, French, Spanish (the model is
-language-neutral via BCP-47 `language_tag`).
+Primary demonstration languages are English, German, French, and Spanish, but
+the domain model uses BCP-47 `language_tag` and contains no language-specific
+schema structure.
 
 ## Current milestone
 
-**M0 — Manual Alignment Workbench**. The latest completed checkpoint is
-**M0.6 — Alignment Visualization** (**COMPLETE / MERGED**). M0.1 —
-Repository Foundation, M0.2 — Persistence Model, M0.3 — Document Workspace,
-M0.4 — Selection Engine, M0.5 — Alignment Persistence, and M0.6 — Alignment
-Visualization were human-approved and merged into `main` (PR #1, PR #2,
-PR #5, PR #6, PR #7, and PR #8). M0.6 merged as
-`55442d4ce7f71bd28c3368de641802f942e57055` from final reviewed
-implementation head `f86d6429d41e76d4093e08898a9e7879e3774c49` on the
-approved base `aea0a45e740bb9400c7e6dc25fcc88e956a25ee0`.
+**M0 — Manual Alignment Workbench: COMPLETE**
 
-**M0.7 — Hardening** is the current implementation checkpoint
-(**IN PROGRESS** on the `m0.7-hardening` branch, implementation candidate
-awaiting Gate 2 / human review — NOT yet merged, NOT COMPLETE). It delivers
-the full M0 verification, the Unicode release-blocker E2E
-(`apps/web/e2e/unicode.spec.ts`), error/loading/empty-state and
-accessibility hardening, migration-safety proof (disposable databases
-only), the GitHub Actions CI workflow (`.github/workflows/ci.yml`), the
-Windows launchers (`scripts/dev.ps1`, `scripts/verify.ps1`) and the durable
-as-built documentation under `docs/`.
+All planned M0 checkpoints are complete and merged:
 
-M0 proves the closed loop: *create project → create parallel document → add
-arbitrary-language text versions → select spans → create alignment group →
-persist → reload → hover/click a member → highlight counterparts → inspect,
-edit and delete alignments*. M0.3 delivered project/document navigation,
-TextVersion creation/import, side-by-side TextVersion panels and the
-workspace read model. M0.4 delivered the frontend selection engine:
-UTF-16 ↔ code-point conversion, native Selection/Range canonicalization,
-flat boundary-segmented runs, current-selection capture, the client-side
-PendingSpan Alignment Tray (explicit Add/remove/clear, duplicate/overlap
-staging rules, lifecycle/Escape behavior, frontend-only state) and Unicode
-browser coverage. M0.5 closed the persistence loop: the complete atomic
-Alignment create/update/delete service and its HTTP mutation endpoints,
-concurrency-safe Span get-or-create, server-derived quote metadata, all
-frozen alignment invariants, PATCH note/full-member-replacement semantics,
-orphan Span cleanup, the frontend Create Alignment action (with in-flight
-tray freeze and document-scoped mutation isolation), a minimal read-only
-persisted-alignment representation, and reload-verified persistence. M0.6
-delivered the visualization/edit/delete loop: persisted-alignment annotation
-indicators, hover/active counterpart highlighting and connector
-visualization (RenderedSpanRegistry + SVG ConnectorOverlay), the overlap
-ambiguity chooser, and the Alignment Inspector with note editing, member
-removal and alignment deletion driven by the authoritative workspace
-snapshot (see the M0.6 scope section below).
+- M0.1 — Repository Foundation
+- M0.2 — Persistence Model
+- M0.3 — Document Workspace
+- M0.4 — Selection Engine
+- M0.5 — Alignment Persistence
+- M0.6 — Alignment Visualization
+- M0.7 — Hardening
 
-Authoritative documents:
+M0.7 merged in PR #9. Its approved base was
+`7b3e61c547a7831275ae5fb01458ed0bdd7c202c`; the final reviewed and
+independently proven candidate was
+`580e27cbea09e50f40782a92da426e7332e8a54d`. Repository policy allowed only
+rebase merge, producing durable implementation `main`
+`697b019dc2820c67dacbc0b58a718e198ab655be` immediately after merge. Gate 3
+proved that both commits point to the exact same file tree
+`16c2bd3f5a8c5cb4960e193896547093fe091c87`.
 
-- `docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md`
-- `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md`
-- `docs/development/CURRENT_STATE.md` — durable engineering handoff
-- `docs/adr/` — accepted architecture decisions (ADR-001 … ADR-009)
-- `docs/README.md` — durable documentation navigation index
-- `docs/architecture/ARCHITECTURE.md`, `docs/api/api-contract.md`,
-  `docs/testing/testing-strategy.md`, `docs/testing/manual-acceptance.md`
-  — as-built M0.7 documentation
+The M0 golden loop is complete:
+
+```text
+create Project
+→ create ParallelDocument
+→ add arbitrary-language TextVersions
+→ select canonical text ranges
+→ stage members in the Alignment Tray
+→ create and persist an AlignmentGroup
+→ reload
+→ hover/click aligned text
+→ visualize counterparts/connectors
+→ inspect, edit and delete the alignment
+```
+
+M0.7 adds the release-hardening layer: real-PostgreSQL integration and
+migration-from-zero proof, Unicode release-blocker E2E coverage,
+error/loading/empty-state and accessibility hardening, destructive-operation
+pending locks, production-build verification, safe Windows launch/verification
+scripts, CI configuration, and as-built documentation.
+
+Detailed closeout evidence is in
+`docs/development/M0_7_CLOSEOUT.md`.
+
+## Evidence status
+
+M0.7 Gate 2 result:
+
+**Gate 2 PASS under approved External Infrastructure Exception**
+
+The exception is narrow and remains visible in durable state:
+
+- GitHub Actions provider proof: **BLOCKED / EXTERNAL**;
+- `G2-X01`: **OPEN / EXTERNAL**;
+- independent CircleCI proof: **PASS** on exact candidate `580e27c…`;
+- accepted external config:
+  `Pacchifans69/linguagraph-ci-proof-@920a6ee1eda077539bf3dc60964dac6a5eb25b94`;
+- ADR-009: unchanged.
+
+GitHub-hosted runner attempts, including the post-merge `main@697b019…` run,
+continue to fail before any job step starts. The repository therefore does
+**not** claim a GitHub Actions PASS. The external proof executed the frozen
+semantic gates on hosted Linux with Python 3.13, Node 24, and PostgreSQL 18.
+
+## Authoritative documents
+
+Read these when reconstructing project state:
+
+- `AGENTS.md` — workflow rules and current phase;
+- `docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md` — frozen M0
+  specification and Definition of Done;
+- `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` — accepted
+  pre-implementation engineering report;
+- `docs/adr/` — accepted ADR-001 … ADR-009;
+- `docs/development/CURRENT_STATE.md` — durable engineering handoff;
+- `docs/development/M0_7_CLOSEOUT.md` — M0.7 Gate 2/Human Review/merge/Gate 3
+  evidence ledger;
+- `docs/architecture/ARCHITECTURE.md` — as-built architecture;
+- `docs/api/api-contract.md` — as-built HTTP contract;
+- `docs/testing/testing-strategy.md` — testing/evidence rules;
+- `docs/testing/manual-acceptance.md` — human M0 walkthrough.
 
 ## Repository layout
 
 ```text
 apps/api/            FastAPI backend (Python 3.13, uv)
 apps/web/            React + TypeScript + Vite frontend (Node 24)
-docs/                Pre-implementation records, ADRs, as-built docs
+docs/                ADRs, pre-implementation records, as-built docs
 infra/postgres/      PostgreSQL bootstrap scripts
 compose.yml          PostgreSQL 18 local development service
-scripts/             dev.ps1 (run) and verify.ps1 (verify) — Windows
-.github/workflows/   ci.yml — M0 release-baseline CI (Python 3.13 /
-                     Node 24 / PostgreSQL 18 service container)
+scripts/dev.ps1      safe local launcher
+scripts/verify.ps1   local verification orchestration
+.github/workflows/   canonical GitHub Actions workflow configuration
 ```
 
-## Prerequisites (ADR-009 environment baseline)
+## Prerequisites
 
-| Component | Version | Notes |
-|---|---|---|
-| Python | 3.13.x | managed by uv (`uv python install 3.13`) |
-| uv | latest | https://docs.astral.sh/uv/ |
-| Node.js | 24 LTS | adjust PATH/version manager so `node --version` reports 24 |
-| PostgreSQL | 18 | Docker Compose preferred; native fallback allowed |
-| Git | any | repository is initialized; remote `origin` configured |
+ADR-009 runtime baseline:
 
-Verify with:
+| Component | Required baseline |
+|---|---|
+| Python | 3.13.x |
+| uv | current compatible release |
+| Node.js | 24.x LTS |
+| PostgreSQL | 18.x |
+| Git | any current release |
+| Docker Desktop | recommended for local PostgreSQL on Windows |
 
-```bash
+Quick checks:
+
+```powershell
 uv --version
-node --version            # must be v24.x (see .nvmrc)
-uv run python --version   # prints the pinned 3.13.x, independent of system python3
+node --version
+npm.cmd --version
+uv run python --version
 ```
+
+`node --version` must report `v24.x`.
 
 ## Setup from a clean checkout
 
-### 1. Backend
+### Backend
 
-Create `apps/api/.env` from the example (never commit `.env`; adjust
-`DATABASE_URL` if needed):
+Create `apps/api/.env` from the example and keep it untracked:
 
-```bash
-# POSIX / WSL / Git Bash
-cd apps/api
-cp .env.example .env
-
-# Windows CMD
-cd apps/api
-copy .env.example .env
-
-# Windows PowerShell
-cd apps/api
-Copy-Item .env.example .env
+```powershell
+Copy-Item apps/api/.env.example apps/api/.env
 ```
 
-Then synchronize dependencies (creates `.venv`, installs the pinned Python
-3.13 and dependencies from the committed `uv.lock`):
+Then synchronize exactly from the lockfile:
 
-```bash
-uv sync
+```powershell
+cd apps/api
+uv sync --frozen
+cd ../..
 ```
 
-### 2. Frontend
+### Frontend
 
-```bash
+```powershell
 cd apps/web
-npm ci                    # exact install from the committed package-lock.json
+npm.cmd ci
+cd ../..
 ```
 
-`npm ci` is preferred when the lockfile exists (it installs the exact
-committed tree and never rewrites the lockfile). Use `npm install` only when
-you intentionally change `package.json` dependencies. Dependencies are
-resolved from the official npm registry (see `apps/web/.npmrc`).
+Use `npm install` only when intentionally changing dependency manifests;
+normal verification uses the committed lockfile.
 
-### 3. PostgreSQL 18
+### PostgreSQL 18
 
-Preferred — Docker Compose:
+Preferred local path:
 
-```bash
+```powershell
 docker compose up -d postgres
-docker compose ps         # wait until healthy
+docker compose ps
 ```
 
-The container creates the `linguagraph` development database and the
-disposable `linguagraph_test` integration-test database on first init
-(`infra/postgres/init.sql`).
+Wait until `linguagraph-postgres` is healthy.
 
-Native fallback (no Docker): install PostgreSQL 18, start the cluster, then:
+The normal development database is `linguagraph`. Integration and E2E
+verification use guarded disposable databases and must never destructively
+reset the development database.
 
-```bash
-sudo -u postgres psql -c "CREATE ROLE linguagraph LOGIN CREATEDB PASSWORD 'linguagraph'"
-sudo -u postgres psql -c "CREATE DATABASE linguagraph OWNER linguagraph"
-sudo -u postgres psql -c "CREATE DATABASE linguagraph_test OWNER linguagraph"
-```
+## Running the application
 
-`CREATEDB` is required so integration tests can create and drop their own
-disposable databases (with Docker Compose the `POSTGRES_USER` is the
-container superuser, so no extra step is needed there).
-
-## Database migrations (Alembic)
-
-Migrations live in `apps/api/alembic/`; run them from `apps/api`:
-
-```bash
-uv run alembic upgrade head    # migrate to the latest revision
-uv run alembic current         # show applied revision
-uv run alembic history         # show the chain
-```
-
-`DATABASE_URL` (env) overrides the default in `alembic.ini`. Migration tests
-and all destructive checks run only against disposable databases
-(`linguagraph_test` server), never the development database.
-
-## Running
-
-### One command (Windows, M0.7)
+From the repository root on PowerShell 7+:
 
 ```powershell
 .\scripts\dev.ps1
 ```
 
-Safe, non-destructive launcher: checks Docker/uv/Node 24, starts the
-PostgreSQL 18 Compose service (reuses it when already running), initializes
-`apps/api/.env` only if absent (an existing `.env` is never touched),
-syncs dependencies without rewriting lockfiles, applies forward migrations
-only, starts FastAPI (port 8000) and Vite (port 5173), verifies API
-health, and prints <http://localhost:5173>. Port conflicts fail closed —
-it never kills processes it did not start, never deletes volumes/data, and
-never downgrades or resets the database.
+On Windows PowerShell 5.1 where local script execution policy blocks direct
+`.ps1` invocation:
 
-### Backend (port 8000)
-
-```bash
-cd apps/api
-uv run uvicorn app.main:app --reload
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1
 ```
 
-Health endpoint:
+The bypass applies to that PowerShell process; changing machine-wide execution
+policy is not required.
 
-```bash
-curl http://localhost:8000/api/v1/health
-# {"status":"ok"}
+The launcher:
+
+- verifies Docker, uv and Node 24;
+- starts/reuses PostgreSQL 18 without deleting data;
+- preserves an existing `apps/api/.env` byte-for-byte;
+- synchronizes backend dependencies from the frozen lockfile;
+- applies forward-only Alembic migrations;
+- starts FastAPI on port 8000 and Vite on port 5173;
+- waits for the API health endpoint;
+- fails closed on foreign port ownership and does not kill unrelated
+  processes.
+
+Endpoints:
+
+```text
+Frontend  http://localhost:5173
+Health    http://127.0.0.1:8000/api/v1/health
+API docs  http://localhost:8000/docs
 ```
 
-Interactive API docs: <http://localhost:8000/docs>.
+## Database migrations
 
-### Frontend (port 5173)
+From `apps/api`:
 
-```bash
-cd apps/web
-npm run dev
+```powershell
+uv run alembic upgrade head
+uv run alembic current
+uv run alembic check
 ```
 
-Open <http://localhost:5173>. The Vite dev server proxies `/api` to
-`http://localhost:8000`, so the app reaches the backend without CORS issues
-(`CORS_ORIGINS` in `apps/api/.env` is the allow-list for direct calls).
+The M0 schema head is:
 
-## Verification commands
+```text
+0002 (head)
+```
 
-### One command (Windows, M0.7)
+M0.7 adds no Alembic revision.
+
+## Verification
+
+Windows one-command verification:
 
 ```powershell
 .\scripts\verify.ps1
 ```
 
-Thin orchestration over the authoritative verification commands below
-(backend pytest with real PostgreSQL, Alembic current/check, frontend
-lint/typecheck/test/build, Playwright golden path + Unicode release
-blocker). Stops and exits non-zero on the first failure; preserves
-development data (destructive migration cycles run on disposable databases
-only, inside pytest).
+Windows PowerShell 5.1 fallback:
 
-Backend (from `apps/api`):
-
-```bash
-uv sync --frozen                         # dependency synchronization (lockfile must be current)
-uv run pytest                            # unit + integration tests
-uv run alembic upgrade head              # migrate (against configured DB)
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1
 ```
 
-Frontend (from `apps/web`):
+The authoritative semantic gates are:
 
-```bash
-npm ci                                   # exact install from the committed lockfile
-npm run lint                             # ESLint
-npm run typecheck                        # tsc -b (strict, noEmit)
-npm run test                             # Vitest + React Testing Library
-npm run build                            # production build (typecheck + vite build)
+Backend:
+
+```powershell
+cd apps/api
+uv sync --frozen
+uv run pytest
+uv run alembic upgrade head
+uv run alembic current
+uv run alembic check
 ```
 
-Integration tests are skipped with an explicit message when no PostgreSQL
-server is configured (`TEST_DATABASE_URL`, falling back to `DATABASE_URL`;
-both may come from `apps/api/.env`); they always operate on disposable
-databases.
+Frontend:
+
+```powershell
+cd apps/web
+npm.cmd ci
+npm.cmd run lint
+npm.cmd run typecheck
+npm.cmd run test
+npm.cmd run build
+npm.cmd exec playwright test -- golden-path.spec.ts unicode.spec.ts
+```
+
+A full release-baseline proof requires real PostgreSQL integration tests. A
+run with skipped integration tests is not a full pass.
+
+The accepted M0.7 external Gate 2 proof recorded:
+
+```text
+Python       3.13.15
+Node         24.20.0
+PostgreSQL   18.6
+Alembic      0002 (head)
+Backend      390 passed
+skip guard   PASS
+npm ci       PASS
+lint         PASS
+typecheck    PASS
+Vitest/RTL   PASS
+build        PASS
+Playwright   golden + Unicode PASS
+DB cleanup   PASS
+tracked tree PASS
+```
+
+See `docs/testing/testing-strategy.md` for the distinction between local,
+GitHub-provider, and approved external CI evidence.
 
 ## Configuration
 
-Environment-driven via `apps/api/app/core/config.py` (pydantic-settings):
+Backend settings are environment-driven through
+`apps/api/app/core/config.py`.
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `DATABASE_URL` | `postgresql+psycopg://linguagraph:linguagraph@127.0.0.1:5432/linguagraph` | PostgreSQL connection (explicit IPv4 loopback — deterministic on Windows, where `localhost` may resolve to `::1` first; HRA-F05) |
-| `TEST_DATABASE_URL` | unset (falls back to `DATABASE_URL`) | server for disposable test databases |
-| `CORS_ORIGINS` | `http://localhost:5173` | comma-separated allow-list |
-| `MAX_TEXT_VERSION_CODEPOINTS` | `1000000` | max canonical text length |
-| `MAX_REQUEST_BODY_BYTES` | `4000000` | max request body size |
-| `LOG_LEVEL` | `INFO` | logging level |
+Important values:
 
-`.env.example` files contain non-secret development defaults only; never
-commit `.env`.
+| Variable | Default / role |
+|---|---|
+| `DATABASE_URL` | PostgreSQL development connection |
+| `TEST_DATABASE_URL` | disposable integration-test server; falls back to `DATABASE_URL` |
+| `CORS_ORIGINS` | frontend origins allowed for direct API calls |
+| `MAX_TEXT_VERSION_CODEPOINTS` | canonical text size limit |
+| `MAX_REQUEST_BODY_BYTES` | raw request-body byte limit |
+| `LOG_LEVEL` | application log level |
 
-## M0.3 scope and non-goals
+Never commit `.env`.
 
-M0.3 implements the document workspace on top of the M0.2 persistence model:
+## As-built architecture baseline
 
-- **Projects** — HTTP CRUD (`apps/api/app/api/routes/projects.py`) and the
-  frontend Projects page (`/projects`);
-- **ParallelDocuments** — HTTP CRUD (`routes/documents.py`) and the Documents
-  page (`/projects/:projectId/documents`);
-- **TextVersions** — HTTP create (JSON plain-text paste and strict UTF-8
-  `.txt` multipart import), get, metadata-only `PATCH` (`label`,
-  `sort_order`), delete and `DELETE ?force=true` (ADR-005 destructive reset)
-  in `routes/text_versions.py`; canonical server responses (NFC, LF, BOM-strip,
-  hash of canonical content);
-- **Workspace read model** — `GET /api/v1/documents/{id}/workspace` with flat
-  `document / text_versions / spans / alignment_groups / alignment_members`
-  collections, served by `services/workspace_service.py` inside one owned
-  read transaction (no lazy-load after return);
-- **Frontend workspace** — `/documents/:documentId/workspace` with
-  independent TextPanels (language tag, label, hide control, exact canonical
-  content as plain pre-wrap text), panel open/hide/reorder, per-document
-  preferences (`linguagraph.workspace.preferences.v1.<documentId>`), paste +
-  `.txt` import, and a force-delete confirmation warning;
-- **Shared API client/error boundary** consuming the stable
-  `{code, message, details}` envelope;
-- **Request-body size enforcement** — the raw HTTP body limit
-  (`MAX_REQUEST_BODY_BYTES`, default 4,000,000) is enforced by
-  `app/api/middleware.py` on the ACTUAL received byte count for both the
-  JSON paste and the multipart upload paths (413 `TEXT_TOO_LARGE`),
-  independent of the canonical-text code-point limit
-  (`MAX_TEXT_VERSION_CODEPOINTS`);
-- **Stable conflict classification** — only the PostgreSQL
-  `uq_text_versions_document_label` unique violation is translated into the
-  duplicate-label `CONFLICT` (driver constraint-name based, never
-  exception-text parsing); unexpected integrity errors propagate;
-  explicit `null` for PATCH `label`/`sort_order` is rejected at the
-  Pydantic boundary (422 `VALIDATION_ERROR`; omission still means "leave
-  unchanged").
+M0 consists of:
 
-Deliberately NOT implemented in M0.3 (later checkpoints): browser
-Selection/Range handling and UTF-16 ↔ code-point frontend conversion (M0.4),
-boundary segmentation/annotation runs/PendingSpan/Alignment Tray (M0.4), the
-complete atomic Alignment create/update/delete service and its HTTP endpoints
-(M0.5, now merged), alignment persistence UI/hover/connectors/Inspector
-(M0.5/M0.6), and all NLP/LLM/auth/Redis/Neo4j/Elasticsearch/microservices
-infrastructure.
+- a language-neutral PostgreSQL domain model: Project, ParallelDocument,
+  TextVersion, Span, AlignmentGroup and AlignmentMember;
+- canonical UTF-8/NFC text with Unicode code-point offsets;
+- immutable annotated TextVersion content;
+- atomic server-owned alignment mutations and server-derived quote metadata;
+- a document-level workspace snapshot used as the frontend read authority;
+- native browser Selection/Range conversion into canonical code-point ranges;
+- a frontend-only pending Alignment Tray;
+- persistent annotation rendering, hover/active counterpart discovery,
+  SVG connectors and an Alignment Inspector;
+- TanStack Query for server state and narrowly scoped React state/localStorage
+  for ephemeral UI/preferences;
+- real-PostgreSQL integration/E2E isolation through guarded disposable
+  databases.
 
-No Alembic migration was required for M0.3 (the M0.2 schema is unchanged).
+For details and invariants, use the ADRs and the as-built architecture/API
+files rather than treating this README as a second specification.
 
-## M0.4 scope and non-goals
+## Known limitations / retained debt
 
-M0.4 implements the frontend Selection Engine on top of the M0.3 workspace:
+These do not invalidate M0 closure:
 
-- **Shared text utilities** (`apps/web/src/shared/text/`) — the single
-  UTF-16 ↔ Unicode code-point conversion strategy (`codePointLength`,
-  `sliceByCodePoints`, `utf16OffsetToCodePointOffset`,
-  `codePointOffsetToUtf16Offset`; ADR-001), with surrogate-pair split
-  rejection, integer/range validation and the mandatory Unicode regression
-  vectors (`A🙂B` = 3, `für größere Häuser` = 18,
-  `Café 🙂 mañana für français` = 26);
-- **Selection engine** (`shared/text/selection.ts`) — native browser
-  Selection/Range → canonical code-point range, fail-closed result codes
-  (`EMPTY_SELECTION`, `MULTI_RANGE_SELECTION`, `OUTSIDE_TEXT_CONTENT`,
-  `CROSS_VERSION_SELECTION`, `UNSUPPORTED_SELECTION_BOUNDARY`,
-  `INVALID_SELECTION_BOUNDARY`, `SELECTION_TEXT_MISMATCH`,
-  `STALE_TEXT_VERSION`, `DOM_INTEGRITY_ERROR`), forward/backward
-  normalization, canonical-quote integrity and the DOM text witness; plus
-  the reverse locator (canonical code-point range → native DOM Range);
-- **Boundary segmentation** (`shared/text/segmentation.ts`) — canonical
-  content + persisted Spans + alignment memberships → flat minimal runs with
-  span/alignment-group membership sets (overlap supported), sweep-set
-  implementation, concatenated run text equals canonical content exactly;
-- **TextPanel** — an explicit canonical content root
-  (`[data-text-content-root]` with `data-text-version-id` /
-  `data-content-hash`) rendering flat `<span data-run data-start data-end>`
-  elements; `contentRoot.textContent === TextVersion.content`; the
-  Add-to-Alignment action bar lives OUTSIDE the content root;
-- **Pending selection state** (`WorkspaceProvider` / `workspaceReducer`) —
-  `currentSelection` (last captured selection) and `pendingMembers`
-  (Alignment Tray, ADR-007), frontend-only and never persisted to
-  localStorage; explicit Add to Alignment staging with exact-duplicate and
-  same-version overlap rejection (adjacent/separated allowed), remove-one,
-  clear-tray, Escape (clears current selection only), panel-hide lifecycle,
-  and stale TextVersion / content-hash reconciliation on refetch;
-- **AlignmentTray** — pending-only tray showing language tag, label and
-  quote per member with remove/clear actions; NO persistence-capable Create
-  Alignment action (M0.5).
+- GitHub-hosted-runner execution remains unavailable under `G2-X01`; the
+  accepted external CI proof remains the release evidence until provider
+  recovery is proven.
+- Connector routing uses frozen center-to-hub geometry and can visually cross
+  text glyphs; binding correctness is intact.
+- A malformed/broken local Node command that resolves but emits no version
+  stdout can produce a low-level PowerShell/.NET prerequisite diagnostic.
+- Previously accepted concurrency limits remain: same-group concurrent PATCH
+  and destructive-operation interleavings are not redesigned into a broader
+  collaborative locking model.
+- M0 deliberately excludes machine translation, NLP/LLM alignment,
+  authentication/collaboration, Redis/Neo4j/Elasticsearch/vector search,
+  native desktop packaging, mobile/browser extensions and document-reader
+  subsystems.
 
-Deliberately NOT implemented in M0.4: the complete atomic Alignment
-create/update/delete service and its HTTP endpoints, concurrency-safe Span
-get-or-create, server persistence of PendingSpan, Create Alignment
-persistence workflow, orphan-Span cleanup (all M0.5), hover/active
-counterpart visualization, Alignment Inspector, SVG connectors,
-RenderedSpanRegistry, connector geometry (M0.6), and all
-NLP/LLM/auth/Redis/Neo4j/Elasticsearch/microservices infrastructure.
+## Post-M0 development
 
-No Alembic migration was required for M0.4 (the M0.2 schema is unchanged;
-Alembic remains at `0002 (head)`).
-
-## M0.5 scope and non-goals
-
-M0.5 implements Alignment Persistence on top of the M0.2 foundations and the
-M0.4 selection engine (PR #7):
-
-- **Backend** — the complete atomic `AlignmentService` create/update/delete,
-  each owning exactly one `write_transaction` (transaction-clean Session
-  contract intact); `POST /api/v1/documents/{document_id}/alignments` (201),
-  `PATCH /api/v1/alignments/{alignment_id}` (200), `DELETE
-  /api/v1/alignments/{alignment_id}` (204) with the stable `{code, message,
-  details}` envelope and no exception leakage; coordinate-only member input
-  (`text_version_id`/`start`/`end` — quote/direction/contentHash are never
-  accepted; contentHash stays a frontend-only stale-selection guard);
-  server-derived `exact_text`/`prefix`/`suffix` from canonical content; all
-  frozen alignment invariants (cardinality, distinct versions,
-  same-document, duplicate-span, same-version non-overlap); PostgreSQL
-  concurrency-safe Span get-or-create (`INSERT ... ON CONFLICT ... DO
-  NOTHING RETURNING`); PATCH note / full-member-replacement semantics
-  (omission = unchanged, `note: null` clears, note length <= 4000 at both
-  boundaries); explicit `updated_at` advancement; orphan Span cleanup
-  compatible with the ADR-005 destructive-reset semantics.
-- **Frontend** — Create Alignment action over the pending tray (validity:
-  >=2 members AND >=2 distinct TextVersions; backend remains
-  authoritative); in-flight tray/staging freeze; document-scoped
-  create-mutation isolation (keyed document workspace remount +
-  `['alignment-create', documentId]` mutation key); stable error display
-  with the tray retained on failure; minimal read-only persisted-alignment
-  representation derived from the authoritative workspace snapshot;
-  reload-verified persistence.
-
-Deliberately NOT implemented in M0.5 (deferred to later checkpoints):
-hover/active counterpart visualization, SVG connectors, connector geometry,
-RenderedSpanRegistry, the Alignment Inspector (editable or read-only beyond
-the minimal saved list), note/member-edit UI, delete-from-Inspector UI
-(M0.6), and all NLP/LLM/auth/Redis/Neo4j/Elasticsearch/microservices
-infrastructure.
-
-No Alembic migration was required for M0.5 (the M0.2 schema proved
-non-defective; Alembic remains at `0002 (head)`).
-
-## M0.6 scope and non-goals
-
-M0.6 implements Alignment Visualization on top of the M0.5 persistence
-foundation and the M0.4 selection engine (PR #8), frontend-only:
-
-- **Visualization foundation** — persisted-alignment annotation indicators
-  (class-only, non-color-cued, never per-character DOM; the canonical
-  content-root textContent invariant holds), document-scoped ephemeral
-  `hoveredAlignmentId`/`activeAlignmentId` state (never persisted),
-  `active ?? hover` connector precedence with exactly one connector set,
-  active + secondary hover highlighting, the deterministic overlap
-  ambiguity chooser (no arbitrary first-group selection), keyboard-
-  accessible persisted-alignment activation, a native text-selection
-  activation guard, and current-run ambiguity reconciliation;
-- **Rendering architecture** — `RenderedSpanRegistry`
-  (`Map<spanId, HTMLElement[]>`): the canonical span→DOM bridge, with
-  semantic span identity never discovered through
-  `querySelector`/`data-span-id` parsing; multi-element / multi-ClientRect
-  member geometry clipped to each owning `.text-panel-body` viewport
-  (hidden/offscreen members skipped; fewer than 2 visible anchors → no
-  connectors); deterministic nearest-provisional-hub anchor selection; an
-  SVG `ConnectorOverlay` over `.panels-container` with `pointer-events:
-  none` and overlay-relative coordinates; rAF-coalesced recomputation with
-  explicit panel-layout invalidation (panel reorder/hide/show/scroll/
-  resize) and a stale-geometry provenance guard;
-- **Alignment Inspector** — driven only by the current normalized workspace
-  snapshot; human-readable member/version/quote/offset display; note
-  editing (textarea, explicit Save, max 4000, `note: null` clears, no
-  trimming); member removal via backend PATCH full-replacement semantics
-  (coordinate-only payloads; frontend preflight: >=2 members AND >=2
-  distinct TextVersions; backend authoritative); delete AlignmentGroup with
-  destructive confirmation; target-scoped confirmation identity; stable
-  mutation errors; a same-group mutation freeze that extends through the
-  authoritative workspace refetch; no optimistic persisted-domain mutation —
-  the authoritative workspace invalidate/refetch remains the read authority.
-
-Deliberately NOT implemented in M0.6 (deferred beyond M0.6 / later
-checkpoints; no checkpoint is pre-assigned): automatic alignment, NLP, LLM,
-translation, dictionaries, linguistic relations, authentication,
-collaboration, pagination, virtualization, synchronized scrolling, complex
-connector routing.
-
-M0.6 scope truth (frontend-only checkpoint):
-
-- no backend production change — the backend PATCH/DELETE alignment
-  endpoints from M0.5 are reused as-is;
-- no database schema change and no Alembic migration (Alembic remains at
-  `0002 (head)`);
-- no npm dependency addition;
-- no shared text-engine redesign (`shared/text/offset|selection|
-  segmentation` untouched);
-- no dedicated alignment GET/list endpoint;
-- no add-member-to-existing-alignment UI (the golden-path fixture shaping
-  uses the backend PATCH capability as TEST SETUP only, and the M0.6
-  frontend itself contains no add-member surface);
-- no Redux/Zustand or any new state framework (React Context +
-  TanStack Query + the existing reducer are the whole state stack).
-
-No Alembic migration was required for M0.6 (frontend-only; Alembic remains
-at `0002 (head)`).
-
-## E2E
-
-```bash
-cd apps/web
-npx playwright install chromium      # one-time browser download
-npx playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts
-```
-
-`e2e/golden-path.spec.ts` is the historical M0.3–M0.6 golden-path proof.
-`e2e/unicode.spec.ts` (M0.7) is the Unicode **release blocker** for
-`Café 🙂 mañana für français`: it drives the complete real-user chain
-(rendered canonical DOM → native browser Selection/Range → JS UTF-16
-boundary → code-point conversion → alignment mutation → backend validation
-→ server-derived `exact_text` → PostgreSQL persistence → reload → persisted
-rendering → highlighting), with selections before/at/after the surrogate
-pair and direct assertions of the persisted code-point offsets.
-
-### E2E database isolation (mandatory)
-
-The E2E backend never touches the normal development database:
-
-- `playwright.config.ts` starts the API through `app.e2e.server` (see
-  `apps/api/app/e2e/server.py`), which creates a uniquely-named disposable
-  PostgreSQL database (`linguagraph_e2e_<uuid>`), migrates it to Alembic
-  HEAD, serves uvicorn with `DATABASE_URL` pointing ONLY at that database,
-  and drops it when the run ends;
-- the API webServer uses `reuseExistingServer: false`: an already-running
-  backend whose `DATABASE_URL` cannot be proven to be the E2E database is
-  never reused;
-- the Vite instance Playwright starts is also never reused
-  (`reuseExistingServer: false`) and runs with `--strictPort` (an occupied
-  port fails the run instead of silently moving). Its `/api` proxy target is
-  set via `VITE_API_PROXY_TARGET` to exactly the same port the isolated API
-  binds (`playwright.config.ts` derives one `API_PORT` and passes it to both
-  `app.e2e.server` and the Vite env), so the browser can never reach a
-  development backend on another port. Plain `npm run dev` keeps the ordinary
-  development backend default (`http://localhost:8000`) via
-  `vite.config.ts`;
-- `app.db.disposable.assert_disposable_db_url` fails closed on any database
-  name outside the EXACT `linguagraph_e2e_<12 hex>` namespace (names merely
-  beginning with `linguagraph_e2e` are refused) — the same shared
-  lifecycle the pytest integration fixtures use (`app/db/disposable.py`),
-  with no duplicated unsafe DB logic;
-- the golden-path spec performs no cleanup of pre-existing data (the
-  disposable database disappears with the run); PostgreSQL is mandatory,
-  there is no SQLite fallback.
-
-These properties are mechanically guarded by
-`apps/web/src/test/playwrightConfig.test.ts` (config assertions, including
-the proxy-target derivation from the same API port) and
-`apps/api/app/tests/unit/test_disposable_db.py` /
-`apps/api/app/tests/integration/test_disposable_db_integration.py`
-(fail-closed guard + real create/migrate/drop cycle).
-
-Non-default ports are supported and safe:
-`PLAYWRIGHT_API_PORT=8011 PLAYWRIGHT_PORT=5199 npx playwright test
-e2e/golden-path.spec.ts` — the golden path is verified to reach the isolated
-backend on 8011 (a decoy backend on 8000 receives zero requests).
-
-The Playwright run executes the M0 golden path: create project → create
-document → add EN/DE/FR/ES TextVersions → open the four panels → verify
-hide/show/reorder and reload preference → add a Unicode TextVersion
-(`Café 🙂 mañana für français`) → native Range selections in EN/DE/Unicode
-panels verified as exact code-point offsets → explicit Add to Alignment →
-pending tray add/remove/re-add/duplicate/overlap/clear → reload (panels
-persist, tray does not) → snapshot assertions that M0.4 staging persisted
-NOTHING (`spans == []`, `alignment_groups == []`, `alignment_members ==
-[]`) → M0.5: stage EN [2,17) + EN [18,28) + DE [4,21) → Create Alignment
-through the UI → tray clears, saved alignment visibly appears, snapshot
-carries the persisted Span/Group/Member rows with server-derived
-exact_text → reload → tray empty, saved alignment still visible, persisted
-workspace data still present. The M0.6 continuation then shapes the
-persisted group into the four-language EN/DE/FR/ES visualization fixture
-(backend PATCH used as TEST SETUP only — no add-member UI) and proves:
-idle annotation indicators, hover counterpart propagation across all four
-panels with connector lines, activation → Inspector + persistent
-connectors, note editing with authoritative refresh, real browser panel-
-reorder geometry recomputation, hide/show connector participation, remove
-FR member (with orphan-Span cleanup at the API level), reload persistence
-(note + removal), and delete AlignmentGroup with full cleanup
-(groups/members/spans all empty).
-
-## CI (M0.7)
-
-`.github/workflows/ci.yml` verifies the M0 release baseline on every push /
-pull request: Python 3.13 (`uv sync --frozen`), Node 24 (`npm ci`),
-PostgreSQL 18 service container, backend pytest suite (real PostgreSQL
-integration), migration safety (`alembic upgrade head`/`current`/`check`),
-frontend lint/typecheck/test/build, and Playwright (golden path + Unicode
-release blocker). A fail-closed guard step fails the job whenever the
-backend suite reports skipped tests, so a run without real PostgreSQL
-integration coverage can never count as M0 CI evidence.
-
-## Known limitations
-
-- Docker is not available in every development environment; `compose.yml` is
-  the preferred path, native PostgreSQL 18 is the documented fallback.
-- The Alembic chain is the M0 domain schema (revision `0002` on top of the
-  no-op foundation revision `0001`); M0.3 through M0.6 add no migration.
-- M0.5/M0.6 implemented the complete atomic Alignment create/update/delete
-  workflow and the frontend visualization/edit/delete loop (merged via
-  PR #7 and PR #8); the workspace snapshot remains the primary persisted
-  read model. Known non-blocking hardening observations (not solved):
-  concurrent external PATCHes to the same AlignmentGroup still have no
-  dedicated backend concurrency-control contract — the Inspector prevents
-  overlapping same-group mutations generated by this UI, but this is NOT a
-  general backend concurrency mechanism; Alignment mutation versus
-  concurrent destructive TextVersion deletion needs a future
-  cross-service concurrency/locking policy; and the concurrent Span
-  get-or-create integration test does not deterministically force every
-  possible uncommitted conflict interleaving.
-- M0.4 enforces code-point boundaries only: combining sequences are
-  preserved but never moved or merged (no grapheme-cluster editing), and
-  `Intl.Segmenter` is not a coordinate authority.
-- M0.7 retains (unchanged) the deferred same-AlignmentGroup concurrent
-  PATCH limitation — no general backend concurrency-control protocol.
-
-## CI status honesty (M0.7)
-
-Workflow configuration is not CI evidence: only an actual completed
-GitHub Actions run counts. Check the repository's Actions tab for the
-latest run of `.github/workflows/ci.yml`; this README never claims a green
-CI run that has not happened.
+There is no authorized M0.8 checkpoint. The M0 specification describes future
+architectural directions, but a concrete post-M0 milestone must be separately
+contracted and frozen before implementation. Start from current `main`; do not
+reuse the historical `m0.7-hardening` branch as a new feature branch.
