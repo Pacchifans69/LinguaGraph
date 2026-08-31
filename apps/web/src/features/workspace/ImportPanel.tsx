@@ -1,11 +1,4 @@
-/**
- * Import UI (M0.3): create a TextVersion by pasting plain text or uploading a
- * strict UTF-8 ``.txt`` file.
- *
- * After creation/import the panel opens and renders the CANONICAL server
- * content returned by the API — never assumes the client input was already
- * canonical (report section 6 / ADR-002).
- */
+/** Create a TextVersion by paste or strict UTF-8 .txt upload. */
 
 import { useState, type FormEvent } from 'react';
 import {
@@ -14,6 +7,7 @@ import {
 } from './api';
 import { useWorkspaceState } from './state/workspaceContext';
 import { ErrorMessage } from '../../shared/ui/feedback';
+import { Button } from '../../shared/ui/Button';
 
 export function ImportPanel({ documentId }: { documentId: string }) {
   const createMutation = useCreateTextVersion(documentId);
@@ -41,7 +35,6 @@ export function ImportPanel({ documentId }: { documentId: string }) {
         { file, language_tag: languageTag.trim(), label: label.trim() },
         {
           onSuccess: (version) => {
-            // Display the canonical content returned by the server.
             openPanel(version.id);
             resetForm();
           },
@@ -71,8 +64,16 @@ export function ImportPanel({ documentId }: { documentId: string }) {
   }
 
   return (
-    <section className="import-panel" aria-label="Add text version">
-      <h3>Add text version</h3>
+    <section className="import-panel workbench-surface" aria-label="Add text version">
+      <header className="workbench-surface-header">
+        <div>
+          <p className="section-kicker">Workspace content</p>
+          <h3>Add text version</h3>
+        </div>
+      </header>
+      <p className="surface-description">
+        Add canonical text by paste or upload. Language remains data via BCP-47.
+      </p>
       <form onSubmit={handleSubmit} className="import-form">
         <div className="import-mode" role="group" aria-label="Import mode">
           <label>
@@ -134,16 +135,20 @@ export function ImportPanel({ documentId }: { documentId: string }) {
           </label>
         )}
 
-        <button
-          type="submit"
-          disabled={isPending || (mode === 'upload' && !file)}
-        >
-          {isPending
-            ? 'Adding…'
-            : mode === 'upload'
-              ? 'Import .txt'
-              : 'Add version'}
-        </button>
+        <div className="form-actions">
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={mode === 'upload' && !file}
+            isPending={isPending}
+          >
+            {isPending
+              ? 'Adding…'
+              : mode === 'upload'
+                ? 'Import .txt'
+                : 'Add version'}
+          </Button>
+        </div>
 
         {createMutation.isError ? (
           <ErrorMessage error={createMutation.error} />
