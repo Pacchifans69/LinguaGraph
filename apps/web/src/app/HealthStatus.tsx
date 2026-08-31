@@ -12,10 +12,7 @@ async function fetchHealth(): Promise<HealthResponse> {
   return (await response.json()) as HealthResponse;
 }
 
-/**
- * Minimal server-state consumer proving TanStack Query wiring:
- * fetches GET /api/v1/health through the Vite dev proxy.
- */
+/** Compact application-level API state indicator. */
 export function HealthStatus() {
   const { isPending, isError, data } = useQuery({
     queryKey: ['health'],
@@ -24,10 +21,25 @@ export function HealthStatus() {
   });
 
   if (isPending) {
-    return <span role="status">Checking API…</span>;
+    return (
+      <span role="status" className="api-status api-status--checking">
+        <span className="api-status-dot" aria-hidden="true" />
+        Checking API…
+      </span>
+    );
   }
   if (isError) {
-    return <span role="status">API offline</span>;
+    return (
+      <span role="status" className="api-status api-status--offline">
+        <span className="api-status-dot" aria-hidden="true" />
+        API offline
+      </span>
+    );
   }
-  return <span role="status">API {data.status}</span>;
+  return (
+    <span role="status" className="api-status api-status--online">
+      <span className="api-status-dot" aria-hidden="true" />
+      API {data.status}
+    </span>
+  );
 }
