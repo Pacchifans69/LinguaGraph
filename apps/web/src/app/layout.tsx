@@ -1,6 +1,5 @@
 /**
- * App layout: fixed global header (with the API health indicator) and the
- * routed feature pages below it.
+ * App layout: global product identity and routed feature pages.
  */
 
 import { Outlet } from 'react-router-dom';
@@ -10,7 +9,13 @@ export function AppLayout() {
   return (
     <div className="app-shell">
       <header className="app-header">
-        <h1>LinguaGraph</h1>
+        <div className="app-brand">
+          <span className="app-brand-mark" aria-hidden="true">LG</span>
+          <div>
+            <h1>LinguaGraph</h1>
+            <p className="app-subtitle">Manual Alignment Workbench</p>
+          </div>
+        </div>
         <HealthStatus />
       </header>
       <main className="app-main">
