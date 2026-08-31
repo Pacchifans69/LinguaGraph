@@ -1,19 +1,10 @@
 /**
- * Workspace page (M0.3 + M0.4): side-by-side TextPanels for one
- * ParallelDocument.
- *
- * - fetches + normalizes the workspace snapshot (TanStack Query);
- * - owns per-document panel visibility/order via WorkspaceProvider
- *   (persisted to localStorage, reconciled against server versions);
- * - M0.4: computes boundary-segmented runs for every panel, hosts the
- *   pending Alignment Tray, and handles Escape (clears the current
- *   selection + native Selection; NEVER the staged tray);
- * - supports panel reorder (local preference only — never PATCHes server
- *   sort_order), hide/reopen, add/import versions, and delete with an
- *   explicit force-delete confirmation warning.
+ * Document workspace: M0 semantics with M1 presentation/interaction hierarchy.
+ * Canonical text rendering, selection, registry and connector routing remain
+ * owned by their existing frozen modules.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useDeleteTextVersion, useWorkspace, type TextVersion } from './api';
 import { normalizeWorkspace } from './normalize';
@@ -30,13 +21,15 @@ import {
 } from '../alignments/api';
 import { AlignmentInspector } from '../alignments/AlignmentInspector';
 import { SavedAlignments } from '../alignments/SavedAlignments';
-import {
-  WorkspaceProvider,
-} from './state/WorkspaceProvider';
+import { WorkspaceProvider } from './state/WorkspaceProvider';
 import { useWorkspaceState } from './state/workspaceContext';
 import { isApiError } from '../../shared/api/errors';
 import { EmptyState, ErrorMessage, LoadingMessage } from '../../shared/ui/feedback';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
+import { Button } from '../../shared/ui/Button';
+import { PageHeader } from '../../shared/ui/PageHeader';
+import { Toolbar } from '../../shared/ui/Toolbar';
+import { useWorkspaceKeyboard } from './useWorkspaceKeyboard';
 
 interface PendingForceDelete {
   versionId: string;
@@ -63,9 +56,7 @@ function WorkspaceBody({
     versionsById: ReturnType<typeof normalizeWorkspace>['versionsById'];
   };
   createMutation: ReturnType<typeof useCreateAlignment>;
-  /** M0.6: canonical span->DOM registry shared by all panels + the overlay. */
   spanRegistry: RenderedSpanRegistry;
-  /** M0.6: AlignmentGroup ids surviving in the current snapshot. */
   survivingGroupIds: ReadonlySet<string>;
 }) {
   const {
@@ -88,13 +79,10 @@ function WorkspaceBody({
   const [pendingForceDelete, setPendingForceDelete] =
     useState<PendingForceDelete | null>(null);
 
-  // M0.6 frozen precedence (section E): only ONE connector set may render —
-  // the ACTIVE alignment wins over the hovered one.
+  // Frozen M0.6 precedence: active wins over hovered.
   const effectiveAlignmentId = activeAlignmentId ?? hoveredAlignmentId;
 
-  // M0.5 Create Alignment validity (frozen contract section 20): at least 2
-  // members AND at least 2 distinct TextVersions. Frontend UX mirror only —
-  // the backend validates every invariant authoritatively.
+  // Frontend UX mirror only; backend remains authoritative.
   const canCreateAlignment =
     pendingMembers.length >= 2 &&
     new Set(pendingMembers.map((member) => member.textVersionId)).size >= 2;
@@ -106,41 +94,28 @@ function WorkspaceBody({
     createMutation.mutate(
       { members: pendingMembers.map(pendingToMemberInput) },
       {
-        // The successful server mutation is the boundary between ephemeral
-        // tray state and persisted state: the tray is cleared ONLY here,
-        // never before (frozen contract section 22).
         onSuccess: () => {
+          // Ephemeral tray becomes persisted state only after server success.
           clearPendingTray();
         },
       },
     );
   }
 
-  // Escape: cancels the current selection (and the native browser
-  // Selection) only. Already-staged pending tray members are never
-  // destroyed by Escape — removal is always explicit.
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        clearSelection();
-        window.getSelection()?.removeAllRanges();
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [clearSelection]);
+  useWorkspaceKeyboard({
+    clearSelection,
+    onCreateAlignment: handleCreateAlignment,
+    canCreateAlignment,
+    isCreatingAlignment: createMutation.isPending,
+  });
 
   const visible = panelOrder.filter((id) => visiblePanels.includes(id));
   const hidden = panelOrder.filter((id) => !visiblePanels.includes(id));
   const indexOf = (id: string) => panelOrder.indexOf(id);
   const lastIndex = panelOrder.length - 1;
 
-  // M0.6 (R1-F01): explicit panel-layout revision for connector geometry.
-  // Panel reorder / hide / show can move rendered text while the overlay
-  // container dimensions stay identical, so ResizeObserver alone cannot
-  // detect those changes. Any change to the order or the visible set must
-  // invalidate connector geometry. (Ids never contain '|', so the join is
-  // unambiguous.)
+  // Existing connector invalidation contract: panel order/visibility changes
+  // must invalidate geometry even when container dimensions are unchanged.
   const layoutKey = `${panelOrder.join('|')}#${visiblePanels.join('|')}`;
 
   function requestDelete(versionId: string, label: string) {
@@ -149,10 +124,8 @@ function WorkspaceBody({
       {
         onError: (error) => {
           if (isApiError(error) && error.isCode('TEXT_HAS_ANNOTATIONS')) {
-            // Explicit destructive flow: confirm before force-deleting.
             setPendingForceDelete({ versionId, label });
           }
-          // Other errors stay visible via the toolbar ErrorMessage.
         },
       },
     );
@@ -172,34 +145,54 @@ function WorkspaceBody({
 
   return (
     <div className="workspace">
-      {deleteMutation.isError ? (
-        <ErrorMessage error={deleteMutation.error} />
-      ) : null}
-      {createMutation.isError ? (
-        <ErrorMessage error={createMutation.error} />
+      {(deleteMutation.isError || createMutation.isError) ? (
+        <div className="workspace-feedback-stack" aria-label="Workspace errors">
+          {deleteMutation.isError ? (
+            <ErrorMessage error={deleteMutation.error} />
+          ) : null}
+          {createMutation.isError ? (
+            <ErrorMessage error={createMutation.error} />
+          ) : null}
+        </div>
       ) : null}
 
       {hidden.length > 0 ? (
-        <div className="hidden-panels" role="group" aria-label="Hidden panels">
-          <span className="toolbar-label">Hidden:</span>
+        <Toolbar
+          label="Hidden panels"
+          className="hidden-panels workspace-toolbar"
+          density="compact"
+        >
+          <span className="toolbar-label">Hidden text versions</span>
           {hidden.map((id) => (
-            <button
+            <Button
               key={id}
               type="button"
+              variant="quiet"
+              size="sm"
               className="reopen-button"
               onClick={() => openPanel(id)}
             >
               Open {versionsById[id]?.label ?? id}
-            </button>
+            </Button>
           ))}
-        </div>
+        </Toolbar>
       ) : null}
+
+      <div className="workspace-section-heading">
+        <div>
+          <p className="section-kicker">Text workspace</p>
+          <h3>Aligned text versions</h3>
+          <p>Drag-select canonical text, then stage the selection from its panel.</p>
+        </div>
+        <span className="workspace-panel-count">
+          {visible.length} open / {panelOrder.length} total
+        </span>
+      </div>
 
       <div className="panels-container">
         {visible.length === 0 ? (
           <EmptyState>
-            No panels open. Add a text version or open one from the hidden
-            list below.
+            No panels open. Add a text version or open one from the hidden list.
           </EmptyState>
         ) : (
           visible.map((id) => {
@@ -210,36 +203,43 @@ function WorkspaceBody({
             const index = indexOf(id);
             return (
               <div key={id} className="panel-slot">
-                <div className="panel-controls" role="group" aria-label="Panel controls">
-                  <button
+                <Toolbar
+                  label="Panel controls"
+                  className="panel-controls"
+                  density="compact"
+                >
+                  <span className="panel-controls-label">Panel</span>
+                  <Button
                     type="button"
+                    variant="quiet"
+                    size="sm"
                     disabled={index <= 0}
                     aria-label={`Move ${version.label} left`}
                     onClick={() => reorderPanels(index, index - 1)}
                   >
                     ←
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="quiet"
+                    size="sm"
                     disabled={index >= lastIndex}
                     aria-label={`Move ${version.label} right`}
                     onClick={() => reorderPanels(index, index + 1)}
                   >
                     →
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="danger"
+                    size="sm"
                     aria-label={`Delete ${version.label}`}
-                    // M0.7 W3 hardening: while ANY TextVersion delete request
-                    // is in flight every delete control is disabled, so a
-                    // repeated click can never fire a duplicate destructive
-                    // request.
                     disabled={deleteMutation.isPending}
                     onClick={() => requestDelete(version.id, version.label)}
                   >
                     Delete
-                  </button>
-                </div>
+                  </Button>
+                </Toolbar>
                 <TextPanel
                   version={version}
                   runs={runsByVersion[id] ?? []}
@@ -251,10 +251,7 @@ function WorkspaceBody({
             );
           })
         )}
-        {/* M0.6: SVG connector overlay for the effective alignment. It is
-            absolutely positioned over .panels-container (panels-relative
-            coordinates), never intercepts pointer events, and renders
-            nothing when no alignment is active/hovered. */}
+
         <ConnectorOverlay
           alignmentId={effectiveAlignmentId}
           membersByGroup={savedAlignments.membersByGroup}
@@ -263,55 +260,44 @@ function WorkspaceBody({
         />
       </div>
 
-      <AlignmentTray
-        members={pendingMembers}
-        versionsById={versionsById}
-        onRemove={removePendingMember}
-        onClear={clearPendingTray}
-        canCreate={canCreateAlignment}
-        onCreate={handleCreateAlignment}
-        isCreating={createMutation.isPending}
-      />
+      <div className="workbench-stack" aria-label="Alignment workflow">
+        <AlignmentTray
+          members={pendingMembers}
+          versionsById={versionsById}
+          onRemove={removePendingMember}
+          onClear={clearPendingTray}
+          canCreate={canCreateAlignment}
+          onCreate={handleCreateAlignment}
+          isCreating={createMutation.isPending}
+        />
 
-      {/* M0.6 (Round 2): Alignment Inspector bound to activeAlignmentId.
-          All data comes from the current normalized workspace snapshot; the
-          Inspector owns its alignment-scoped update/delete mutations and
-          drives the workspace mutation-freeze flag. */}
-      <AlignmentInspector
-        documentId={documentId}
-        activeAlignmentId={activeAlignmentId}
-        groupsById={savedAlignments.groupsById}
-        membersByGroup={savedAlignments.membersByGroup}
-        spansById={savedAlignments.spansById}
-        versionsById={savedAlignments.versionsById}
-        onClose={() => setActiveAlignment(null)}
-      />
+        <AlignmentInspector
+          documentId={documentId}
+          activeAlignmentId={activeAlignmentId}
+          groupsById={savedAlignments.groupsById}
+          membersByGroup={savedAlignments.membersByGroup}
+          spansById={savedAlignments.spansById}
+          versionsById={savedAlignments.versionsById}
+          onClose={() => setActiveAlignment(null)}
+        />
 
-      {/* M0.5: minimal read-only persisted alignment representation,
-          derived entirely from the authoritative workspace snapshot.
-          M0.6: also the minimal keyboard-accessible alignment activation
-          index (every persisted group gets a semantic activation path).
-          Round 2: activation is disabled while an Inspector mutation for
-          the active group is in flight (active group must stay stable). */}
-      <SavedAlignments
-        groups={savedAlignments.groups}
-        membersByGroup={savedAlignments.membersByGroup}
-        spansById={savedAlignments.spansById}
-        versionsById={savedAlignments.versionsById}
-        onActivate={setActiveAlignment}
-        onHover={setHoveredAlignment}
-        disabled={isMutatingAlignment}
-      />
+        <SavedAlignments
+          groups={savedAlignments.groups}
+          membersByGroup={savedAlignments.membersByGroup}
+          spansById={savedAlignments.spansById}
+          versionsById={savedAlignments.versionsById}
+          onActivate={setActiveAlignment}
+          onHover={setHoveredAlignment}
+          disabled={isMutatingAlignment}
+        />
 
-      <ImportPanel documentId={documentId} />
+        <ImportPanel documentId={documentId} />
+      </div>
 
       {pendingForceDelete ? (
         <ConfirmDialog
           headingId="force-delete-heading"
           onClose={() => setPendingForceDelete(null)}
-          // G2-F02: while the force-delete request is in flight the dialog
-          // is LOCKED — Escape must not close it (Cancel/Confirm are
-          // disabled below as well).
           closeDisabled={deleteMutation.isPending}
         >
           <h3 id="force-delete-heading">Delete text version permanently?</h3>
@@ -323,26 +309,23 @@ function WorkspaceBody({
             This cannot be undone.
           </p>
           <div className="confirm-dialog-actions">
-            <button
+            <Button
               type="button"
-              // M0.7 W3 hardening: while the force-delete request is in
-              // flight the dialog is inert — neither cancel nor confirm can
-              // fire a second mutation or close the dialog mid-request.
+              variant="secondary"
               disabled={deleteMutation.isPending}
               onClick={() => setPendingForceDelete(null)}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="danger"
               className="danger"
               disabled={deleteMutation.isPending}
               onClick={confirmForceDelete}
             >
-              {deleteMutation.isPending
-                ? 'Deleting…'
-                : 'Delete permanently'}
-            </button>
+              {deleteMutation.isPending ? 'Deleting…' : 'Delete permanently'}
+            </Button>
           </div>
         </ConfirmDialog>
       ) : null}
@@ -352,27 +335,11 @@ function WorkspaceBody({
 
 export function WorkspacePage() {
   const { documentId = '' } = useParams<{ documentId: string }>();
-
-  // Document-scoped inner component (HR-F01): keyed by documentId, so a
-  // same-route parameter transition (/documents/doc-A/workspace ->
-  // /documents/doc-B/workspace) remounts the WHOLE document workspace
-  // subtree — including the create-alignment MutationObserver. A
-  // pending/error mutation from doc A can therefore never leak its
-  // isPending/frozen/error state into doc B.
   return <DocumentWorkspacePage key={documentId} documentId={documentId} />;
 }
 
 function DocumentWorkspacePage({ documentId }: { documentId: string }) {
   const workspaceQuery = useWorkspace(documentId);
-
-  // M0.5 (Gate 2 fix): the create mutation lives at the page level (before
-  // any early return — hooks must be unconditional) so the in-flight flag
-  // can freeze the pending tray (WorkspaceProvider) while the request is
-  // pending: a member staged after the request began must never be silently
-  // discarded by the success-path tray clear. HR-F01: this hook's observer
-  // is document-scoped because the whole component remounts on documentId
-  // change (and the mutation carries a document-scoped mutationKey as
-  // defense in depth).
   const createMutation = useCreateAlignment(documentId);
 
   const normalized = useMemo(
@@ -380,14 +347,11 @@ function DocumentWorkspacePage({ documentId }: { documentId: string }) {
     [workspaceQuery.data],
   );
 
-  // M0.6: one RenderedSpanRegistry per document workspace. This component is
-  // keyed by documentId (remount on document change), so a fresh registry is
-  // created per document and old elements can never survive a remount.
+  // One registry per document workspace; remount on documentId change.
   const spanRegistry = useMemo(() => new RenderedSpanRegistry(), []);
 
-  // M0.4 boundary segmentation: canonical content + persisted spans +
-  // alignment memberships -> flat runs per TextVersion. Recomputed only when
-  // the server snapshot changes.
+  // Frozen M0 boundary segmentation: canonical content + persisted Span
+  // boundaries -> flat runs. This is rendering segmentation, not linguistics.
   const runsByVersion = useMemo(() => {
     const map: Record<string, RunDescriptor[]> = {};
     if (!normalized) {
@@ -408,19 +372,33 @@ function DocumentWorkspacePage({ documentId }: { documentId: string }) {
 
   if (workspaceQuery.isPending) {
     return (
-      <section className="workspace-page">
+      <section className="workspace-page page-stack" aria-labelledby="workspace-loading-heading">
+        <PageHeader
+          eyebrow="Document workspace"
+          title="Workspace"
+          titleId="workspace-loading-heading"
+          description="Loading document context and canonical text versions."
+        />
         <LoadingMessage>Loading workspace…</LoadingMessage>
       </section>
     );
   }
+
   if (workspaceQuery.isError) {
     return (
-      <section className="workspace-page">
+      <section className="workspace-page page-stack" aria-labelledby="workspace-error-heading">
+        <PageHeader
+          eyebrow="Document workspace"
+          title="Workspace unavailable"
+          titleId="workspace-error-heading"
+          description="The workspace could not be loaded. No local alignment state was changed."
+        />
         <ErrorMessage error={workspaceQuery.error} />
-        <Link to="/projects">Back to projects</Link>
+        <Link className="back-link" to="/projects">Back to projects</Link>
       </section>
     );
   }
+
   if (!normalized) {
     return null;
   }
@@ -433,26 +411,33 @@ function DocumentWorkspacePage({ documentId }: { documentId: string }) {
     (group) => group.id,
   );
 
+  const breadcrumb = (
+    <nav className="breadcrumb" aria-label="Breadcrumb">
+      <Link to="/projects">Projects</Link>
+      <span aria-hidden="true">/</span>
+      <span>{normalized.document.title}</span>
+    </nav>
+  );
+
   return (
-    // No key here: the DocumentWorkspacePage component above is keyed by
-    // documentId, so the whole subtree (provider + hooks) already remounts
-    // on a document change — ephemeral selection/visualization state is
-    // cleared and panel preferences re-initialize for the new document.
     <WorkspaceProvider
       documentId={documentId}
       serverVersions={serverVersions}
       serverAlignmentGroupIds={serverAlignmentGroupIds}
       isCreatingAlignment={createMutation.isPending}
     >
-      <section className="workspace-page">
-        <nav className="breadcrumb" aria-label="Breadcrumb">
-          <Link to="/projects">Projects</Link>
-          <span aria-hidden="true"> / </span>
-          <span>{normalized.document.title}</span>
-        </nav>
-        <h2>Workspace — {normalized.document.title}</h2>
+      <section className="workspace-page page-stack" aria-labelledby="workspace-heading">
+        <PageHeader
+          eyebrow="Document workspace"
+          title={`Workspace — ${normalized.document.title}`}
+          titleId="workspace-heading"
+          description="Select canonical spans, stage them in the tray, then create and inspect persistent alignments."
+          breadcrumb={breadcrumb}
+        />
         {workspaceQuery.isFetching ? (
-          <LoadingMessage>Refreshing…</LoadingMessage>
+          <div className="workspace-refresh-status">
+            <LoadingMessage>Refreshing…</LoadingMessage>
+          </div>
         ) : null}
         <WorkspaceBody
           documentId={documentId}
