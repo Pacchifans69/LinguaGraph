@@ -82,13 +82,57 @@ Cleanup status:
 See `docs/development/M0_7_CLOSEOUT.md` for the full Gate 2 / Human Review /
 merge / Gate 3 / cleanup evidence ledger.
 
-## Post-M0 rule
+## Active post-M0 checkpoint
+
+The active implementation checkpoint is:
+
+**M1 — Workbench Interaction & UI Foundation (CONTRACT FROZEN / HUMAN APPROVED)**
+
+The authoritative M1 execution contract is:
+
+`docs/development/M1_CONTRACT.md`
+
+The approved pre-freeze durable base is:
+
+`f77ad4d94a309d47507b4fe7297f0ccf436144a6`
+
+The implementation branch is:
+
+`m1-workbench-ui-foundation`
+
+That branch must be created from the docs-only contract-freeze commit that
+contains this instruction update and `docs/development/M1_CONTRACT.md`.
+Implementation work must never be committed directly to `main`.
+
+Before M1 implementation:
+
+1. read this file;
+2. read `docs/development/M1_CONTRACT.md` in full;
+3. read the frozen M0 specification and the M0 ADRs needed to preserve the
+   inherited invariants;
+4. verify that the implementation branch descends exactly from the recorded
+   contract-freeze commit;
+5. keep every change inside the frozen M1 scope;
+6. stop for Human Review if any contract STOP condition is encountered.
+
+M1 is frontend-presentation and frontend-interaction work only. In particular,
+M1 does not authorize database/schema/API/backend-domain changes, dependency
+or runtime-baseline changes, ADR changes, linguistic segmentation, candidate
+alignment, connector-routing redesign, workspace docking/resizing, or cleanup
+of retained M0.7 proof evidence.
+
+The M0.7 External Infrastructure Exception is historical and checkpoint-
+specific. It must not be reused automatically for M1 Gate 2.
+
+## Post-M0 governance rule
 
 There is no authorized M0.8 implementation checkpoint.
 
-The M0 pre-implementation specification describes future architectural
-directions, but it does not by itself authorize a concrete post-M0 feature
-milestone. Before any post-M0 implementation:
+M1 is authorized only by its frozen bounded contract. Later post-M0 milestones
+are not authorized by the M0 pre-implementation future-stage discussion or by
+M1 itself.
+
+Before any later post-M0 implementation milestone:
 
 - start a fresh checkpoint conversation;
 - reconstruct repository reality from current `main`;
