@@ -122,11 +122,13 @@ describe('useWorkspaceKeyboard', () => {
       useWorkspaceKeyboard(options({ onCreateAlignment })),
     );
 
+    const contentEditable = document.createElement('div');
+    contentEditable.setAttribute('contenteditable', 'true');
     const targets: HTMLElement[] = [
       document.createElement('input'),
       document.createElement('textarea'),
       document.createElement('select'),
-      Object.assign(document.createElement('div'), { contentEditable: 'true' }),
+      contentEditable,
     ];
 
     for (const target of targets) {
@@ -149,15 +151,15 @@ describe('useWorkspaceKeyboard', () => {
 });
 
 describe('isEditableShortcutTarget', () => {
-  it('recognizes nested editable targets and leaves ordinary actions alone', () => {
-    const wrapper = document.createElement('label');
-    const input = document.createElement('input');
+  it('recognizes descendants of editable surfaces and leaves ordinary actions alone', () => {
+    const editable = document.createElement('div');
+    editable.setAttribute('contenteditable', 'true');
     const child = document.createElement('span');
-    wrapper.append(input, child);
-    document.body.appendChild(wrapper);
+    editable.appendChild(child);
+    document.body.appendChild(editable);
 
-    expect(isEditableShortcutTarget(input)).toBe(true);
-    expect(isEditableShortcutTarget(child)).toBe(false);
+    expect(isEditableShortcutTarget(editable)).toBe(true);
+    expect(isEditableShortcutTarget(child)).toBe(true);
     expect(isEditableShortcutTarget(document.createElement('button'))).toBe(false);
   });
 });
