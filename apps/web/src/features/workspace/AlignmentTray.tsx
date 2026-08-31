@@ -37,7 +37,7 @@ export function AlignmentTray({
       </header>
       <p className="tray-note">
         Stage selections here before creating a persisted alignment. Pending
-        selections are browser-only until creation succeeds.
+        selections are browser only until creation succeeds.
       </p>
 
       {members.length === 0 ? (
