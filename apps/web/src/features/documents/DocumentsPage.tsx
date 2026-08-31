@@ -1,13 +1,12 @@
-/**
- * Documents page (M0.3): list / create / delete the ParallelDocuments of one
- * project and navigate into a document workspace.
- */
+/** Documents page: create, list, delete and enter document workspaces. */
 
 import { useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useCreateDocument, useDeleteDocument, useDocuments } from './api';
 import { useProject } from '../projects/api';
 import { EmptyState, ErrorMessage, LoadingMessage } from '../../shared/ui/feedback';
+import { Button } from '../../shared/ui/Button';
+import { PageHeader } from '../../shared/ui/PageHeader';
 
 export function DocumentsPage() {
   const { projectId = '' } = useParams<{ projectId: string }>();
@@ -32,76 +31,117 @@ export function DocumentsPage() {
     );
   }
 
+  const breadcrumb = (
+    <nav className="breadcrumb" aria-label="Breadcrumb">
+      <Link to="/projects">Projects</Link>
+      <span aria-hidden="true">/</span>
+      <span>{projectQuery.data?.name ?? '…'}</span>
+    </nav>
+  );
+
   return (
-    <section aria-labelledby="documents-heading" className="documents-page">
-      <nav className="breadcrumb" aria-label="Breadcrumb">
-        <Link to="/projects">Projects</Link>
-        <span aria-hidden="true"> / </span>
-        <span>{projectQuery.data?.name ?? '…'}</span>
-      </nav>
+    <section aria-labelledby="documents-heading" className="documents-page page-stack">
+      <PageHeader
+        eyebrow="Project"
+        title="Documents"
+        titleId="documents-heading"
+        description="Create parallel documents, then open a document to align its text versions."
+        breadcrumb={breadcrumb}
+      />
 
-      <h2 id="documents-heading">Documents</h2>
+      <div className="page-content-grid">
+        <form
+          onSubmit={handleCreate}
+          className="create-form surface-card"
+          aria-label="Create document"
+        >
+          <div className="surface-card-header">
+            <p className="section-kicker">New document</p>
+            <h3>Start a parallel document</h3>
+            <p>Use a descriptive title so the workbench context stays clear.</p>
+          </div>
+          <label>
+            Title
+            <input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              required
+              aria-required="true"
+            />
+          </label>
+          <label>
+            Description
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              rows={2}
+            />
+          </label>
+          <div className="form-actions">
+            <Button
+              type="submit"
+              variant="primary"
+              isPending={createDocument.isPending}
+            >
+              {createDocument.isPending ? 'Creating…' : 'Create document'}
+            </Button>
+          </div>
+          {createDocument.isError ? <ErrorMessage error={createDocument.error} /> : null}
+        </form>
 
-      <form onSubmit={handleCreate} className="create-form" aria-label="Create document">
-        <label>
-          Title
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            required
-            aria-required="true"
-          />
-        </label>
-        <label>
-          Description
-          <textarea
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            rows={2}
-          />
-        </label>
-        <button type="submit" disabled={createDocument.isPending}>
-          {createDocument.isPending ? 'Creating…' : 'Create document'}
-        </button>
-        {createDocument.isError ? <ErrorMessage error={createDocument.error} /> : null}
-      </form>
-
-      {/* M0.7 W3 hardening: a failed document delete must never fail silently
-          — the stable API error is surfaced with the same envelope as every
-          other mutation failure. */}
-      {deleteDocument.isError ? <ErrorMessage error={deleteDocument.error} /> : null}
-
-      {documentsQuery.isPending ? (
-        <LoadingMessage>Loading documents…</LoadingMessage>
-      ) : documentsQuery.isError ? (
-        <ErrorMessage error={documentsQuery.error} />
-      ) : documentsQuery.data.length === 0 ? (
-        <EmptyState>No documents in this project yet.</EmptyState>
-      ) : (
-        <ul className="document-list">
-          {documentsQuery.data.map((document) => (
-            <li key={document.id} className="document-row">
-              <Link
-                to={`/documents/${document.id}/workspace`}
-                className="document-link"
+        <div className="collection-section">
+          <div className="section-heading">
+            <div>
+              <p className="section-kicker">Document index</p>
+              <h3>Parallel documents</h3>
+            </div>
+            {documentsQuery.data ? (
+              <span
+                className="count-badge"
+                aria-label={`${documentsQuery.data.length} documents`}
               >
-                <span className="document-title">{document.title}</span>
-                {document.description ? (
-                  <span className="document-description">{document.description}</span>
-                ) : null}
-              </Link>
-              <button
-                type="button"
-                aria-label={`Delete document ${document.title}`}
-                onClick={() => deleteDocument.mutate(document.id)}
-                disabled={deleteDocument.isPending}
-              >
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+                {documentsQuery.data.length}
+              </span>
+            ) : null}
+          </div>
+
+          {deleteDocument.isError ? <ErrorMessage error={deleteDocument.error} /> : null}
+
+          {documentsQuery.isPending ? (
+            <LoadingMessage>Loading documents…</LoadingMessage>
+          ) : documentsQuery.isError ? (
+            <ErrorMessage error={documentsQuery.error} />
+          ) : documentsQuery.data.length === 0 ? (
+            <EmptyState>No documents in this project yet.</EmptyState>
+          ) : (
+            <ul className="document-list">
+              {documentsQuery.data.map((document) => (
+                <li key={document.id} className="document-row collection-row">
+                  <Link
+                    to={`/documents/${document.id}/workspace`}
+                    className="document-link collection-link"
+                  >
+                    <span className="document-title collection-title">{document.title}</span>
+                    <span className="collection-meta">
+                      {document.description || 'No description'}
+                    </span>
+                  </Link>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    aria-label={`Delete document ${document.title}`}
+                    onClick={() => deleteDocument.mutate(document.id)}
+                    disabled={deleteDocument.isPending}
+                  >
+                    Delete
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </section>
   );
 }
