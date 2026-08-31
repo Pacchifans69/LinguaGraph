@@ -1,31 +1,15 @@
-/**
- * AlignmentTray (M0.4 + M0.5): the pending tray of staged selections
- * (ADR-007; spec section 24).
- *
- * - lists pending members with their TextVersion language tag, label and
- *   selected quote;
- * - supports explicit remove-one and clear-all;
- * - M0.5: the persistence-capable "Create Alignment" action. It is enabled
- *   only when the tray holds at least 2 members from at least 2 distinct
- *   TextVersions (frontend UX mirror of the backend invariants — the
- *   backend remains authoritative). The tray is cleared ONLY after the
- *   server mutation succeeds (WorkspacePage owns that lifecycle);
- * - M0.5 Gate 2 fix: while a Create Alignment request is in flight the tray
- *   is FROZEN — Create, Clear and every Remove are disabled so a member
- *   staged after the request began is never silently discarded by the
- *   success-path tray clear;
- * - Escape never clears the tray; removal is always explicit.
- */
+/** Pending client-side Alignment Tray (ADR-007). */
 
 import type { PendingSpan } from '../../shared/text/types';
 import type { TextVersion } from './api';
+import { Button } from '../../shared/ui/Button';
+import { Toolbar } from '../../shared/ui/Toolbar';
 
 export interface AlignmentTrayProps {
   members: PendingSpan[];
   versionsById: Record<string, TextVersion>;
   onRemove: (member: PendingSpan) => void;
   onClear: () => void;
-  /** M0.5: true when >=2 members from >=2 distinct TextVersions are staged. */
   canCreate: boolean;
   onCreate: () => void;
   isCreating: boolean;
@@ -41,14 +25,21 @@ export function AlignmentTray({
   isCreating,
 }: AlignmentTrayProps) {
   return (
-    <section className="alignment-tray" aria-label="Alignment tray">
-      <header className="alignment-tray-header">
-        <h3>Alignment tray</h3>
-        <p className="tray-note">
-          Pending selections are kept in the browser only — nothing has been
-          saved.
-        </p>
+    <section className="alignment-tray workbench-surface" aria-label="Alignment tray">
+      <header className="alignment-tray-header workbench-surface-header">
+        <div>
+          <p className="section-kicker">Pending alignment</p>
+          <h3>Alignment tray</h3>
+        </div>
+        <span className="count-badge" aria-label={`${members.length} pending selections`}>
+          {members.length}
+        </span>
       </header>
+      <p className="tray-note">
+        Stage selections here before creating a persisted alignment. Pending
+        selections stay in this browser until creation succeeds.
+      </p>
+
       {members.length === 0 ? (
         <p className="tray-empty">No pending selections.</p>
       ) : (
@@ -65,42 +56,51 @@ export function AlignmentTray({
               >
                 <span className="tray-member-label">{label}</span>
                 <span className="tray-member-quote">“{member.quote}”</span>
-                <button
+                <Button
                   type="button"
+                  variant="quiet"
+                  size="sm"
                   className="tray-remove"
                   aria-label={`Remove “${member.quote}” from tray`}
                   disabled={isCreating}
                   onClick={() => onRemove(member)}
                 >
                   Remove
-                </button>
+                </Button>
               </li>
             );
           })}
         </ul>
       )}
-      <div className="tray-actions">
-        <button
+
+      <Toolbar label="Alignment tray actions" className="tray-actions" density="compact">
+        <Button
           type="button"
+          variant="secondary"
           className="tray-clear"
           disabled={members.length === 0 || isCreating}
           onClick={onClear}
         >
           Clear tray
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          variant="primary"
           className="tray-create"
-          disabled={!canCreate || isCreating}
+          aria-label="Create Alignment"
+          disabled={!canCreate}
+          isPending={isCreating}
           onClick={onCreate}
         >
-          Create Alignment
-        </button>
-      </div>
+          <span>{isCreating ? 'Creating…' : 'Create Alignment'}</span>
+          <kbd className="shortcut-hint" aria-hidden="true">Ctrl/⌘+Enter</kbd>
+        </Button>
+      </Toolbar>
+
       {members.length > 0 && !canCreate ? (
         <p className="tray-hint" role="status">
-          Select at least two spans from two different text versions to
-          create an alignment.
+          Select at least two spans from two different text versions to create
+          an alignment.
         </p>
       ) : null}
     </section>
