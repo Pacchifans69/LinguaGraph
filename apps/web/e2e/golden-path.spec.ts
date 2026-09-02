@@ -173,7 +173,7 @@ test.describe('M0 golden path (M0.3 + M0.4 + M0.5 + M0.6 slices)', () => {
     await page.getByRole('link', { name: projectName }).click();
     await expect(page).toHaveURL(/\/projects\/[^/]+\/documents$/);
     await expect(
-      page.getByRole('heading', { name: 'Documents' }),
+      page.getByRole('heading', { name: 'Documents', exact: true }),
     ).toBeVisible();
 
     await page.getByLabel('Title').fill('Chapter 1');
