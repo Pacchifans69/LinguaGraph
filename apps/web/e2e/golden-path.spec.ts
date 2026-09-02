@@ -159,7 +159,7 @@ test.describe('M0 golden path (M0.3 + M0.4 + M0.5 + M0.6 slices)', () => {
     // The index route redirects to /projects.
     await expect(page).toHaveURL(/\/projects$/);
     await expect(
-      page.getByRole('heading', { name: 'Projects' }),
+      page.getByRole('heading', { name: 'Projects', exact: true }),
     ).toBeVisible();
 
     const projectName = `M0 Golden ${Date.now()}`;
