@@ -158,7 +158,7 @@ test.describe('M0.7 Unicode release blocker', () => {
 
     await page.getByRole('link', { name: projectName }).click();
     await expect(
-      page.getByRole('heading', { name: 'Documents' }),
+      page.getByRole('heading', { name: 'Documents', exact: true }),
     ).toBeVisible();
 
     await page.getByLabel('Title').fill('Unicode chapter');
