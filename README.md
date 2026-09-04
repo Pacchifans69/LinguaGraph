@@ -12,9 +12,11 @@ schema structure.
 ## Current milestone
 
 **M1 — Workbench Interaction & UI Foundation:
-COMPLETE / MERGED / GATE 3 PASS / DURABLE STATE CLOSED**
+COMPLETE / MERGED / CLOSED**
 
-The separate `m1-workbench-ui-foundation` branch cleanup step remains pending.
+The historical `m1-workbench-ui-foundation` branch was deleted under an
+exact-SHA guard after durable-state closure; retained proof and diagnostic
+evidence remains available.
 
 M1 merged in PR #10. Its docs-only contract-freeze and implementation base was
 `41c299d9e4984d0fa2620e0990207cdc715ca0d1`. The final reviewed and
@@ -380,9 +382,9 @@ These remain accepted at M1 durable closure:
 
 ## Post-M1 development
 
-M1 implementation is merged and durably recorded. Delete the historical
-`m1-workbench-ui-foundation` branch only during the separately authorized
-cleanup step and under an exact-SHA guard.
+M1 implementation is merged, durably recorded, and closed. The historical
+`m1-workbench-ui-foundation` branch was deleted under an exact-SHA guard after
+closure. Do not recreate or reuse it for later implementation.
 
 The intended next architecture checkpoint is **M2 — Linguistic Segmentation
 Foundation**. M2 is not authorized by M1 completion. Start from the durable

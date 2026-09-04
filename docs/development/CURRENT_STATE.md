@@ -14,9 +14,9 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 Current completed implementation milestone:
 
 **M1 — Workbench Interaction & UI Foundation:
-COMPLETE / MERGED / GATE 3 PASS / DURABLE STATE CLOSED**
+COMPLETE / MERGED / CLOSED**
 
-The implementation branch cleanup remains a separate pending step.
+The implementation-branch cleanup is complete and independently verified.
 
 ### Checkpoint ledger
 
@@ -110,10 +110,9 @@ This is the Gate 3 provenance bridge between exact-candidate proof and durable
 - PR #10: MERGED by rebase;
 - Gate 3 post-merge integrity: PASS / EXACT;
 - durable-state closure: PASS;
-- implementation-branch cleanup: PENDING.
+- implementation-branch cleanup: PASS.
 
-Cleanup must remain a separate exact-SHA-guarded action. M1 is not authority
-to begin M2.
+M1 is closed. This completion does not authorize M2.
 
 ---
 
@@ -402,25 +401,48 @@ Retained M1 evidence includes:
 
 ## 10. Cleanup status
 
-**M1 implementation-branch cleanup: PENDING.**
+**M1 implementation-branch cleanup: PASS.**
 
-Current retained implementation ref:
+Deleted historical implementation ref:
 
 `m1-workbench-ui-foundation@bdd32cbaed63966c346caaf44f1fd3a0197750a7`
 
-After this durable-state closure is independently verified, cleanup may proceed
-only with explicit Human authorization and an exact-SHA guard. Cleanup should:
+Cleanup evidence:
 
-1. confirm `main` contains the reviewed M1 tree;
-2. confirm the branch still points to `bdd32cba…`;
-3. delete only `m1-workbench-ui-foundation`;
-4. verify GitHub returns the branch as absent;
-5. preserve all proof/diagnostic repositories, refs, runs, and artifacts.
+1. pre-delete GitHub verification proved that the remote branch pointed
+   exactly to `bdd32cba…`;
+2. PR #10 remained merged and the candidate tree remained identical to the
+   durable implementation tree;
+3. the Human-executed PowerShell guard re-read the exact remote SHA before
+   deletion;
+4. `git push origin --delete m1-workbench-ui-foundation` succeeded;
+5. local cleanup/prune completed and the guard reported:
+   `PASS: exact-guarded M1 implementation branch cleanup complete.`;
+6. an independent post-delete GitHub ref lookup returned HTTP 404 `Not Found`.
 
-The branch is historical implementation provenance. Its deletion must not be
-confused with deletion of retained Gate 2 evidence.
+Evidence preservation was rechecked after deletion:
 
----
+- `main` remained at the M1 durable-state closure commit
+  `7ac15558095d7374a47b3636875ead3d20cd5101` before this cleanup-record
+  commit;
+- `ci/m0.7-external-proof` remained
+  `7ae9ce47570c8581423ed2932daf99d417acf52e`;
+- `diagnostic/actions-indexing` remained
+  `e825a785883357d877d12003dc59615ea2bf586e`;
+- M1 proof commit
+  `Pacchifans69/-linguagraph-m1-proof@81b35eb3191b1d449eb74934553d547fb9f7221d`
+  remained available;
+- M0.7 proof commit
+  `Pacchifans69/linguagraph-ci-proof-@920a6ee1eda077539bf3dc60964dac6a5eb25b94`
+  remained available;
+- runner probe
+  `Pacchifans69/actions-runner-probe@e3a96b0b49a5612bf43d209d8e2991df95dc30a5`
+  remained available;
+- GitHub Actions history, CircleCI execution records, and retained artifacts
+  were not modified.
+
+The deleted implementation branch is distinct from retained Gate 2 evidence.
+No proof or diagnostic ref was deleted.
 
 ## 11. Next work rule
 
@@ -432,12 +454,11 @@ M2 is not yet authorized.
 
 Before M2 implementation:
 
-1. finish the separately authorized M1 implementation-branch cleanup;
-2. start a fresh checkpoint conversation;
-3. reconstruct repository reality from the then-current durable `main`;
-4. reconstruct and review the bounded M2 contract;
-5. obtain explicit Human approval/freeze;
-6. create a new implementation branch from the approved durable base.
+1. start a fresh checkpoint conversation;
+2. reconstruct repository reality from the then-current durable `main`;
+3. reconstruct and review the bounded M2 contract;
+4. obtain explicit Human approval/freeze;
+5. create a new implementation branch from the approved durable base.
 
 Do not reuse `m1-workbench-ui-foundation` or `m0.7-hardening` for later work.
 Do not treat M1's exception, proof, or contract as authority for M2.

@@ -32,11 +32,11 @@ implementation code:
 The last completed implementation checkpoint is:
 
 **M1 — Workbench Interaction & UI Foundation
-(COMPLETE / MERGED / GATE 3 PASS / DURABLE STATE CLOSED)**
+(COMPLETE / MERGED / CLOSED)**
 
-M0.1 through M0.7 and the M1 implementation have been human-reviewed and
-merged into `main`. The separate M1 implementation-branch cleanup step remains
-pending.
+M0.1 through M0.7 and M1 have been human-reviewed, merged, durably recorded,
+and closed. The historical M1 implementation branch was removed after the
+durable-state closure.
 
 ### M1 durable provenance
 
@@ -71,7 +71,20 @@ pending.
 - PR #10: MERGED by rebase;
 - Gate 3 post-merge integrity: PASS;
 - durable-state closure: PASS;
-- implementation-branch cleanup: PENDING.
+- implementation-branch cleanup: PASS.
+
+Cleanup evidence:
+
+- the remote branch was checked at exact
+  `bdd32cbaed63966c346caaf44f1fd3a0197750a7` before deletion;
+- the Human-executed guarded cleanup deleted the remote branch and pruned the
+  local remote-tracking ref;
+- the Human-reported terminal guard ended with
+  `PASS: exact-guarded M1 implementation branch cleanup complete.`;
+- GitHub independently returns HTTP 404 for
+  `m1-workbench-ui-foundation`;
+- retained M0.7/M1 proof repositories, diagnostic refs, workflow history, and
+  CircleCI evidence remain preserved.
 
 The M1 exception waived only successful proof specifically on a GitHub-hosted
 runner. It did not waive semantic gates, runtime baselines, hosted Linux,
@@ -145,8 +158,8 @@ Before any M2 or later post-M0 implementation:
 5. obtain explicit Human contract approval/freeze;
 6. create a new implementation branch from the approved durable base.
 
-Do not reuse `m1-workbench-ui-foundation` for M2. Delete it only during the
-separately authorized M1 cleanup step and only with an exact-SHA guard.
+`m1-workbench-ui-foundation` was deleted after M1 closeout under an exact-SHA
+guard. Do not recreate or reuse it for M2.
 
 Do not recreate or reuse `m0.7-hardening`. Do not silently reopen ADR-001
 through ADR-009 or any frozen M0/M1 invariant.
