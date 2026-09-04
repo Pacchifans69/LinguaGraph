@@ -11,28 +11,33 @@ schema structure.
 
 ## Current milestone
 
-**M0 — Manual Alignment Workbench: COMPLETE**
+**M1 — Workbench Interaction & UI Foundation:
+COMPLETE / MERGED / GATE 3 PASS / DURABLE STATE CLOSED**
 
-All planned M0 checkpoints are complete and merged:
+The separate `m1-workbench-ui-foundation` branch cleanup step remains pending.
 
-- M0.1 — Repository Foundation
-- M0.2 — Persistence Model
-- M0.3 — Document Workspace
-- M0.4 — Selection Engine
-- M0.5 — Alignment Persistence
-- M0.6 — Alignment Visualization
-- M0.7 — Hardening
-
-M0.7 merged in PR #9. Its approved base was
-`7b3e61c547a7831275ae5fb01458ed0bdd7c202c`; the final reviewed and
+M1 merged in PR #10. Its docs-only contract-freeze and implementation base was
+`41c299d9e4984d0fa2620e0990207cdc715ca0d1`. The final reviewed and
 independently proven candidate was
-`580e27cbea09e50f40782a92da426e7332e8a54d`. Repository policy allowed only
+`bdd32cbaed63966c346caaf44f1fd3a0197750a7`. Repository policy permitted
 rebase merge, producing durable implementation `main`
-`697b019dc2820c67dacbc0b58a718e198ab655be` immediately after merge. Gate 3
-proved that both commits point to the exact same file tree
-`16c2bd3f5a8c5cb4960e193896547093fe091c87`.
+`3a3361aebdb7c9c8d3a1b850c5b30dc9f5a5b6ea` immediately after merge. Gate 3
+proved exact candidate-to-main file-tree identity:
 
-The M0 golden loop is complete:
+`c52c9ae027d231ca6a36ccb0001e8ce18c29d4fe`
+
+M1 adds the current presentation and interaction foundation:
+
+- coherent design tokens and reusable bounded UI primitives;
+- clearer Projects → Documents → Workspace hierarchy;
+- explicit workspace, panel, selection, pending, persisted, and destructive
+  action layers;
+- consistent loading, empty, error, focus, disabled, and pending states;
+- centralized Escape and PrimaryModifier+Enter workspace behavior;
+- preserved native selection, Unicode offsets, canonical text DOM, alignment
+  persistence, panel preferences, Inspector behavior, and connector binding.
+
+M0 — Manual Alignment Workbench remains complete. Its golden loop is:
 
 ```text
 create Project
@@ -47,34 +52,45 @@ create Project
 → inspect, edit and delete the alignment
 ```
 
-M0.7 adds the release-hardening layer: real-PostgreSQL integration and
-migration-from-zero proof, Unicode release-blocker E2E coverage,
-error/loading/empty-state and accessibility hardening, destructive-operation
-pending locks, production-build verification, safe Windows launch/verification
-scripts, CI configuration, and as-built documentation.
-
-Detailed closeout evidence is in
-`docs/development/M0_7_CLOSEOUT.md`.
+M1 deliberately adds no schema, API, backend-domain, dependency, runtime, ADR,
+segmentation, candidate-alignment, advanced-layout, or connector-routing
+change.
 
 ## Evidence status
 
-M0.7 Gate 2 result:
+M1 Gate 2 result:
 
-**Gate 2 PASS under approved External Infrastructure Exception**
+**PASS under the approved M1 External Infrastructure Exception**
 
-The exception is narrow and remains visible in durable state:
+The exception waived only successful execution specifically on a
+GitHub-hosted runner.
 
-- GitHub Actions provider proof: **BLOCKED / EXTERNAL**;
-- `G2-X01`: **OPEN / EXTERNAL**;
-- independent CircleCI proof: **PASS** on exact candidate `580e27c…`;
-- accepted external config:
-  `Pacchifans69/linguagraph-ci-proof-@920a6ee1eda077539bf3dc60964dac6a5eb25b94`;
-- ADR-009: unchanged.
+- exact candidate/tree:
+  `bdd32cbaed63966c346caaf44f1fd3a0197750a7` /
+  `c52c9ae027d231ca6a36ccb0001e8ce18c29d4fe`;
+- independent CircleCI proof:
+  **PASS** on pipeline #3;
+- executable proof config:
+  `Pacchifans69/-linguagraph-m1-proof@81b35eb3191b1d449eb74934553d547fb9f7221d`;
+- full PostgreSQL/backend/frontend/build/Playwright/Unicode gates:
+  PASS;
+- final tracked-tree and cleanup guards:
+  PASS;
+- Static Human Diff Review:
+  PASS;
+- Human Runtime Acceptance at 1280 × 720 and 1440 × 900:
+  PASS.
 
-GitHub-hosted runner attempts, including the post-merge `main@697b019…` run,
-continue to fail before any job step starts. The repository therefore does
-**not** claim a GitHub Actions PASS. The external proof executed the frozen
-semantic gates on hosted Linux with Python 3.13, Node 24, and PostgreSQL 18.
+GitHub Actions exact-candidate runs #34 and #35 and post-merge `main` run #36
+all failed before any workflow step began. The repository does not claim a
+GitHub Actions PASS.
+
+`G2-X01` remains **OPEN / EXTERNAL**. The accepted M1 external proof is
+checkpoint-specific; the historical M0.7 proof was not reused as M1 evidence.
+
+The proof repository README retains an obsolete initial candidate pin. The
+executable config and successful run at `81b35eb…` pin the final candidate and
+are the accepted provenance authority.
 
 ## Authoritative documents
 
@@ -87,6 +103,7 @@ Read these when reconstructing project state:
   pre-implementation engineering report;
 - `docs/adr/` — accepted ADR-001 … ADR-009;
 - `docs/development/CURRENT_STATE.md` — durable engineering handoff;
+- `docs/development/M1_CONTRACT.md` — frozen completed M1 contract;
 - `docs/development/M0_7_CLOSEOUT.md` — M0.7 Gate 2/Human Review/merge/Gate 3
   evidence ledger;
 - `docs/architecture/ARCHITECTURE.md` — as-built architecture;
@@ -229,7 +246,7 @@ The M0 schema head is:
 0002 (head)
 ```
 
-M0.7 adds no Alembic revision.
+M1 adds no Alembic revision; Alembic HEAD remains `0002`.
 
 ## Verification
 
@@ -273,14 +290,14 @@ npx.cmd playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts
 A full release-baseline proof requires real PostgreSQL integration tests. A
 run with skipped integration tests is not a full pass.
 
-The accepted M0.7 external Gate 2 proof recorded:
+The accepted M1 external Gate 2 proof recorded:
 
 ```text
-Python       3.13.15
-Node         24.20.0
-PostgreSQL   18.6
+Python       3.13
+Node         24
+PostgreSQL   18
 Alembic      0002 (head)
-Backend      390 passed
+backend      full real-PostgreSQL suite PASS
 skip guard   PASS
 npm ci       PASS
 lint         PASS
@@ -290,10 +307,13 @@ build        PASS
 Playwright   golden + Unicode PASS
 DB cleanup   PASS
 tracked tree PASS
+provenance   exact SHA/tree PASS
 ```
 
 See `docs/testing/testing-strategy.md` for the distinction between local,
 GitHub-provider, and approved external CI evidence.
+
+
 
 ## Configuration
 
@@ -315,7 +335,7 @@ Never commit `.env`.
 
 ## As-built architecture baseline
 
-M0 consists of:
+The M0 core consists of:
 
 - a language-neutral PostgreSQL domain model: Project, ParallelDocument,
   TextVersion, Span, AlignmentGroup and AlignmentMember;
@@ -332,12 +352,16 @@ M0 consists of:
 - real-PostgreSQL integration/E2E isolation through guarded disposable
   databases.
 
+M1 adds bounded presentation primitives, application design tokens, coherent
+feedback/action states, and centralized workspace keyboard behavior while
+preserving those M0 semantics.
+
 For details and invariants, use the ADRs and the as-built architecture/API
 files rather than treating this README as a second specification.
 
 ## Known limitations / retained debt
 
-These do not invalidate M0 closure:
+These remain accepted at M1 durable closure:
 
 - GitHub-hosted-runner execution remains unavailable under `G2-X01`; the
   accepted external CI proof remains the release evidence until provider
@@ -354,9 +378,14 @@ These do not invalidate M0 closure:
   native desktop packaging, mobile/browser extensions and document-reader
   subsystems.
 
-## Post-M0 development
+## Post-M1 development
 
-There is no authorized M0.8 checkpoint. The M0 specification describes future
-architectural directions, but a concrete post-M0 milestone must be separately
-contracted and frozen before implementation. Start from current `main`; do not
-reuse the historical `m0.7-hardening` branch as a new feature branch.
+M1 implementation is merged and durably recorded. Delete the historical
+`m1-workbench-ui-foundation` branch only during the separately authorized
+cleanup step and under an exact-SHA guard.
+
+The intended next architecture checkpoint is **M2 — Linguistic Segmentation
+Foundation**. M2 is not authorized by M1 completion. Start from the durable
+post-cleanup `main`, reconstruct repository reality, freeze a bounded M2
+contract, and obtain explicit Human authorization before creating an
+implementation branch.

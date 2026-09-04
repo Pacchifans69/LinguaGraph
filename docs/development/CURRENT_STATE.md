@@ -4,9 +4,8 @@ This file is the durable engineering handoff and navigation index for the
 current repository state. It summarizes facts needed to reconstruct the
 project without relying on chat history.
 
-It is not a replacement for accepted ADRs, the frozen M0 pre-implementation
-specification/report, executable tests, Alembic history, or merged PR/Git
-history.
+It does not replace accepted ADRs, frozen milestone contracts, executable
+tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ---
 
@@ -14,13 +13,10 @@ history.
 
 Current completed implementation milestone:
 
-**M0 — Manual Alignment Workbench: COMPLETE**
+**M1 — Workbench Interaction & UI Foundation:
+COMPLETE / MERGED / GATE 3 PASS / DURABLE STATE CLOSED**
 
-Last completed checkpoint:
-
-**M0.7 — Hardening: COMPLETE / MERGED / CLOSED**
-
-M0.1 through M0.7 have been human-reviewed and merged into `main`.
+The implementation branch cleanup remains a separate pending step.
 
 ### Checkpoint ledger
 
@@ -32,41 +28,44 @@ M0.1 through M0.7 have been human-reviewed and merged into `main`.
 | M0.4 Selection Engine | #6 | `2d0d4bcf6dd562e3cab003aa615049628c173999` | `b2472fcc6e6cda23cb98244ae86ab63fd58ef5ad` |
 | M0.5 Alignment Persistence | #7 | `b6714d6454063b6c656631fe63fc23e6813d28f4` | `8d1a57b41f2fb717faca02f3162b4770e62ffbff` |
 | M0.6 Alignment Visualization | #8 | `f86d6429d41e76d4093e08898a9e7879e3774c49` | `55442d4ce7f71bd28c3368de641802f942e57055` |
-| M0.7 Hardening | #9 | `580e27cbea09e50f40782a92da426e7332e8a54d` | rebase merge → `697b019dc2820c67dacbc0b58a718e198ab655be` immediately after merge |
+| M0.7 Hardening | #9 | `580e27cbea09e50f40782a92da426e7332e8a54d` | rebase → `697b019dc2820c67dacbc0b58a718e198ab655be` |
+| M1 Workbench Interaction & UI Foundation | #10 | `bdd32cbaed63966c346caaf44f1fd3a0197750a7` | rebase → `3a3361aebdb7c9c8d3a1b850c5b30dc9f5a5b6ea` |
 
-M0.5 and M0.6 merge commits were verified at their Gate 3 closeouts to have no
-file-tree difference from the final reviewed implementation heads.
-
-M0.7 required a different provenance statement because repository policy
-allowed only rebase merge. Gate 3 proved exact tree identity instead; see
-section 2.
+M0.5 and M0.6 merge commits were verified to contain the exact reviewed file
+trees. M0.7 and M1 used repository-permitted rebase merge; their Gate 3
+bridges are exact candidate-to-durable-main tree identities.
 
 ---
 
-## 2. M0.7 durable provenance
+## 2. M1 durable provenance
 
-### Approved base and candidate
+### Base, branch, and candidate
 
-- approved M0.7 base:
-  `7b3e61c547a7831275ae5fb01458ed0bdd7c202c`
-- historical formal branch: `m0.7-hardening` (deleted after Gate 3 durable
-  closure during the separate cleanup step)
-- final reviewed / externally proven candidate:
-  `580e27cbea09e50f40782a92da426e7332e8a54d`
+- approved pre-freeze durable base:
+  `f77ad4d94a309d47507b4fe7297f0ccf436144a6`;
+- docs-only contract-freeze / implementation base:
+  `41c299d9e4984d0fa2620e0990207cdc715ca0d1`;
+- implementation branch:
+  `m1-workbench-ui-foundation`;
+- final reviewed and independently proven candidate:
+  `bdd32cbaed63966c346caaf44f1fd3a0197750a7`;
 - candidate parent:
-  `d89fe820e544cfa68e3ba48d265a1a7bce27bc55`
+  `a1216ced95f6e954bef3f3eef543d66cd821dc03`;
 - candidate tree:
-  `16c2bd3f5a8c5cb4960e193896547093fe091c87`
-- pre-PR compare: ahead 19 / behind 0; merge base exactly the approved base.
+  `c52c9ae027d231ca6a36ccb0001e8ce18c29d4fe`;
+- pre-merge compare:
+  ahead 20 / behind 0, with merge base exactly `41c299d…`;
+- implementation diff:
+  17 frontend files, +1713 / -720.
 
-The candidate remained frozen and unmodified through Gate 2, Static Human
-Diff Review and Human Runtime Acceptance.
+The candidate remained frozen through final Gate 2 audit, Static Human Diff
+Review, Human Runtime Acceptance, PR creation, and Human Merge Decision.
 
 ### PR and merge
 
-PR #9: `M0.7 — Hardening`
+PR #10: `M1 — Workbench Interaction & UI Foundation`
 
-At merge decision time GitHub repository policy was:
+At merge decision time repository policy was:
 
 ```text
 merge commit   disabled
@@ -74,64 +73,63 @@ squash merge  disabled
 rebase merge  enabled
 ```
 
-A merge-commit attempt was rejected by GitHub with HTTP 405 and made no
-repository change. After explicit human authorization, PR #9 was merged with
-**rebase merge** on 2026-08-30.
+After explicit Human authorization, PR #10 was merged by rebase on 2026-09-04.
+GitHub recorded the durable implementation `main` tip immediately after merge:
 
-GitHub recorded the rewritten durable implementation main tip immediately
-after merge as:
-
-`697b019dc2820c67dacbc0b58a718e198ab655be`
+`3a3361aebdb7c9c8d3a1b850c5b30dc9f5a5b6ea`
 
 Its tree is:
 
-`16c2bd3f5a8c5cb4960e193896547093fe091c87`
+`c52c9ae027d231ca6a36ccb0001e8ce18c29d4fe`
 
-The frozen candidate `580e27c…` has the same tree SHA. Therefore:
+The frozen candidate has the same tree. Therefore:
 
 **candidate → durable implementation main tree identity: PASS / EXACT**
 
-This is the Gate 3 provenance bridge between the exact candidate that was
-externally proven and the rebase-rewritten durable `main` lineage.
-
-The durable implementation main state is 19 commits ahead of the approved
-base, 0 behind, with merge base exactly the approved base.
+The rebase rewrote commit identities while preserving the reviewed file tree.
+This is the Gate 3 provenance bridge between exact-candidate proof and durable
+`main`.
 
 ---
 
-## 3. M0.7 lifecycle
+## 3. M1 lifecycle
 
-- repository reality reconstruction: PASS;
-- Gate 1 integrity: PASS;
-- M0.7 contract reconstruction: PASS;
+- repository reality reconstruction / Gate 1: PASS;
+- M1 contract reconstruction: PASS;
 - Human Contract Review / freeze: PASS;
 - bounded implementation: PASS;
-- formal candidate freeze: PASS;
-- Gate 2: **PASS under approved External Infrastructure Exception**;
+- candidate freeze: PASS;
+- Gate 2 integrity audit: PASS;
+- M1 External Infrastructure Exception: APPROVED;
+- independent hosted exact-candidate proof: PASS;
+- Gate 2 final decision: PASS under the approved M1 exception;
 - Static Human Diff Review: PASS;
 - Human Runtime Acceptance: PASS;
-- PR #9: created and reviewed;
+- PR #10: created and reviewed;
 - Human Merge Decision: APPROVED;
-- PR #9: MERGED via rebase;
-- Gate 3 post-merge integrity: PASS;
+- PR #10: MERGED by rebase;
+- Gate 3 post-merge integrity: PASS / EXACT;
 - durable-state closure: PASS;
-- implementation-branch cleanup: PASS.
+- implementation-branch cleanup: PENDING.
 
-Full closeout ledger:
-
-`docs/development/M0_7_CLOSEOUT.md`
+Cleanup must remain a separate exact-SHA-guarded action. M1 is not authority
+to begin M2.
 
 ---
 
-## 4. Gate 2 evidence and external infrastructure exception
+## 4. M1 Gate 2 evidence
 
 ### Formal result
 
-**Gate 2 PASS under approved External Infrastructure Exception**
+**Gate 2 PASS under the approved M1 External Infrastructure Exception**
 
-The exception waived only provider-specific GitHub-hosted-runner execution.
-It did not waive semantic gates, hosted Linux execution, runtime versions,
-provenance, integrity, or retained evidence.
+The exception waived one provider-specific requirement:
+
+`successful execution proof specifically on a GitHub-hosted runner`
+
+It did not waive semantic gates, clean hosted Linux, Python 3.13, Node 24,
+PostgreSQL 18, provenance, database migration checks, backend/frontend/E2E
+tests, zero-skip enforcement, cleanup, retained evidence, or tree integrity.
 
 ### GitHub Actions provider state
 
@@ -139,196 +137,173 @@ provenance, integrity, or retained evidence.
 
 **G2-X01: OPEN / EXTERNAL**
 
-The repeated failure pattern is pre-step: jobs fail before checkout or any
-workflow step begins. Evidence includes the frozen candidate runs, diagnostic
-workflows, an independent public runner probe, PR #9 run #8, post-merge
-`main` run #9, and later docs-only durable-state runs through run #11.
+Exact evidence:
 
-Post-merge implementation evidence:
+| Run | Event / ref | Head | Job | Executed steps |
+|---|---|---|---:|---:|
+| #34 / `33652467976` | push / `m1-workbench-ui-foundation` | `bdd32cba…` | `100322655934` | 0 |
+| #35 / `33879001093` | pull request #10 | `bdd32cba…` | `101042762478` | 0 |
+| #36 / `33879478955` | push / `main` after merge | `3a3361ae…` | `101044332707` | 0 |
 
-- run: `33306945264` (run #9, push to `main`);
-- head: `697b019dc2820c67dacbc0b58a718e198ab655be`;
-- job: `99245049374`;
-- result: failure before any workflow step;
-- executed steps: none;
-- usable job logs: none.
+All three jobs completed with failure before checkout or any workflow step.
+Step APIs returned empty/null and usable logs were unavailable
+(`BlobNotFound`). No application, migration, test, build, or Playwright command
+executed in those GitHub-hosted runs.
 
-Later docs-only durable tips reproduced the same pre-step pattern; provider
-recovery still had not occurred when implementation-branch cleanup completed.
+This reproduces the known provider/pre-step failure pattern. It does not
+constitute an application failure, does not establish GitHub Actions PASS, and
+does not close `G2-X01`. No undisclosed provider root cause is inferred.
 
-This does not constitute a new application correctness failure and does not
-close `G2-X01`. The exact internal provider root cause is not asserted.
+Only a later successful GitHub-hosted-runner proof on the then-current durable
+release lineage may justify Human review of `G2-X01` closure.
 
-If GitHub-hosted runners later recover, rerun the frozen workflow on the
-then-current durable release lineage. Only successful provider-specific proof
-may close `G2-X01`; such later proof does not retroactively invalidate the
-approved exception.
+### Accepted independent hosted proof
 
-### Accepted independent CircleCI proof
-
-- project: `Pacchifans69/LinguaGraph`;
-- definition: `M0.7 External Proof`;
-- definition UUID: `529c110d-01f2-4d99-8c3c-e2b0adedf594`;
-- pipeline #5: `623ce1b5-8f9f-46e4-baf5-f0134f1f7b8d`;
-- workflow: `m0-7-external-proof`;
-- workflow UUID: `9c12d9eb-f946-413e-9beb-8c5937139bcd`;
-- successful job: `bf4da739-325b-4f3f-80a5-448714160e46`;
+- isolated proof repository:
+  `Pacchifans69/-linguagraph-m1-proof`;
+- accepted executable proof commit:
+  `81b35eb3191b1d449eb74934553d547fb9f7221d`;
+- CircleCI pipeline:
+  #3;
+- successful status context:
+  `ci/circleci: m1-exact-candidate-proof`;
 - exact application SHA:
-  `580e27cbea09e50f40782a92da426e7332e8a54d`;
-- isolated config repo: `Pacchifans69/linguagraph-ci-proof-`;
-- accepted config SHA:
-  `920a6ee1eda077539bf3dc60964dac6a5eb25b94`.
+  `bdd32cbaed63966c346caaf44f1fd3a0197750a7`;
+- exact application tree:
+  `c52c9ae027d231ca6a36ccb0001e8ce18c29d4fe`.
 
-Runtime and gate results:
+The proof established:
 
 ```text
-Python       3.13.15
-Node         24.20.0
-PostgreSQL   18.6
-Alembic      0002 (head)
-backend      390 passed
-skip guard   PASS
-npm ci       PASS
-lint         PASS
-typecheck    PASS
-Vitest/RTL   PASS
-build        PASS
-Playwright   golden + Unicode PASS
-DB cleanup   PASS
-tracked tree PASS
-provenance   exact dual-SHA PASS
+clean hosted Linux                       PASS
+Python 3.13 / Node 24 / PostgreSQL 18    PASS
+exact SHA and tree pin                   PASS
+uv sync --frozen                         PASS
+Alembic empty → 0002 (head)              PASS
+Alembic current / check                  PASS
+real-PostgreSQL backend suite            PASS
+zero skipped-test guard                  PASS
+npm ci                                   PASS
+lint / typecheck / Vitest                PASS
+production build                         PASS
+Playwright golden path                   PASS
+Playwright Unicode release blocker       PASS
+disposable database cleanup              PASS
+final tracked-tree integrity             PASS
 ```
 
-The external configuration lineage is separate from the application
-candidate. ADR-009 is unchanged.
+The proof repository README still names the initial pre-fix candidate. It is a
+stale descriptive file and is not the final provenance authority. The
+executable config at `81b35eb…` pins the accepted final SHA/tree, and its
+successful CircleCI run is the execution record.
 
-A historical generic `CircleCI Pipeline` error status may still be visible on
-the candidate from earlier setup attempts. The accepted proof is the specific
-successful `ci/circleci: m0-7-external-proof` job listed above.
-
----
-
-## 5. M0.7 implemented hardening
-
-M0.7 stayed within the frozen section-54 Hardening scope:
-
-- integration tests and fail-closed real-PostgreSQL execution;
-- migration-from-zero / downgrade-upgrade / Alembic drift verification;
-- bounded PostgreSQL connection behavior;
-- safer disposable test/E2E database lifecycle;
-- GitHub Actions release-baseline workflow configuration;
-- independent external CI proof under the approved exception;
-- Unicode release-blocker Playwright E2E;
-- error visibility, loading/empty states and accessibility hardening;
-- destructive-operation pending locks and confirmation focus lifecycle;
-- production build verification;
-- safe Windows `dev.ps1` and `verify.ps1` orchestration;
-- as-built architecture, API, testing and manual-acceptance documentation.
-
-Static review confirmed M0.7 introduced:
-
-- no dependency-manifest/lockfile drift;
-- no ADR changes;
-- no Alembic `versions/*` changes;
-- no schema change;
-- no M0 explicit non-goal.
-
-Schema head remains `0002`.
+Historical M0.7 CircleCI evidence proves only the M0.7 candidate and was not
+used as M1 proof. ADR-009 remains unchanged.
 
 ---
 
-## 6. Human Runtime Acceptance
+## 5. M1 implemented outcome and scope integrity
 
-Human Runtime Acceptance: **PASS**.
+M1 established:
 
-Covered:
+- application-owned design tokens for the current product surfaces;
+- bounded shared Button, PageHeader, Toolbar, and feedback primitives;
+- clearer Projects → Documents → Workspace hierarchy;
+- explicit workspace, panel, selection, pending-alignment,
+  persisted-alignment, and destructive action layers;
+- coherent loading, empty, error, focus, disabled, and pending states;
+- centralized workspace Escape and PrimaryModifier+Enter behavior;
+- editable-target and pending-mutation shortcut guards;
+- focused shared-primitive and keyboard regression tests;
+- disambiguated Playwright locators required by the final UI hierarchy.
 
-- Project / ParallelDocument / TextVersion creation;
-- simultaneous EN/DE/FR/ES panels;
-- hide/show/reorder and reload-persisted panel preferences;
-- native selection and canonical offsets;
-- Alignment Tray duplicate/overlap/Escape behavior;
-- persistent multi-version Alignment creation and reload;
-- annotation indicators;
-- hover/active counterparts and connector binding;
-- Alignment Inspector note persistence and member removal;
-- Unicode `Café 🙂 mañana für français` offsets, exact text, persistence,
-  reload and visualization;
-- destructive confirmation / pending lock;
-- loading, empty, focus and keyboard sanity.
+Static audit confirmed:
 
-### HRA observations
+- no backend source or service change;
+- no database or Alembic revision;
+- Alembic HEAD remains `0002`;
+- no API contract change;
+- no dependency manifest or lockfile drift;
+- no runtime baseline change;
+- no ADR change;
+- no canonical GitHub Actions workflow change;
+- no weakening, skipping, or deletion of existing tests;
+- no implementation of an M1 non-goal;
+- no mutation of retained M0.7 proof evidence.
 
-**HRA-F07 — OPEN / NON-BLOCKING ROBUSTNESS DEBT**
+The canonical text DOM remains a flat sequence of `[data-run]` children, each
+with one text node and canonical `textContent`. Unicode code-point persistence,
+native selection, panel preferences, AlignmentService invariants,
+RenderedSpanRegistry binding, connector activation, and persistence semantics
+remain intact.
 
-A broken/malformed `node` command that resolves but emits no version stdout
-can surface a raw PowerShell/.NET prerequisite error instead of a normalized
-launcher diagnostic. Normal Node 24 execution is unaffected.
-
-**HRA-F08 — CLOSED / NON-CANDIDATE**
-
-Edge's text-selection mini menu can intercept the first Escape before the web
-page receives it. A/B testing with the mini menu disabled demonstrated that a
-single delivered Escape clears both application and native selection while
-preserving the staged tray.
-
-**HRA-F09 — OPEN / NON-BLOCKING VISUAL DEBT**
-
-The frozen M0.6 center-to-hub connector algorithm can route a line through text
-glyphs, visually resembling a strikethrough. Human inspection confirmed that
-it remains attached to the correct spans; correcting the routing would be a
-later visualization-design change, not an M0.7 hardening blocker.
+HRA-F09 connector routing debt was intentionally preserved.
 
 ---
 
-## 7. M0 Definition of Done
+## 6. Human review and runtime acceptance
 
-The authoritative M0 Definition of Done has 24 requirements. At M0.7 closeout
-all are satisfied:
+Static Human Diff Review: **PASS**
 
-1. Project creation — PASS.
-2. ParallelDocument creation — PASS.
-3. arbitrary BCP-47 TextVersion — PASS.
-4. EN/DE/FR/ES simultaneous display — PASS.
-5. reliable contiguous native text selection — PASS.
-6. Unicode code-point API/database offsets — PASS.
-7. 2–N selections → AlignmentGroup — PASS.
-8. same TextVersion may contribute multiple spans — PASS.
-9. Alignment persistence — PASS.
-10. reload recovery — PASS.
-11. Alignment editing — PASS.
-12. Alignment deletion — PASS.
-13. hover/click counterpart discovery — PASS.
-14. stable selected-alignment visualization — PASS.
-15. backend unit tests — PASS.
-16. backend real-PostgreSQL integration tests — PASS.
-17. frontend tests — PASS.
-18. Unicode regression tests — PASS.
-19. E2E golden path — PASS.
-20. clean database migration to HEAD — PASS.
-21. frontend production build — PASS.
-22. typecheck — PASS.
-23. lint — PASS.
-24. documentation — PASS.
+Human Runtime Acceptance: **PASS**
 
-Architecture-level release blocker: **PASS** — the core schema contains no
-EN/DE/FR/ES-specific structure.
+Browsers and viewports:
+
+- Microsoft Edge at 1280 × 720 and 1440 × 900;
+- Google Chrome at the same representative desktop sizes.
+
+Accepted runtime coverage included:
+
+- Projects and Documents hierarchy;
+- workspace/panel action hierarchy;
+- open/hide/reorder preference persistence;
+- native drag selection and canonical offsets;
+- tray staging and removal;
+- Escape semantics;
+- Ctrl+Enter / Meta+Enter creation guards;
+- alignment persistence and reload;
+- hover/click counterpart activation;
+- connector binding;
+- Inspector note/member mutation;
+- alignment deletion;
+- destructive confirmation;
+- focus visibility;
+- loading and empty states;
+- Unicode/code-point behavior.
+
+Recorded observations:
+
+1. DevTools touch emulation changed pointer behavior and initially suppressed
+   desktop selection/hover. Desktop input mode passed in Edge and Chrome.
+2. A translated/reused browser tab produced one React `removeChild` exception
+   after alignment deletion. The server deletion succeeded, and deletion
+   passed in a clean untranslated environment. This was recorded as a
+   non-candidate environment observation.
+3. Edge's native selection mini menu may consume the first Escape. The first
+   Escape delivered to the page clears the current/native selection while
+   preserving staged tray members; a second physical keypress may therefore
+   be required when the browser consumes the first.
+4. HRA-F09 remains OPEN / NON-BLOCKING VISUAL DEBT: the frozen center-to-hub
+   connector geometry can cross text glyphs while remaining bound to the
+   correct spans.
 
 ---
 
-## 8. Current architecture / schema baseline
+## 7. Current architecture and schema baseline
 
-Accepted ADRs: **ADR-001 … ADR-009**, frozen unless a later governed decision
-changes them.
+Accepted ADRs: **ADR-001 through ADR-009**, frozen until a later governed
+decision changes them.
 
-Database:
+Runtime baseline:
 
-- PostgreSQL 18 baseline;
-- Alembic revisions: `0001` → `0002`;
-- current M0 schema head: `0002`;
-- M0.3–M0.7 add no new schema revision.
+| Component | Baseline |
+|---|---|
+| Python | 3.13 |
+| Node.js | 24 |
+| PostgreSQL | 18 |
+| Alembic HEAD | `0002` |
 
-Core language-neutral entities:
+Core language-neutral entities remain:
 
 ```text
 Project
@@ -341,115 +316,128 @@ AlignmentMember
 
 Core invariants remain:
 
-- canonical UTF-8/NFC text;
-- Unicode code-point offsets;
+- canonical UTF-8/NFC text and LF normalization;
+- Unicode code-point `[start, end)` offsets;
 - immutable annotated TextVersion content;
-- atomic alignment mutations;
+- atomic server-owned alignment mutations;
 - server-derived exact text/context;
 - language-neutral schema;
-- authoritative workspace snapshot for persisted frontend state.
+- authoritative workspace snapshot for persisted frontend state;
+- TanStack Query for server state;
+- local reducer/state for ephemeral workspace interaction;
+- frontend-only pending Alignment Tray;
+- canonical flat text DOM and RenderedSpanRegistry bridge.
+
+M1 adds a presentation/interaction substrate. It does not add segmentation,
+linguistic annotations, candidate alignments, machine assistance, advanced
+workspace geometry, or connector-routing redesign.
 
 ---
 
-## 9. Verification entry points
+## 8. Verification entry points
 
 Local Windows run:
 
 ```powershell
-.\scripts\dev.ps1
+.scriptsdev.ps1
 ```
 
 Windows PowerShell 5.1 execution-policy fallback:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\dev.ps1
+powershell.exe -ExecutionPolicy Bypass -File .scriptsdev.ps1
 ```
 
 Local verification:
 
 ```powershell
-.\scripts\verify.ps1
+.scriptserify.ps1
 ```
 
-or on Windows PowerShell 5.1:
+or:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1
+powershell.exe -ExecutionPolicy Bypass -File .scriptserify.ps1
 ```
 
-Canonical CI workflow configuration:
+Canonical GitHub Actions workflow:
 
 `.github/workflows/ci.yml`
 
-See `docs/testing/testing-strategy.md` for evidence semantics. A configured
-workflow is not proof of a successful provider run.
+The workflow remains canonical despite current provider execution blockage.
+See `docs/testing/testing-strategy.md` for evidence semantics.
 
 ---
 
-## 10. Known retained limitations
+## 9. Known retained limitations and evidence
 
-The following are accepted/non-blocking at M0 closure:
+Open/non-blocking items:
 
-- `G2-X01` GitHub-hosted-runner provider proof remains OPEN / EXTERNAL;
-- HRA-F07 malformed-Node diagnostic quality;
-- HRA-F09 connector line can cross text glyphs;
-- accepted same-group concurrent PATCH behavior is not a collaborative
-  locking protocol;
-- mutation vs destructive-deletion interleavings are not redesigned into a
-  broader cross-operation lock;
-- nondeterministic concurrent request ordering is not converted into a
-  distributed collaboration model;
-- M0 intentionally excludes translation/NLP/LLM, authentication,
-  collaboration/WebSocket/CRDT, Redis/Neo4j/Elasticsearch/vector search,
-  native desktop/mobile/browser-extension packaging, PDF/EPUB readers and
-  sophisticated synchronized scrolling.
+- `G2-X01` — GitHub-hosted-runner execution remains OPEN / EXTERNAL;
+- HRA-F07 — a malformed local `node` command that resolves without version
+  stdout can surface a low-level PowerShell/.NET diagnostic;
+- HRA-F09 — connector lines can cross text glyphs under frozen routing;
+- accepted concurrency behavior is not a collaborative locking protocol;
+- M1 intentionally excludes segmentation, NLP/LLM alignment,
+  authentication/collaboration, advanced layout, and sophisticated routing.
 
----
-
-## 11. Cleanup status
-
-**Implementation-branch cleanup: PASS.**
-
-After Gate 3 and durable-state closure:
-
-- the historical `m0.7-hardening@580e27c…` implementation branch was deleted
-  locally and remotely under exact-SHA guards;
-- the final human-reported `git branch -a` listing contained neither local nor
-  `origin/m0.7-hardening`;
-- GitHub independently returned HTTP 404 `Branch not found` for
-  `m0.7-hardening` after deletion.
-
-Proof/diagnostic evidence is intentionally retained while `G2-X01` remains
-**OPEN / EXTERNAL**. Retained evidence includes:
+Retained M0.7 evidence must not be altered while `G2-X01` remains open:
 
 - `ci/m0.7-external-proof@7ae9ce47570c8581423ed2932daf99d417acf52e`;
 - `diagnostic/actions-indexing@e825a785883357d877d12003dc59615ea2bf586e`;
-- historical CI/setup refs `m0.7-ci-proof` and `circleci-project-setup`;
-- external config repository
-  `Pacchifans69/linguagraph-ci-proof-@920a6ee1eda077539bf3dc60964dac6a5eb25b94`;
-- public runner probe
-  `Pacchifans69/actions-runner-probe@e3a96b0b49a5612bf43d209d8e2991df95dc30a5`;
-- CircleCI proof artifacts/metadata and GitHub Actions diagnostic history.
+- historical setup refs `m0.7-ci-proof` and `circleci-project-setup`;
+- `Pacchifans69/linguagraph-ci-proof-@920a6ee1eda077539bf3dc60964dac6a5eb25b94`;
+- `Pacchifans69/actions-runner-probe@e3a96b0b49a5612bf43d209d8e2991df95dc30a5`;
+- CircleCI artifacts/metadata and GitHub Actions diagnostics.
 
-These retained proof fixtures must not be confused with active implementation
-branches. Reconsider their cleanup only after a later human review, especially
-if provider-specific GitHub Actions proof succeeds and `G2-X01` is closed.
+Retained M1 evidence includes:
+
+- implementation candidate `bdd32cba…` and its Git history;
+- PR #10 and Actions runs #34–#36;
+- `Pacchifans69/-linguagraph-m1-proof@81b35eb…`;
+- CircleCI pipeline #3 and its status/artifacts;
+- Human Runtime Acceptance observations.
 
 ---
 
-## 12. Next work rule
+## 10. Cleanup status
 
-There is no planned or authorized **M0.8** checkpoint.
+**M1 implementation-branch cleanup: PENDING.**
 
-The M0 specification's future-stage discussion describes architectural
-direction only. Before implementing any post-M0 milestone:
+Current retained implementation ref:
 
-1. start a fresh checkpoint conversation;
-2. reconstruct current `main` and retained external-debt reality;
-3. define the bounded milestone contract and explicit non-goals;
-4. perform integrity/architecture review;
-5. obtain human contract approval/freeze;
-6. create a new implementation branch from the approved durable `main` base.
+`m1-workbench-ui-foundation@bdd32cbaed63966c346caaf44f1fd3a0197750a7`
 
-Do not recreate or reuse the deleted historical `m0.7-hardening` branch as a
-post-M0 implementation branch.
+After this durable-state closure is independently verified, cleanup may proceed
+only with explicit Human authorization and an exact-SHA guard. Cleanup should:
+
+1. confirm `main` contains the reviewed M1 tree;
+2. confirm the branch still points to `bdd32cba…`;
+3. delete only `m1-workbench-ui-foundation`;
+4. verify GitHub returns the branch as absent;
+5. preserve all proof/diagnostic repositories, refs, runs, and artifacts.
+
+The branch is historical implementation provenance. Its deletion must not be
+confused with deletion of retained Gate 2 evidence.
+
+---
+
+## 11. Next work rule
+
+The intended next checkpoint is:
+
+**M2 — Linguistic Segmentation Foundation**
+
+M2 is not yet authorized.
+
+Before M2 implementation:
+
+1. finish the separately authorized M1 implementation-branch cleanup;
+2. start a fresh checkpoint conversation;
+3. reconstruct repository reality from the then-current durable `main`;
+4. reconstruct and review the bounded M2 contract;
+5. obtain explicit Human approval/freeze;
+6. create a new implementation branch from the approved durable base.
+
+Do not reuse `m1-workbench-ui-foundation` or `m0.7-hardening` for later work.
+Do not treat M1's exception, proof, or contract as authority for M2.
