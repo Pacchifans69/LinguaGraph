@@ -8,6 +8,7 @@ Alembic and by tests); it also re-exports the model classes for convenient
 from app.db.models.alignment import AlignmentGroup, AlignmentMember
 from app.db.models.document import ParallelDocument
 from app.db.models.project import Project
+from app.db.models.segmentation import Segment, SegmentationLayer
 from app.db.models.span import Span
 from app.db.models.text_version import TextVersion
 
@@ -16,6 +17,8 @@ __all__ = [
     "AlignmentMember",
     "ParallelDocument",
     "Project",
+    "Segment",
+    "SegmentationLayer",
     "Span",
     "TextVersion",
 ]

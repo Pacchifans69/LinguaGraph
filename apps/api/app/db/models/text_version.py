@@ -54,6 +54,11 @@ class TextVersion(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    segmentation_layers: Mapped[list["SegmentationLayer"]] = relationship(
+        back_populates="text_version",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
     def __repr__(self) -> str:
         return f"<TextVersion id={self.id} label={self.label!r} lang={self.language_tag!r}>"
