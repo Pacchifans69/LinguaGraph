@@ -14,6 +14,9 @@ class FakeSegmenter {
   ) {}
 
   segment(text: string) {
+    if (this._options.granularity !== 'sentence') {
+      throw new TypeError('expected sentence granularity');
+    }
     if (text === 'A🙂. B!') {
       return [
         { segment: 'A🙂. ', index: 0 },
