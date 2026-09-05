@@ -1,8 +1,8 @@
-# LinguaGraph — Architecture (as built, M0.7)
+# LinguaGraph — Architecture (as built, active M2 branch)
 
-This document describes the architecture as actually implemented at the
-M0.7 hardening checkpoint. It is a description, not a new authority: the
-accepted ADRs (`docs/adr/ADR-001…ADR-009`) and the authoritative
+This document describes the architecture implemented through the active M2
+branch. It is a description, not a new authority: the accepted ADRs
+(`docs/adr/ADR-001…ADR-010`) and the authoritative
 pre-implementation documents
 (`docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md`,
 `M0_PREIMPLEMENTATION_REPORT.md`) remain authoritative. Where this document
@@ -77,6 +77,13 @@ optimistically.
   persisted representation + keyboard-accessible activation index),
   `AlignmentInspector` (note editing, member removal, delete — all driven
   by the authoritative workspace snapshot, no optimistic persisted state).
+- **Sentence segmentation** (`src/features/segmentation/`):
+  `sentenceSuggestion.ts` converts optional `Intl.Segmenter` UTF-16
+  boundaries through the shared code-point utility and validates a complete
+  partition; `SegmentationPanel` owns only an unsaved preview and exposes
+  manual initialization, split, merge, discard, save and confirmed delete.
+  It renders adjacent to each TextPanel and outside
+  `[data-text-content-root]`.
 - **Shared UI**: `ErrorMessage` (`role="alert"`), `LoadingMessage`
   (`role="status"`), `EmptyState`, `ConfirmDialog` (accessible destructive
   confirmation with focus lifecycle, M0.7).
@@ -92,9 +99,11 @@ HTTP route (parse/validate HTTP, map responses)
 ```
 
 - **Routes** (`app/api/routes/`): health, projects, documents,
-  text_versions, workspace, alignments. Routes never commit/rollback.
+  text_versions, workspace, alignments and sentence segmentations. Routes
+  never commit/rollback.
 - **Services** (`app/services/`): `ProjectService`, `DocumentService`,
-  `TextVersionService`, `AlignmentService`, `WorkspaceService`. Write
+  `TextVersionService`, `AlignmentService`, segmentation service and
+  `WorkspaceService`. Write
   services own exactly one `write_transaction`; read services own one
   `read_transaction`; the Session is transaction-clean between public
   service calls (a caller-owned pending transaction/mutation raises
@@ -117,13 +126,14 @@ HTTP route (parse/validate HTTP, map responses)
 
 ### 2.3 Database (PostgreSQL 18, ADR-004)
 
-Six domain tables, all language-neutral (ADR-001…ADR-006): `projects`,
+Eight domain tables, all language-neutral: `projects`,
 `parallel_documents`, `text_versions`, `spans`, `alignment_groups`,
-`alignment_members`. Schema is managed exclusively by Alembic (revision
-`0002` is the M0.7 head; `0001` is the no-op foundation). Constraints and
-indexes live in the migration; cross-table invariants are service
-responsibilities. See `docs/api/api-contract.md` for the offset contract
-and `docs/development/CURRENT_STATE.md` section 4 for the schema summary.
+`alignment_members`, `segmentation_layers`, `segments`. Schema is
+managed exclusively by Alembic (revision `0003` is the active M2 head;
+`0001` is the no-op foundation and `0002` remains unchanged). Constraints
+and indexes live in migrations; cross-table and complete-partition invariants
+are service responsibilities. See `docs/api/api-contract.md` for the offset
+contract and `docs/development/CURRENT_STATE.md` for the schema summary.
 
 ## 3. Important boundaries
 
@@ -140,10 +150,18 @@ and `docs/development/CURRENT_STATE.md` section 4 for the schema summary.
   symmetric N:M hyperedge ("these text occurrences correspond in this
   ParallelDocument"). No source/target fields, no relation types, no
   language-specific schema.
-- **Text immutability (ADR-005)**: annotated `TextVersion.content` is
+- **Linguistic segmentation (ADR-010)**: `SegmentationLayer` and `Segment`
+  are independent persisted linguistic structure. A sentence layer is one
+  ordered complete partition of one canonical TextVersion; it is never an
+  alignment Span, render run, tray item or candidate alignment. Replacement
+  locks the TextVersion, checks its content hash, validates the full partition
+  and commits atomically.
+- **Text immutability (ADR-005 / ADR-010)**: annotated `TextVersion.content` is
   immutable; deletion of an annotated version requires the explicit
   `DELETE ?force=true` destructive-reset flow, which revalidates affected
   groups against all invariants and deletes invalid groups atomically.
+  Persisted segmentation also counts as annotation; force deletion cascades
+  its layer and segments.
 - **Pending selections (ADR-007)**: the tray is ephemeral frontend state;
   nothing persists until one atomic Create-Alignment request.
 - **State ownership (report section 10)**: TanStack Query = server state;
