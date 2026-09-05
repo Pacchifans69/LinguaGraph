@@ -101,6 +101,54 @@ describe('normalizeWorkspace', () => {
     expect(normalized.membersBySpan['sp-missing'] ?? []).toEqual([]);
   });
 
+  it('indexes linguistic segmentation by version and layer', () => {
+    const normalized = normalizeWorkspace(
+      snapshot({
+        segmentation_layers: [
+          {
+            id: 'layer-en',
+            text_version_id: 'tv-en',
+            granularity: 'sentence',
+            requested_locale: 'en',
+            resolved_locale: 'en-US',
+            origin: 'intl_segmenter',
+            content_hash: 'h1',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+        segments: [
+          {
+            id: 'segment-2',
+            segmentation_layer_id: 'layer-en',
+            ordinal: 1,
+            start_offset: 3,
+            end_offset: 5,
+            exact_text: 'lo',
+            created_at: '2026-01-01T00:00:00Z',
+          },
+          {
+            id: 'segment-1',
+            segmentation_layer_id: 'layer-en',
+            ordinal: 0,
+            start_offset: 0,
+            end_offset: 3,
+            exact_text: 'Hel',
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+      }),
+    );
+
+    expect(normalized.segmentationLayersById['layer-en'].resolved_locale).toBe(
+      'en-US',
+    );
+    expect(normalized.segmentationLayersByVersion['tv-en']).toHaveLength(1);
+    expect(
+      normalized.segmentsByLayer['layer-en'].map((segment) => segment.ordinal),
+    ).toEqual([0, 1]);
+  });
+
   it('normalizes an empty snapshot without throwing', () => {
     const empty = snapshot({
       text_versions: [],
@@ -113,5 +161,7 @@ describe('normalizeWorkspace', () => {
     expect(normalized.spansByVersion).toEqual({});
     expect(normalized.membersByGroup).toEqual({});
     expect(normalized.membersBySpan).toEqual({});
+    expect(normalized.segmentationLayersByVersion).toEqual({});
+    expect(normalized.segmentsByLayer).toEqual({});
   });
 });

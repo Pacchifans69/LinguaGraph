@@ -69,7 +69,7 @@ def unique_constraints(conn, table: str) -> list[list[str]]:
     return [list(row.cols) for row in rows]
 
 
-def test_all_six_domain_tables_exist(conn) -> None:
+def test_all_domain_tables_exist(conn) -> None:
     tables = sorted(
         conn.execute(
             text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")
@@ -81,6 +81,8 @@ def test_all_six_domain_tables_exist(conn) -> None:
         "alignment_members",
         "parallel_documents",
         "projects",
+        "segmentation_layers",
+        "segments",
         "spans",
         "text_versions",
     ]
@@ -89,7 +91,7 @@ def test_all_six_domain_tables_exist(conn) -> None:
 def test_alembic_version_is_head(conn) -> None:
     assert (
         conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        == "0002"
+        == "0003"
     )
 
 

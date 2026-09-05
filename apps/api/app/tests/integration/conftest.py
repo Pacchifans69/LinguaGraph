@@ -34,6 +34,8 @@ ALEMBIC_INI = API_ROOT / "alembic.ini"
 # Domain tables in FK-safe truncation order (CASCADE makes order irrelevant,
 # but listing them documents the graph).
 DOMAIN_TABLES = (
+    "segments",
+    "segmentation_layers",
     "alignment_members",
     "alignment_groups",
     "spans",
@@ -52,7 +54,7 @@ def disposable_db_url() -> str:
     empty and is migrated to HEAD.
     """
     try:
-        admin_engine, target_url = create_disposable_database("linguagraph_m02")
+        admin_engine, target_url = create_disposable_database("linguagraph_m2")
     except RuntimeError as exc:
         pytest.skip(str(exc))
     url = target_url.render_as_string(hide_password=False)

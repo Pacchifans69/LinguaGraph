@@ -20,7 +20,7 @@
 #                                        databases only — the normal
 #                                        development database is never a
 #                                        destructive-test target)
-#              uv run alembic current   (expects 0002 (head))
+#              uv run alembic current   (expects 0003 (head))
 #              uv run alembic check     (no schema drift)
 #   frontend : npm ci                    (ALWAYS runs — reproducible
 #                                         verification means the exact
@@ -33,7 +33,7 @@
 #              npm run test
 #              npm run build
 #   e2e      : npx playwright install chromium (no-op when present)
-#              npx playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts
+#              npx playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmentation.spec.ts
 #
 # Development data is preserved: no downgrade, no reset, no volume
 # deletion, no .env overwrite. Any destructive migration cycle relies on
@@ -323,7 +323,7 @@ Invoke-VerifyStep 'backend: uv sync --frozen' $ApiRoot @('uv', 'sync', '--frozen
 # destructive-test target (app/db/disposable.py fails closed).
 Invoke-VerifyStep 'backend: uv run pytest (unit + real PostgreSQL integration)' $ApiRoot @('uv', 'run', 'pytest', '-q')
 
-Invoke-VerifyStep 'backend: uv run alembic current (expect 0002 (head))' $ApiRoot @('uv', 'run', 'alembic', 'current')
+Invoke-VerifyStep 'backend: uv run alembic current (expect 0003 (head))' $ApiRoot @('uv', 'run', 'alembic', 'current')
 Invoke-VerifyStep 'backend: uv run alembic check (no schema drift)' $ApiRoot @('uv', 'run', 'alembic', 'check')
 
 # ---------------------------------------------------------------------------
@@ -348,7 +348,7 @@ Invoke-VerifyStep 'frontend: npm run build (production build)' $WebRoot @('npm',
 # ---------------------------------------------------------------------------
 
 Invoke-VerifyStep 'e2e: npx playwright install chromium (no-op when present)' $WebRoot @('npx', 'playwright', 'install', 'chromium')
-Invoke-VerifyStep 'e2e: golden path + Unicode release blocker (npx playwright test)' $WebRoot @('npx', 'playwright', 'test', 'e2e/golden-path.spec.ts', 'e2e/unicode.spec.ts')
+Invoke-VerifyStep 'e2e: golden path + Unicode + M2 segmentation (npx playwright test)' $WebRoot @('npx', 'playwright', 'test', 'e2e/golden-path.spec.ts', 'e2e/unicode.spec.ts', 'e2e/segmentation.spec.ts')
 
 # ---------------------------------------------------------------------------
 # Summary

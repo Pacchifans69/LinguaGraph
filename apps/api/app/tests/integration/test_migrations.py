@@ -37,14 +37,15 @@ ALEMBIC_INI = API_ROOT / "alembic.ini"
 
 pytestmark = pytest.mark.integration
 
-# Expected public schema at HEAD: the Alembic version table plus the six
-# M0.2 domain tables (M0_PREIMPLEMENTATION_REPORT.md section 4).
+# Expected public schema at HEAD: the Alembic version table plus the eight domain tables (M0_PREIMPLEMENTATION_REPORT.md section 4).
 HEAD_TABLES = [
     "alembic_version",
     "alignment_groups",
     "alignment_members",
     "parallel_documents",
     "projects",
+    "segmentation_layers",
+    "segments",
     "spans",
     "text_versions",
 ]
@@ -115,7 +116,7 @@ def test_migrate_from_zero_to_head(disposable_db_url: str) -> None:
             version_num = conn.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            assert version_num == "0002"
+            assert version_num == "0003"
     finally:
         engine.dispose()
 
@@ -125,7 +126,7 @@ def test_downgrade_to_base_then_upgrade_again() -> None:
     admin_engine, target_url = create_disposable_database("linguagraph_cycle")
     url = target_url.render_as_string(hide_password=False)
     try:
-        # empty database -> 0001 foundation -> 0002 domain schema
+        # empty database -> 0001 foundation -> 0002 domain schema -> 0003 segmentation
         _run_alembic(url, "upgrade", "head")
         assert _public_tables(url) == HEAD_TABLES
 
