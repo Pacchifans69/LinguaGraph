@@ -324,8 +324,8 @@ function WorkspaceBody({
           <h3 id="force-delete-heading">Delete text version permanently?</h3>
           <p>
             “{pendingForceDelete.label}” has persisted annotations.
-            Deleting it will permanently remove its alignment and segmentation
-            annotations, and any
+            Deleting it will permanently remove its annotations, including
+            alignments and segmentation, and any
             alignment group that becomes invalid (for example, a group left
             with members from a single text version) will also be deleted.
             This cannot be undone.
