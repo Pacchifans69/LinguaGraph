@@ -11,6 +11,26 @@ schema structure.
 
 ## Current milestone
 
+**M2 — Linguistic Segmentation Foundation:
+CONTRACT FROZEN / IMPLEMENTATION BRANCH NOT YET CREATED**
+
+M2 Gate 1 passed against durable pre-freeze base
+`8ad87aaa789d86535adf3aed34035317c515b6e6` / tree `f9a75c9c7c02dd4ca7c3b0cbcac8ca1f10d9897b`. Human approved and froze
+`docs/development/M2_CONTRACT.md` on 2026-09-05.
+
+The bounded first slice introduces a persistent, Human-reviewed sentence
+segmentation layer with Unicode code-point coordinates, complete-partition and
+stale-content guards, atomic replacement, Alembic `0003`, and a Segmentation
+panel outside the canonical text root. Word/token segmentation, automatic or
+candidate alignment, NLP/LLM providers and direct segment-to-tray behavior
+remain deferred.
+
+The implementation branch has not been created. After this docs-only freeze
+commit is independently verified, the next safe action is to create
+`m2-linguistic-segmentation-foundation` from that exact commit.
+
+The last completed implementation milestone remains:
+
 **M1 — Workbench Interaction & UI Foundation:
 COMPLETE / MERGED / CLOSED**
 
@@ -18,45 +38,11 @@ The historical `m1-workbench-ui-foundation` branch was deleted under an
 exact-SHA guard after durable-state closure; retained proof and diagnostic
 evidence remains available.
 
-M1 merged in PR #10. Its docs-only contract-freeze and implementation base was
-`41c299d9e4984d0fa2620e0990207cdc715ca0d1`. The final reviewed and
-independently proven candidate was
-`bdd32cbaed63966c346caaf44f1fd3a0197750a7`. Repository policy permitted
-rebase merge, producing durable implementation `main`
-`3a3361aebdb7c9c8d3a1b850c5b30dc9f5a5b6ea` immediately after merge. Gate 3
-proved exact candidate-to-main file-tree identity:
-
-`c52c9ae027d231ca6a36ccb0001e8ce18c29d4fe`
-
-M1 adds the current presentation and interaction foundation:
-
-- coherent design tokens and reusable bounded UI primitives;
-- clearer Projects → Documents → Workspace hierarchy;
-- explicit workspace, panel, selection, pending, persisted, and destructive
-  action layers;
-- consistent loading, empty, error, focus, disabled, and pending states;
-- centralized Escape and PrimaryModifier+Enter workspace behavior;
-- preserved native selection, Unicode offsets, canonical text DOM, alignment
-  persistence, panel preferences, Inspector behavior, and connector binding.
-
-M0 — Manual Alignment Workbench remains complete. Its golden loop is:
-
-```text
-create Project
-→ create ParallelDocument
-→ add arbitrary-language TextVersions
-→ select canonical text ranges
-→ stage members in the Alignment Tray
-→ create and persist an AlignmentGroup
-→ reload
-→ hover/click aligned text
-→ visualize counterparts/connectors
-→ inspect, edit and delete the alignment
-```
-
-M1 deliberately adds no schema, API, backend-domain, dependency, runtime, ADR,
-segmentation, candidate-alignment, advanced-layout, or connector-routing
-change.
+M1 merged in PR #10. Its final reviewed and independently proven candidate was
+`bdd32cbaed63966c346caaf44f1fd3a0197750a7`; rebase merge produced durable
+implementation `main@3a3361aebdb7c9c8d3a1b850c5b30dc9f5a5b6ea` with exact
+candidate-to-main tree identity
+`c52c9ae027d231ca6a36ccb0001e8ce18c29d4fe`.
 
 ## Evidence status
 
@@ -106,6 +92,7 @@ Read these when reconstructing project state:
 - `docs/adr/` — accepted ADR-001 … ADR-009;
 - `docs/development/CURRENT_STATE.md` — durable engineering handoff;
 - `docs/development/M1_CONTRACT.md` — frozen completed M1 contract;
+- `docs/development/M2_CONTRACT.md` — active frozen M2 execution contract;
 - `docs/development/M0_7_CLOSEOUT.md` — M0.7 Gate 2/Human Review/merge/Gate 3
   evidence ledger;
 - `docs/architecture/ARCHITECTURE.md` — as-built architecture;
@@ -380,14 +367,17 @@ These remain accepted at M1 durable closure:
   native desktop packaging, mobile/browser extensions and document-reader
   subsystems.
 
-## Post-M1 development
+## M2 development boundary
 
-M1 implementation is merged, durably recorded, and closed. The historical
-`m1-workbench-ui-foundation` branch was deleted under an exact-SHA guard after
-closure. Do not recreate or reuse it for later implementation.
+M2 Gate 1 and Human Contract Review are complete. The contract is frozen; its
+docs-only freeze commit must be verified before the implementation branch is
+created.
 
-The intended next architecture checkpoint is **M2 — Linguistic Segmentation
-Foundation**. M2 is not authorized by M1 completion. Start from the durable
-post-cleanup `main`, reconstruct repository reality, freeze a bounded M2
-contract, and obtain explicit Human authorization before creating an
-implementation branch.
+After verification, create
+`m2-linguistic-segmentation-foundation` from the exact freeze commit.
+Implementation stays off `main` and follows
+`docs/development/M2_CONTRACT.md`.
+
+Do not recreate or reuse `m1-workbench-ui-foundation` or
+`m0.7-hardening`. Prior checkpoint exceptions and proof runs do not authorize
+M2 Gate 2.

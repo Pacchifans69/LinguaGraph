@@ -11,6 +11,10 @@ The completed M1 execution contract is:
 
 `docs/development/M1_CONTRACT.md`
 
+The active frozen M2 execution contract is:
+
+`docs/development/M2_CONTRACT.md`
+
 Before planning, modifying files, installing dependencies, or writing
 implementation code:
 
@@ -29,7 +33,23 @@ implementation code:
 
 ## Current phase
 
-The last completed implementation checkpoint is:
+The active architecture checkpoint is:
+
+**M2 — Linguistic Segmentation Foundation
+(CONTRACT FROZEN / IMPLEMENTATION BRANCH NOT YET CREATED)**
+
+M2 Gate 1 passed against durable pre-freeze base
+`8ad87aaa789d86535adf3aed34035317c515b6e6` / tree `f9a75c9c7c02dd4ca7c3b0cbcac8ca1f10d9897b`. Human approved and froze
+`docs/development/M2_CONTRACT.md` on 2026-09-05. The docs-only commit
+containing that contract becomes the sole authorized implementation base after
+its provenance and scope are verified.
+
+M2 implementation remains bounded by that contract. Create
+`m2-linguistic-segmentation-foundation` only from the verified docs-only
+freeze commit. No M2 implementation, dependency installation, migration or
+code change may occur on `main`.
+
+The last completed implementation checkpoint remains:
 
 **M1 — Workbench Interaction & UI Foundation
 (COMPLETE / MERGED / CLOSED)**
@@ -141,28 +161,27 @@ diagnostic/support refs and repositories remain protected evidence while
 
 See `docs/development/M0_7_CLOSEOUT.md` for the full historical ledger.
 
-## Next checkpoint boundary
+## Active M2 boundary
 
-The intended next architecture checkpoint is:
+M2 Gate 1 and Human Contract Review are complete. The frozen contract permits
+one sentence-segmentation foundation:
 
-**M2 — Linguistic Segmentation Foundation**
+- independent persisted `SegmentationLayer` / `Segment` entities;
+- Unicode code-point coordinates over canonical TextVersion content;
+- Human-reviewed sentence suggestions;
+- complete partition, atomic replacement and stale-content guards;
+- Alembic `0003`;
+- a bounded Segmentation panel outside the canonical content root;
+- full M0/M1 regression and fresh M2 Gate 2/Human acceptance.
 
-M2 implementation is not authorized by M1 completion.
+Word/token segmentation, direct segment-to-tray behavior, linguistic
+annotations, candidate/automatic alignment, NLP/LLM providers and layout or
+connector-routing redesign remain outside M2.
 
-Before any M2 or later post-M0 implementation:
-
-1. start a fresh checkpoint conversation;
-2. reconstruct repository reality from the then-current durable `main`;
-3. identify or create the authoritative bounded execution contract;
-4. perform Gate 1 integrity and architecture review;
-5. obtain explicit Human contract approval/freeze;
-6. create a new implementation branch from the approved durable base.
-
-`m1-workbench-ui-foundation` was deleted after M1 closeout under an exact-SHA
-guard. Do not recreate or reuse it for M2.
-
-Do not recreate or reuse `m0.7-hardening`. Do not silently reopen ADR-001
-through ADR-009 or any frozen M0/M1 invariant.
+The next safe repository action after this docs-only commit is independently
+verified is to create
+`m2-linguistic-segmentation-foundation` at that exact commit. Do not recreate
+or reuse `m1-workbench-ui-foundation` or `m0.7-hardening`.
 
 ## Scope discipline
 

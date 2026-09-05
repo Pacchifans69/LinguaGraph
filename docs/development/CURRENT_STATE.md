@@ -18,6 +18,30 @@ COMPLETE / MERGED / CLOSED**
 
 The implementation-branch cleanup is complete and independently verified.
 
+Active architecture checkpoint:
+
+**M2 — Linguistic Segmentation Foundation:
+CONTRACT FROZEN / IMPLEMENTATION BRANCH NOT YET CREATED**
+
+M2 Gate 1 passed against durable pre-freeze base
+`8ad87aaa789d86535adf3aed34035317c515b6e6` / tree `f9a75c9c7c02dd4ca7c3b0cbcac8ca1f10d9897b`. Human approved and froze the bounded
+M2 v1 contract on 2026-09-05.
+
+Frozen M2 v1 outcome:
+
+- persistent sentence-only `SegmentationLayer` / `Segment` domain;
+- canonical Unicode code-point coordinates and backend-derived exact text;
+- complete partitions, stale-content guard and atomic replacement;
+- Human-reviewed manual/`Intl.Segmenter` suggestion workflow;
+- Alembic `0003`;
+- Segmentation controls outside the canonical content root;
+- no word/token segmentation, direct segment-to-tray behavior, linguistic
+  annotation, candidate/automatic alignment or NLP/LLM provider.
+
+The implementation branch is not yet created. The docs-only commit containing
+`docs/development/M2_CONTRACT.md` becomes the authorized implementation base
+only after exact provenance and docs-only scope verification.
+
 ### Checkpoint ledger
 
 | Checkpoint | PR | Final reviewed implementation | Merge / durable implementation result |
@@ -444,21 +468,34 @@ Evidence preservation was rechecked after deletion:
 The deleted implementation branch is distinct from retained Gate 2 evidence.
 No proof or diagnostic ref was deleted.
 
-## 11. Next work rule
+## 11. M2 activation rule
 
-The intended next checkpoint is:
+**M2 Gate 1: PASS**
 
-**M2 — Linguistic Segmentation Foundation**
+**M2 contract v1: FROZEN — HUMAN APPROVED 2026-09-05**
 
-M2 is not yet authorized.
+Approved pre-freeze durable base:
 
-Before M2 implementation:
+`8ad87aaa789d86535adf3aed34035317c515b6e6`
 
-1. start a fresh checkpoint conversation;
-2. reconstruct repository reality from the then-current durable `main`;
-3. reconstruct and review the bounded M2 contract;
-4. obtain explicit Human approval/freeze;
-5. create a new implementation branch from the approved durable base.
+Approved pre-freeze durable tree:
 
-Do not reuse `m1-workbench-ui-foundation` or `m0.7-hardening` for later work.
-Do not treat M1's exception, proof, or contract as authority for M2.
+`f9a75c9c7c02dd4ca7c3b0cbcac8ca1f10d9897b`
+
+The contract permits a sentence-only linguistic segmentation foundation and is
+authoritative at `docs/development/M2_CONTRACT.md`.
+
+The next safe action, after the docs-only freeze commit is independently
+verified, is:
+
+1. record the exact freeze commit SHA/tree;
+2. confirm that only `AGENTS.md`, `README.md`,
+   `docs/development/CURRENT_STATE.md` and
+   `docs/development/M2_CONTRACT.md` changed;
+3. create `m2-linguistic-segmentation-foundation` from that exact commit;
+4. keep all implementation off `main`;
+5. execute only the frozen M2 scope.
+
+Do not reuse `m1-workbench-ui-foundation` or `m0.7-hardening`. Do not treat
+M0.7/M1 exception or proof authority as M2 authority. Retained proof and
+diagnostic evidence remains protected.
