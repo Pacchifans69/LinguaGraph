@@ -142,8 +142,9 @@ def replace_content(
     """Replace the content of an unannotated text version (ADR-005).
 
     Blocked with ``TEXT_HAS_ANNOTATIONS`` as soon as the version owns any
-    Span: replacing content under existing spans would silently corrupt
-    offsets/quotes. Annotated versions can only be removed via
+    Span or persisted segmentation layer: replacing content under existing
+    coordinates would silently corrupt offsets/derived text. Annotated
+    versions can only be removed via
     :func:`delete_text_version` with ``force=True``.
     """
     canonical = canonicalize_text(
@@ -187,7 +188,8 @@ def delete_text_version(
 ) -> None:
     """Delete a text version following the accepted deletion semantics.
 
-    - no spans: the version is deleted;
+    - no spans and no segmentation: the version is deleted;
+    - a persisted segmentation layer: blocked unless ``force=True``;
     - spans without alignment memberships: version and its spans are deleted
       (orphan cleanup);
     - spans with alignment memberships: blocked with ``TEXT_HAS_ANNOTATIONS``

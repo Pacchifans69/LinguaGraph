@@ -1,9 +1,9 @@
 # LinguaGraph — Testing Strategy (as built, active M2 branch)
 
-This document describes the testing architecture actually implemented at M0
-closure and the rules for what counts as evidence. It is descriptive, not a
-new authority: the authoritative testing requirements remain the accepted
-pre-implementation report and the M0 Definition of Done.
+This document describes the inherited M0/M1 testing architecture plus active
+M2 segmentation coverage and the rules for what counts as evidence. It is
+descriptive, not a new authority: the accepted pre-implementation report and
+frozen milestone contracts remain authoritative.
 
 ## 1. Test levels
 
@@ -114,13 +114,13 @@ exercises an astral-emoji boundary, Human-reviewed manual split/save,
 workspace persistence/reload, replacement, explicit confirmed deletion and
 the continued independence of the Alignment Tray.
 
-Both specs use an isolated disposable E2E database. The Vite instance started
+All three specs use an isolated disposable E2E database. The Vite instance started
 by Playwright proxies `/api` only to the isolated E2E backend and is not
 silently reused.
 
 ## 2. Canonical release-baseline workflow configuration
 
-`.github/workflows/ci.yml` is the canonical M0 release-baseline workflow
+`.github/workflows/ci.yml` is the canonical M2 release-baseline workflow
 configuration. Its semantic gates are:
 
 - Python 3.13;
