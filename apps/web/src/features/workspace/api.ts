@@ -50,6 +50,47 @@ export interface AlignmentMember {
   created_at: string;
 }
 
+export interface SegmentationLayer {
+  id: string;
+  text_version_id: string;
+  granularity: 'sentence';
+  requested_locale: string;
+  resolved_locale: string;
+  origin: 'manual' | 'intl_segmenter';
+  content_hash: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LinguisticSegment {
+  id: string;
+  segmentation_layer_id: string;
+  ordinal: number;
+  start_offset: number;
+  end_offset: number;
+  exact_text: string;
+  created_at: string;
+}
+
+export interface SegmentCoordinates {
+  start: number;
+  end: number;
+}
+
+export interface SentenceSegmentation {
+  layer: SegmentationLayer;
+  segments: LinguisticSegment[];
+}
+
+export interface SentenceSegmentationPutInput {
+  textVersionId: string;
+  content_hash: string;
+  requested_locale: string;
+  resolved_locale: string;
+  origin: 'manual' | 'intl_segmenter';
+  segments: SegmentCoordinates[];
+}
+
 /** The raw document-level snapshot returned by GET /workspace (flat arrays). */
 export interface WorkspaceSnapshot {
   document: ParallelDocument;
@@ -57,6 +98,8 @@ export interface WorkspaceSnapshot {
   spans: WorkspaceSpan[];
   alignment_groups: AlignmentGroup[];
   alignment_members: AlignmentMember[];
+  segmentation_layers?: SegmentationLayer[];
+  segments?: LinguisticSegment[];
 }
 
 export interface TextVersionCreateInput {
@@ -141,6 +184,37 @@ export function useDeleteTextVersion(documentId: string) {
       // preferences by the WorkspaceProvider when the snapshot refetches.
       queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
       queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
+    },
+  });
+}
+
+
+export function usePutSentenceSegmentation(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      textVersionId,
+      ...payload
+    }: SentenceSegmentationPutInput) =>
+      apiClient.put<SentenceSegmentation>(
+        `/api/v1/text-versions/${textVersionId}/segmentations/sentence`,
+        payload,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
+    },
+  });
+}
+
+export function useDeleteSentenceSegmentation(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (textVersionId: string) =>
+      apiClient.del(
+        `/api/v1/text-versions/${textVersionId}/segmentations/sentence`,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
     },
   });
 }

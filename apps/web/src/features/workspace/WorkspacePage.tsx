@@ -30,6 +30,7 @@ import { Button } from '../../shared/ui/Button';
 import { PageHeader } from '../../shared/ui/PageHeader';
 import { Toolbar } from '../../shared/ui/Toolbar';
 import { useWorkspaceKeyboard } from './useWorkspaceKeyboard';
+import { SegmentationPanel } from '../segmentation/SegmentationPanel';
 
 interface PendingForceDelete {
   versionId: string;
@@ -44,6 +45,7 @@ function WorkspaceBody({
   createMutation,
   spanRegistry,
   survivingGroupIds,
+  segmentation,
 }: {
   documentId: string;
   versionsById: Record<string, TextVersion>;
@@ -58,6 +60,10 @@ function WorkspaceBody({
   createMutation: ReturnType<typeof useCreateAlignment>;
   spanRegistry: RenderedSpanRegistry;
   survivingGroupIds: ReadonlySet<string>;
+  segmentation: {
+    layersByVersion: ReturnType<typeof normalizeWorkspace>['segmentationLayersByVersion'];
+    segmentsByLayer: ReturnType<typeof normalizeWorkspace>['segmentsByLayer'];
+  };
 }) {
   const {
     panelOrder,
@@ -247,6 +253,21 @@ function WorkspaceBody({
                   spanRegistry={spanRegistry}
                   survivingGroupIds={survivingGroupIds}
                 />
+                {(() => {
+                  const layer = (segmentation.layersByVersion[id] ?? []).find(
+                    (candidate) => candidate.granularity === 'sentence',
+                  );
+                  return (
+                    <SegmentationPanel
+                      documentId={documentId}
+                      version={version}
+                      savedLayer={layer}
+                      savedSegments={
+                        layer ? segmentation.segmentsByLayer[layer.id] ?? [] : []
+                      }
+                    />
+                  );
+                })()}
               </div>
             );
           })
@@ -302,8 +323,9 @@ function WorkspaceBody({
         >
           <h3 id="force-delete-heading">Delete text version permanently?</h3>
           <p>
-            “{pendingForceDelete.label}” is part of one or more alignments.
-            Deleting it will permanently remove its annotations, and any
+            “{pendingForceDelete.label}” has persisted annotations.
+            Deleting it will permanently remove its alignment and segmentation
+            annotations, and any
             alignment group that becomes invalid (for example, a group left
             with members from a single text version) will also be deleted.
             This cannot be undone.
@@ -453,6 +475,10 @@ function DocumentWorkspacePage({ documentId }: { documentId: string }) {
           createMutation={createMutation}
           spanRegistry={spanRegistry}
           survivingGroupIds={new Set(serverAlignmentGroupIds)}
+          segmentation={{
+            layersByVersion: normalized.segmentationLayersByVersion,
+            segmentsByLayer: normalized.segmentsByLayer,
+          }}
         />
       </section>
     </WorkspaceProvider>

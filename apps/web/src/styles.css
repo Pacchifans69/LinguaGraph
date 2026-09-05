@@ -1166,3 +1166,106 @@ select:focus-visible {
     width: 100%;
   }
 }
+
+
+/* M2 linguistic segmentation controls remain outside [data-text-content-root]. */
+.segmentation-panel {
+  padding: var(--space-3);
+  border-top: 1px solid var(--border);
+  background: #fbfcfe;
+}
+
+.segmentation-panel-header,
+.segmentation-actions,
+.segmentation-footer,
+.segmentation-row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.segmentation-panel-header {
+  justify-content: space-between;
+}
+
+.segmentation-panel-header h4 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 0.9rem;
+}
+
+.segmentation-status {
+  padding: 0.12rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.segmentation-provenance,
+.segmentation-empty,
+.segmentation-warning {
+  margin: var(--space-2) 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.segmentation-warning {
+  color: var(--warning);
+}
+
+.segmentation-list {
+  max-height: 15rem;
+  margin: var(--space-3) 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.segmentation-row {
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border);
+}
+
+.segmentation-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: var(--text);
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.segmentation-range {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.segmentation-row-actions {
+  margin-top: var(--space-2);
+}
+
+.segmentation-row-actions label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.segmentation-row-actions input {
+  width: 5.5rem;
+  min-height: 1.82rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.segmentation-footer {
+  justify-content: flex-end;
+  padding-top: var(--space-2);
+}
