@@ -201,10 +201,40 @@ This scenario proves the code-point offset contract (ADR-001) end to end.
    nothing; **Delete permanently** runs the destructive reset (this is the
    only path that removes annotated text).
 
-## 12. Verification commands (green check)
+## 12. M2 sentence-segmentation scenario
+
+This scenario validates the Human-reviewed sentence layer while preserving the
+M0/M1 alignment boundary.
+
+1. Add or open a text version containing `Hello. Again 🙂!`.
+2. Confirm **Sentence segmentation** is adjacent to the TextPanel and outside
+   the canonical text content root. The text root itself must contain no
+   button, input, select or textarea.
+3. Click **Start manual**. Expected: one unsaved segment `[0, 15)`.
+4. Enter split offset `7`, click **Split**, and verify `[0, 7)` is
+   `Hello. ` and `[7, 15)` is `Again 🙂!`. The emoji counts as one
+   code point.
+5. Click **Discard preview**. Expected: the last persisted state returns and
+   no draft has been saved.
+6. Repeat the split and click **Save segmentation**. Reload. Expected: both
+   saved segments, their offsets and exact text persist.
+7. Click **Merge previous**, save, reload and verify the layer was fully
+   replaced by one `[0, 15)` segment.
+8. Confirm segmentation never stages an Alignment Tray member and existing
+   selection/alignment behavior remains unchanged.
+9. Click **Delete segmentation**. Cancel once, then reopen and confirm.
+   Expected: the saved sentence layer disappears after reload while Alignment
+   Spans and groups remain intact.
+10. If **Generate suggestion** is available, inspect every proposed boundary
+    before saving and verify requested/resolved locale plus
+    `intl_segmenter` origin. If unavailable, verify manual construction
+    remains enabled.
+
+## 13. Verification commands (green check)
 
 From the repository root (Windows): `.\scripts\verify.ps1` runs the full
 local verification (backend pytest with real PostgreSQL, Alembic
-current/check, frontend lint/typecheck/test/build, Playwright golden path
-+ Unicode release blocker) and exits non-zero on the first failure.
+current/check, frontend lint/typecheck/test/build, Playwright golden path,
+Unicode release blocker and M2 segmentation path) and exits non-zero on the
+first failure.
 Manual equivalents are in the root `README.md`.

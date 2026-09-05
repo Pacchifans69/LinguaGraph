@@ -36,7 +36,7 @@ implementation code:
 The active architecture checkpoint is:
 
 **M2 — Linguistic Segmentation Foundation
-(CONTRACT FROZEN / IMPLEMENTATION BRANCH NOT YET CREATED)**
+(BOUNDED IMPLEMENTATION IN PROGRESS)**
 
 M2 Gate 1 passed against durable pre-freeze base
 `8ad87aaa789d86535adf3aed34035317c515b6e6` / tree `f9a75c9c7c02dd4ca7c3b0cbcac8ca1f10d9897b`. Human approved and froze
@@ -44,10 +44,12 @@ M2 Gate 1 passed against durable pre-freeze base
 containing that contract becomes the sole authorized implementation base after
 its provenance and scope are verified.
 
-M2 implementation remains bounded by that contract. Create
-`m2-linguistic-segmentation-foundation` only from the verified docs-only
-freeze commit. No M2 implementation, dependency installation, migration or
-code change may occur on `main`.
+The verified docs-only freeze / implementation base is
+`59e39ac436d8b1e3b4a29992b80fe72f3be2b13f` with tree
+`3564dbcdb5e897db9d07dfc67b9d705eab14e056`. Under explicit Human
+authorization, `m2-linguistic-segmentation-foundation` was created at that
+exact commit and bounded M2 implementation is active there. No M2
+implementation, migration or code change may occur on `main`.
 
 The last completed implementation checkpoint remains:
 
@@ -178,10 +180,9 @@ Word/token segmentation, direct segment-to-tray behavior, linguistic
 annotations, candidate/automatic alignment, NLP/LLM providers and layout or
 connector-routing redesign remain outside M2.
 
-The next safe repository action after this docs-only commit is independently
-verified is to create
-`m2-linguistic-segmentation-foundation` at that exact commit. Do not recreate
-or reuse `m1-workbench-ui-foundation` or `m0.7-hardening`.
+Continue only on `m2-linguistic-segmentation-foundation`. Candidate freeze,
+Gate 2, Human review, PR creation and merge remain separate later boundaries.
+Do not recreate or reuse `m1-workbench-ui-foundation` or `m0.7-hardening`.
 
 ## Scope discipline
 

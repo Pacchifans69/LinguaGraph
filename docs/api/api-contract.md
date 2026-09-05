@@ -1,10 +1,10 @@
-# LinguaGraph — API Contract (as built, M0.7)
+# LinguaGraph — API Contract (as built, active M2 branch)
 
 This document describes the API surface as actually implemented. It is a
 description, not a new authority: the authoritative contract is
 `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` section 9 and the
-accepted ADRs. It documents only existing endpoints — M0.7 adds no new
-endpoint.
+accepted ADRs and frozen milestone contracts. It documents the endpoints
+implemented on the active M2 branch.
 
 ## 1. Base and conventions
 
@@ -24,8 +24,9 @@ HTTP status mapping:
 | Code | HTTP status |
 |---|---|
 | `VALIDATION_ERROR` (incl. `INVALID_UTF8`, `INVALID_NULL_CHARACTER`, `INVALID_SURROGATE`, `SPAN_OUT_OF_RANGE`, `CROSS_DOCUMENT_ALIGNMENT`, `INSUFFICIENT_ALIGNMENT_MEMBERS`) | 422 |
+| `INVALID_SEGMENTATION_PARTITION`, `SEGMENT_OUT_OF_RANGE`, `INVALID_SEGMENTATION_LOCALE`, `INVALID_SEGMENTATION_ORIGIN`, `UNSUPPORTED_SEGMENTATION_GRANULARITY` | 422 |
 | `NOT_FOUND` | 404 |
-| `CONFLICT`, `TEXT_HAS_ANNOTATIONS`, `DUPLICATE_ALIGNMENT_MEMBER` | 409 |
+| `CONFLICT`, `TEXT_HAS_ANNOTATIONS`, `DUPLICATE_ALIGNMENT_MEMBER`, `STALE_SEGMENTATION_CONTENT` | 409 |
 | `TEXT_TOO_LARGE` | 413 |
 | `UNAUTHORIZED` / `FORBIDDEN` / `METHOD_NOT_ALLOWED` / `HTTP_ERROR` | matching status |
 | `INTERNAL_ERROR` | 500 (generic message; real error logged server-side only) |
@@ -103,10 +104,10 @@ classified; unexpected integrity errors propagate as `INTERNAL_ERROR`).
 ### 5.3 Delete / force delete (ADR-005)
 
 - Unannotated version → plain DELETE allowed.
-- Annotated version (spans with alignment memberships) → blocked with
-  `409 TEXT_HAS_ANNOTATIONS` unless `?force=true`.
+- Annotated version (alignment membership or a persisted segmentation layer)
+  → blocked with `409 TEXT_HAS_ANNOTATIONS` unless `?force=true`.
 - `?force=true` runs one atomic transaction: deletes the version's spans
-  and memberships, then **revalidates every affected AlignmentGroup
+  and memberships plus its segmentation layer/segments, then **revalidates every affected AlignmentGroup
   against ALL M0 invariants** and deletes any group that no longer
   satisfies them (e.g. fewer than 2 members or fewer than 2 distinct
   TextVersions). Shared spans with surviving memberships are preserved.
@@ -173,7 +174,72 @@ protocol.
 204; deletes members, then deletes Spans that no longer have any
 AlignmentMember (orphan cleanup) in the same transaction.
 
-## 7. Workspace read model
+## 7. Sentence segmentation (M2 / ADR-010)
+
+| Method | Path | Purpose |
+|---|---|---|
+| PUT | `/api/v1/text-versions/{text_version_id}/segmentations/sentence` | Atomically create or fully replace the one sentence layer |
+| DELETE | `/api/v1/text-versions/{text_version_id}/segmentations/sentence` | Explicitly delete the sentence layer (204) |
+
+PUT accepts a complete candidate partition:
+
+```json
+{
+  "content_hash": "<64-char canonical text SHA-256>",
+  "requested_locale": "de",
+  "resolved_locale": "de",
+  "origin": "manual",
+  "segments": [
+    { "start": 0, "end": 14 },
+    { "start": 14, "end": 29 }
+  ]
+}
+```
+
+Coordinates are Unicode code-point `[start,end)` offsets. For non-empty
+content, segments must be ordered, contiguous, non-overlapping, non-empty and
+tile the canonical content from 0 to its code-point length. Empty canonical
+content requires an empty segment list. The backend checks
+`content_hash == TextVersion.content_hash`, validates both locale fields as
+BCP-47 tags, derives every `exact_text`, assigns zero-based ordinals and
+replaces the old layer/segments in one transaction.
+
+There is at most one persisted layer per
+`(text_version_id, granularity)`. M2 supports only `sentence`; origin is
+`manual` or `intl_segmenter`. Suggested boundaries are never persisted
+until the Human saves them. DELETE affects no AlignmentGroup, AlignmentMember
+or Span.
+
+Response:
+
+```json
+{
+  "layer": {
+    "id": "…",
+    "text_version_id": "…",
+    "granularity": "sentence",
+    "requested_locale": "de",
+    "resolved_locale": "de",
+    "origin": "manual",
+    "content_hash": "…",
+    "created_at": "…",
+    "updated_at": "…"
+  },
+  "segments": [
+    {
+      "id": "…",
+      "segmentation_layer_id": "…",
+      "ordinal": 0,
+      "start_offset": 0,
+      "end_offset": 14,
+      "exact_text": "…",
+      "created_at": "…"
+    }
+  ]
+}
+```
+
+## 8. Workspace read model
 
 `GET /api/v1/documents/{document_id}/workspace` → 200 document-level
 snapshot (no pagination in M0):
@@ -184,7 +250,9 @@ snapshot (no pagination in M0):
   "text_versions": [ { "id", "document_id", "language_tag", "label", "content", "content_hash", "sort_order", "created_at", "updated_at" } ],
   "spans": [ { "id", "text_version_id", "start_offset", "end_offset", "exact_text", "prefix", "suffix", "created_at" } ],
   "alignment_groups": [ { "id", "document_id", "note", "created_at", "updated_at" } ],
-  "alignment_members": [ { "id", "alignment_group_id", "span_id", "created_at" } ]
+  "alignment_members": [ { "id", "alignment_group_id", "span_id", "created_at" } ],
+  "segmentation_layers": [ { "id", "text_version_id", "granularity", "requested_locale", "resolved_locale", "origin", "content_hash", "created_at", "updated_at" } ],
+  "segments": [ { "id", "segmentation_layer_id", "ordinal", "start_offset", "end_offset", "exact_text", "created_at" } ]
 }
 ```
 
@@ -192,9 +260,9 @@ Deterministic TextVersion ordering `(sort_order, created_at, id)`; the
 snapshot is fully materialized inside one owned read transaction (no lazy
 loading after service return). The frontend normalizes the flat arrays into
 lookup maps; the workspace snapshot is the authoritative persisted read
-model for all frontend alignment rendering.
+model for alignment rendering and saved segmentation state.
 
-## 8. Unicode code-point offset semantics (summary)
+## 9. Unicode code-point offset semantics (summary)
 
 - Persisted/API offsets are code-point offsets into the **canonical**
   `TextVersion.content` (NFC).
@@ -204,10 +272,11 @@ model for all frontend alignment rendering.
   utility layer (`apps/web/src/shared/text/offset.ts`); React components
   never reimplement conversion; surrogate-pair splits are rejected.
 
-## 9. Error examples
+## 10. Error examples
 
 ```json
 { "code": "SPAN_OUT_OF_RANGE", "message": "span [0,999) exceeds canonical content length 26", "details": { "text_version_id": "…", "start": 0, "end": 999 } }
+{ "code": "STALE_SEGMENTATION_CONTENT", "message": "TextVersion content changed before segmentation could be saved", "details": { "text_version_id": "…", "submitted_content_hash": "…", "current_content_hash": "…" } }
 { "code": "TEXT_HAS_ANNOTATIONS", "message": "text version is part of alignments; use ?force=true to destroy annotations", "details": {} }
 { "code": "VALIDATION_ERROR", "message": "request validation failed", "details": { "errors": [ { "location": ["body","label"], "type": "string_too_long", "message": "…", "input_type": "str" } ] } }
 ```

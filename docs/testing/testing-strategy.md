@@ -1,4 +1,4 @@
-# LinguaGraph — Testing Strategy (as built, M0.7 closeout)
+# LinguaGraph — Testing Strategy (as built, active M2 branch)
 
 This document describes the testing architecture actually implemented at M0
 closure and the rules for what counts as evidence. It is descriptive, not a
@@ -17,6 +17,7 @@ Covers pure functions and boundaries without requiring a database, including:
 - Unicode code-point offset utilities;
 - BCP-47 syntactic validation;
 - alignment invariant/schema boundaries;
+- sentence-segmentation partition and request-schema boundaries;
 - TextVersion PATCH boundaries;
 - configuration and dotenv behavior;
 - health endpoint;
@@ -43,6 +44,8 @@ to Alembic HEAD, and cleans it up. Tests cover:
 - transaction ownership;
 - AlignmentService and real-PostgreSQL concurrent Span get-or-create;
 - alignment HTTP mutations;
+- segmentation schema, service, HTTP replacement/delete, stale-content,
+  rollback, Unicode exact-text and workspace read-model behavior;
 - disposable-database lifecycle;
 - migration safety.
 
@@ -69,7 +72,7 @@ Rules:
 - Playwright's backend uses the same disposable lifecycle and fail-closed
   cleanup path.
 
-Current Alembic head: `0002`.
+Current Alembic head: `0003`.
 
 ### 1.4 Frontend unit/component tests
 
@@ -88,6 +91,8 @@ Coverage includes:
 - mutation freeze / pending destructive locks;
 - ConfirmDialog focus/keyboard lifecycle;
 - Playwright configuration isolation guards.
+- sentence suggestion UTF-16/code-point conversion, complete partitions,
+  manual split/merge and SegmentationPanel save/discard/delete behavior.
 
 ### 1.5 Playwright E2E
 
@@ -103,6 +108,11 @@ browser selections before/at/after an astral-plane emoji, canonical code-point
 offsets, Alignment creation through the user path, server-derived
 `exact_text`, PostgreSQL persistence, reload, rendered annotation state and
 counterpart highlighting.
+
+`segmentation.spec.ts` is the M2 sentence-segmentation release path. It
+exercises an astral-emoji boundary, Human-reviewed manual split/save,
+workspace persistence/reload, replacement, explicit confirmed deletion and
+the continued independence of the Alignment Tray.
 
 Both specs use an isolated disposable E2E database. The Vite instance started
 by Playwright proxies `/api` only to the isolated E2E backend and is not
@@ -120,13 +130,14 @@ configuration. Its semantic gates are:
 - PostgreSQL 18 service;
 - backend pytest with real PostgreSQL;
 - fail-closed skipped-test guard;
-- Alembic empty-database upgrade/current/check with `0002 (head)` assertion;
+- Alembic empty-database upgrade/current/check with `0003 (head)` assertion;
 - frontend lint;
 - frontend typecheck;
 - Vitest / React Testing Library;
 - production build;
 - Playwright golden path;
 - Playwright Unicode release blocker.
+- Playwright M2 segmentation release path.
 
 Workflow configuration by itself is not execution evidence.
 

@@ -12,7 +12,7 @@ schema structure.
 ## Current milestone
 
 **M2 — Linguistic Segmentation Foundation:
-CONTRACT FROZEN / IMPLEMENTATION BRANCH NOT YET CREATED**
+BOUNDED IMPLEMENTATION IN PROGRESS**
 
 M2 Gate 1 passed against durable pre-freeze base
 `8ad87aaa789d86535adf3aed34035317c515b6e6` / tree `f9a75c9c7c02dd4ca7c3b0cbcac8ca1f10d9897b`. Human approved and froze
@@ -25,9 +25,11 @@ panel outside the canonical text root. Word/token segmentation, automatic or
 candidate alignment, NLP/LLM providers and direct segment-to-tray behavior
 remain deferred.
 
-The implementation branch has not been created. After this docs-only freeze
-commit is independently verified, the next safe action is to create
-`m2-linguistic-segmentation-foundation` from that exact commit.
+The verified docs-only freeze / implementation base is
+`59e39ac436d8b1e3b4a29992b80fe72f3be2b13f` with tree
+`3564dbcdb5e897db9d07dfc67b9d705eab14e056`. The active bounded
+implementation branch is `m2-linguistic-segmentation-foundation`; `main`
+remains isolated.
 
 The last completed implementation milestone remains:
 
@@ -229,13 +231,14 @@ uv run alembic current
 uv run alembic check
 ```
 
-The M0 schema head is:
+The active M2 schema head is:
 
 ```text
-0002 (head)
+0003 (head)
 ```
 
-M1 adds no Alembic revision; Alembic HEAD remains `0002`.
+M2 adds `0003` for independent sentence-segmentation layers and segments;
+`0001` and `0002` remain unchanged.
 
 ## Verification
 
@@ -273,7 +276,7 @@ npm.cmd run lint
 npm.cmd run typecheck
 npm.cmd run test
 npm.cmd run build
-npx.cmd playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts
+npx.cmd playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmentation.spec.ts
 ```
 
 A full release-baseline proof requires real PostgreSQL integration tests. A
@@ -345,6 +348,12 @@ M1 adds bounded presentation primitives, application design tokens, coherent
 feedback/action states, and centralized workspace keyboard behavior while
 preserving those M0 semantics.
 
+The active M2 branch adds an independent persisted sentence-segmentation
+layer, server-validated complete partitions, stale-content protection,
+Human-reviewed manual/Intl.Segmenter drafts, and a Segmentation panel outside
+the canonical text root. Segment entities are not alignment Spans and do not
+enter the Alignment Tray in M2.
+
 For details and invariants, use the ADRs and the as-built architecture/API
 files rather than treating this README as a second specification.
 
@@ -369,14 +378,13 @@ These remain accepted at M1 durable closure:
 
 ## M2 development boundary
 
-M2 Gate 1 and Human Contract Review are complete. The contract is frozen; its
-docs-only freeze commit must be verified before the implementation branch is
-created.
+M2 Gate 1, Human Contract Review, contract freeze, implementation-base
+verification and exact-base branch creation are complete. Bounded
+implementation continues on `m2-linguistic-segmentation-foundation` and
+follows `docs/development/M2_CONTRACT.md`.
 
-After verification, create
-`m2-linguistic-segmentation-foundation` from the exact freeze commit.
-Implementation stays off `main` and follows
-`docs/development/M2_CONTRACT.md`.
+Candidate freeze, Gate 2, Human review, PR creation and merge have not been
+authorized by branch creation and remain later explicit boundaries.
 
 Do not recreate or reuse `m1-workbench-ui-foundation` or
 `m0.7-hardening`. Prior checkpoint exceptions and proof runs do not authorize

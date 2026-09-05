@@ -21,7 +21,7 @@ The implementation-branch cleanup is complete and independently verified.
 Active architecture checkpoint:
 
 **M2 — Linguistic Segmentation Foundation:
-CONTRACT FROZEN / IMPLEMENTATION BRANCH NOT YET CREATED**
+BOUNDED IMPLEMENTATION IN PROGRESS**
 
 M2 Gate 1 passed against durable pre-freeze base
 `8ad87aaa789d86535adf3aed34035317c515b6e6` / tree `f9a75c9c7c02dd4ca7c3b0cbcac8ca1f10d9897b`. Human approved and froze the bounded
@@ -38,9 +38,11 @@ Frozen M2 v1 outcome:
 - no word/token segmentation, direct segment-to-tray behavior, linguistic
   annotation, candidate/automatic alignment or NLP/LLM provider.
 
-The implementation branch is not yet created. The docs-only commit containing
-`docs/development/M2_CONTRACT.md` becomes the authorized implementation base
-only after exact provenance and docs-only scope verification.
+Exact freeze provenance and docs-only scope were verified. The authorized
+implementation base is `59e39ac436d8b1e3b4a29992b80fe72f3be2b13f` / tree
+`3564dbcdb5e897db9d07dfc67b9d705eab14e056`. The active implementation
+branch `m2-linguistic-segmentation-foundation` was created at that exact
+commit under explicit Human authorization.
 
 ### Checkpoint ledger
 
@@ -314,7 +316,7 @@ Recorded observations:
 
 ## 7. Current architecture and schema baseline
 
-Accepted ADRs: **ADR-001 through ADR-009**, frozen until a later governed
+Accepted ADRs: **ADR-001 through ADR-010**, frozen until a later governed
 decision changes them.
 
 Runtime baseline:
@@ -324,7 +326,7 @@ Runtime baseline:
 | Python | 3.13 |
 | Node.js | 24 |
 | PostgreSQL | 18 |
-| Alembic HEAD | `0002` |
+| Alembic HEAD | `0003` |
 
 Core language-neutral entities remain:
 
@@ -335,6 +337,8 @@ TextVersion
 Span
 AlignmentGroup
 AlignmentMember
+SegmentationLayer
+Segment
 ```
 
 Core invariants remain:
@@ -351,9 +355,13 @@ Core invariants remain:
 - frontend-only pending Alignment Tray;
 - canonical flat text DOM and RenderedSpanRegistry bridge.
 
-M1 adds a presentation/interaction substrate. It does not add segmentation,
-linguistic annotations, candidate alignments, machine assistance, advanced
-workspace geometry, or connector-routing redesign.
+M1 adds the presentation/interaction substrate. M2 adds an independent
+sentence-only segmentation domain with complete partitions, stale-content
+guards, atomic replacement, server-derived exact text and an adjacent
+Segmentation panel. Segments remain distinct from alignment Spans and do not
+enter the tray. Word/token segmentation, linguistic annotations, candidate
+alignment, NLP/LLM assistance, advanced workspace geometry and
+connector-routing redesign remain deferred.
 
 ---
 
@@ -362,25 +370,25 @@ workspace geometry, or connector-routing redesign.
 Local Windows run:
 
 ```powershell
-.scriptsdev.ps1
+.\scripts\dev.ps1
 ```
 
 Windows PowerShell 5.1 execution-policy fallback:
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File .scriptsdev.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\dev.ps1
 ```
 
 Local verification:
 
 ```powershell
-.scriptserify.ps1
+.\scripts\verify.ps1
 ```
 
 or:
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File .scriptserify.ps1
+powershell.exe -ExecutionPolicy Bypass -File .\scripts\verify.ps1
 ```
 
 Canonical GitHub Actions workflow:
@@ -468,7 +476,7 @@ Evidence preservation was rechecked after deletion:
 The deleted implementation branch is distinct from retained Gate 2 evidence.
 No proof or diagnostic ref was deleted.
 
-## 11. M2 activation rule
+## 11. M2 active implementation
 
 **M2 Gate 1: PASS**
 
@@ -485,16 +493,22 @@ Approved pre-freeze durable tree:
 The contract permits a sentence-only linguistic segmentation foundation and is
 authoritative at `docs/development/M2_CONTRACT.md`.
 
-The next safe action, after the docs-only freeze commit is independently
-verified, is:
+Verified freeze / implementation base:
 
-1. record the exact freeze commit SHA/tree;
-2. confirm that only `AGENTS.md`, `README.md`,
-   `docs/development/CURRENT_STATE.md` and
-   `docs/development/M2_CONTRACT.md` changed;
-3. create `m2-linguistic-segmentation-foundation` from that exact commit;
-4. keep all implementation off `main`;
-5. execute only the frozen M2 scope.
+`59e39ac436d8b1e3b4a29992b80fe72f3be2b13f`
+
+Verified freeze tree:
+
+`3564dbcdb5e897db9d07dfc67b9d705eab14e056`
+
+Active branch:
+
+`m2-linguistic-segmentation-foundation`
+
+The branch was created from that exact base after verifying the docs-only
+freeze boundary. Implementation remains bounded to the frozen M2 contract and
+off `main`. Candidate freeze, Gate 2, Human reviews, PR creation and merge
+remain future explicit boundaries.
 
 Do not reuse `m1-workbench-ui-foundation` or `m0.7-hardening`. Do not treat
 M0.7/M1 exception or proof authority as M2 authority. Retained proof and
