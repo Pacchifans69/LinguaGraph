@@ -19,6 +19,8 @@ pytestmark = pytest.mark.integration
 WORKSPACE_KEYS = {
     "document",
     "text_versions",
+    "segmentation_layers",
+    "segments",
     "spans",
     "alignment_groups",
     "alignment_members",
@@ -54,6 +56,8 @@ def test_empty_workspace_snapshot_shape(api_client) -> None:
     assert body["document"]["id"] == document_id
     assert body["document"]["title"] == "Chapter 1"
     assert body["text_versions"] == []
+    assert body["segmentation_layers"] == []
+    assert body["segments"] == []
     assert body["spans"] == []
     assert body["alignment_groups"] == []
     assert body["alignment_members"] == []

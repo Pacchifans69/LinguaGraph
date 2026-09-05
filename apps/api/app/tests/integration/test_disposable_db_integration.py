@@ -46,7 +46,7 @@ def test_create_and_drop_disposable_database() -> None:
                     conn.execute(
                         text("SELECT version_num FROM alembic_version")
                     ).scalar_one()
-                    == "0002"
+                    == "0003"
                 )
         finally:
             engine.dispose()
