@@ -52,6 +52,10 @@ export const apiClient = {
     return request<T>(path, jsonInit('PATCH', body));
   },
 
+  put<T>(path: string, body: unknown): Promise<T> {
+    return request<T>(path, jsonInit('PUT', body));
+  },
+
   del<T = void>(path: string): Promise<T> {
     return request<T>(path, { method: 'DELETE' });
   },

@@ -11,6 +11,8 @@
 import type {
   AlignmentGroup,
   AlignmentMember,
+  LinguisticSegment,
+  SegmentationLayer,
   TextVersion,
   WorkspaceSnapshot,
   WorkspaceSpan,
@@ -31,6 +33,11 @@ export interface NormalizedWorkspace {
   membersByGroup: Record<string, AlignmentMember[]>;
   /** M0.4: alignment memberships indexed by span id (for run membership sets). */
   membersBySpan: Record<string, AlignmentMember[]>;
+  segmentationLayers: SegmentationLayer[];
+  segmentationLayersById: Record<string, SegmentationLayer>;
+  segmentationLayersByVersion: Record<string, SegmentationLayer[]>;
+  segments: LinguisticSegment[];
+  segmentsByLayer: Record<string, LinguisticSegment[]>;
 }
 
 function indexById<T extends { id: string }>(items: T[]): Record<string, T> {
@@ -46,6 +53,9 @@ export function normalizeWorkspace(snapshot: WorkspaceSnapshot): NormalizedWorks
   const versionsById = indexById(textVersions);
   const spansById = indexById(snapshot.spans);
   const groupsById = indexById(snapshot.alignment_groups);
+  const segmentationLayers = snapshot.segmentation_layers ?? [];
+  const segments = snapshot.segments ?? [];
+  const segmentationLayersById = indexById(segmentationLayers);
 
   const spansByVersion: Record<string, WorkspaceSpan[]> = {};
   for (const span of snapshot.spans) {
@@ -57,6 +67,19 @@ export function normalizeWorkspace(snapshot: WorkspaceSnapshot): NormalizedWorks
   for (const member of snapshot.alignment_members) {
     (membersByGroup[member.alignment_group_id] ??= []).push(member);
     (membersBySpan[member.span_id] ??= []).push(member);
+  }
+
+  const segmentationLayersByVersion: Record<string, SegmentationLayer[]> = {};
+  for (const layer of segmentationLayers) {
+    (segmentationLayersByVersion[layer.text_version_id] ??= []).push(layer);
+  }
+
+  const segmentsByLayer: Record<string, LinguisticSegment[]> = {};
+  for (const segment of segments) {
+    (segmentsByLayer[segment.segmentation_layer_id] ??= []).push(segment);
+  }
+  for (const layerSegments of Object.values(segmentsByLayer)) {
+    layerSegments.sort((left, right) => left.ordinal - right.ordinal);
   }
 
   return {
@@ -71,5 +94,10 @@ export function normalizeWorkspace(snapshot: WorkspaceSnapshot): NormalizedWorks
     alignmentMembers: snapshot.alignment_members,
     membersByGroup,
     membersBySpan,
+    segmentationLayers,
+    segmentationLayersById,
+    segmentationLayersByVersion,
+    segments,
+    segmentsByLayer,
   };
 }
