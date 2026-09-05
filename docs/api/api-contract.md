@@ -277,6 +277,6 @@ model for alignment rendering and saved segmentation state.
 ```json
 { "code": "SPAN_OUT_OF_RANGE", "message": "span [0,999) exceeds canonical content length 26", "details": { "text_version_id": "…", "start": 0, "end": 999 } }
 { "code": "STALE_SEGMENTATION_CONTENT", "message": "TextVersion content changed before segmentation could be saved", "details": { "text_version_id": "…", "submitted_content_hash": "…", "current_content_hash": "…" } }
-{ "code": "TEXT_HAS_ANNOTATIONS", "message": "text version is part of alignments; use ?force=true to destroy annotations", "details": {} }
+{ "code": "TEXT_HAS_ANNOTATIONS", "message": "annotated text versions require force=true for destructive reset", "details": { "text_version_id": "…" } }
 { "code": "VALIDATION_ERROR", "message": "request validation failed", "details": { "errors": [ { "location": ["body","label"], "type": "string_too_long", "message": "…", "input_type": "str" } ] } }
 ```
