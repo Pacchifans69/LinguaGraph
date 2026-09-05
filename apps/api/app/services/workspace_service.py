@@ -32,6 +32,8 @@ from app.db.models import (
     AlignmentGroup,
     AlignmentMember,
     ParallelDocument,
+    Segment,
+    SegmentationLayer,
     Span,
     TextVersion,
 )
@@ -53,6 +55,8 @@ class WorkspaceSnapshot:
     spans: list[Span] = field(default_factory=list)
     alignment_groups: list[AlignmentGroup] = field(default_factory=list)
     alignment_members: list[AlignmentMember] = field(default_factory=list)
+    segmentation_layers: list[SegmentationLayer] = field(default_factory=list)
+    segments: list[Segment] = field(default_factory=list)
 
 
 def get_workspace_snapshot(db: Session, document_id: uuid.UUID) -> WorkspaceSnapshot:
@@ -114,10 +118,46 @@ def get_workspace_snapshot(db: Session, document_id: uuid.UUID) -> WorkspaceSnap
             ).all()
         )
 
+        segmentation_layers = list(
+            db.scalars(
+                select(SegmentationLayer)
+                .join(
+                    TextVersion,
+                    SegmentationLayer.text_version_id == TextVersion.id,
+                )
+                .where(TextVersion.document_id == document_id)
+                .order_by(
+                    SegmentationLayer.created_at,
+                    SegmentationLayer.id,
+                )
+            ).all()
+        )
+        segments = list(
+            db.scalars(
+                select(Segment)
+                .join(
+                    SegmentationLayer,
+                    Segment.segmentation_layer_id == SegmentationLayer.id,
+                )
+                .join(
+                    TextVersion,
+                    SegmentationLayer.text_version_id == TextVersion.id,
+                )
+                .where(TextVersion.document_id == document_id)
+                .order_by(
+                    Segment.segmentation_layer_id,
+                    Segment.ordinal,
+                    Segment.id,
+                )
+            ).all()
+        )
+
         return WorkspaceSnapshot(
             document=document,
             text_versions=text_versions,
             spans=spans,
             alignment_groups=alignment_groups,
             alignment_members=alignment_members,
+            segmentation_layers=segmentation_layers,
+            segments=segments,
         )

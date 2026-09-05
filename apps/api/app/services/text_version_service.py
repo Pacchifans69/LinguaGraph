@@ -20,6 +20,7 @@ from app.db.models import (
     AlignmentGroup,
     AlignmentMember,
     ParallelDocument,
+    SegmentationLayer,
     Span,
     TextVersion,
 )
@@ -162,7 +163,15 @@ def replace_content(
             ).first()
             is not None
         )
-        if has_spans:
+        has_segmentation = (
+            db.scalars(
+                select(SegmentationLayer.id)
+                .where(SegmentationLayer.text_version_id == version.id)
+                .limit(1)
+            ).first()
+            is not None
+        )
+        if has_spans or has_segmentation:
             raise DomainError(
                 "TEXT_HAS_ANNOTATIONS",
                 "annotated text versions are immutable; delete with force=true to reset",
@@ -197,6 +206,22 @@ def delete_text_version(
             raise DomainError(
                 "NOT_FOUND",
                 "text version not found",
+                {"text_version_id": str(text_version_id)},
+            )
+
+        has_segmentation = (
+            db.scalars(
+                select(SegmentationLayer.id)
+                .where(SegmentationLayer.text_version_id == version.id)
+                .limit(1)
+            ).first()
+            is not None
+        )
+        if has_segmentation and not force:
+            raise DomainError(
+                "TEXT_HAS_ANNOTATIONS",
+                "text version has linguistic segmentation; pass force=true to "
+                "destroy the version and its segmentation",
                 {"text_version_id": str(text_version_id)},
             )
 
