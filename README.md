@@ -380,7 +380,7 @@ No later checkpoint implementation is authorized by this closure. Begin any
 next milestone with repository-reality reconstruction, a bounded contract,
 Human freeze, and explicit implementation authorization.
 
-The remote `m2-linguistic-segmentation-foundation` branch remains at the exact
-reviewed candidate pending separately authorized exact-SHA-guarded cleanup.
-Retained M0.7/M1/M2 proof and diagnostic evidence must remain untouched while
-`G2-X01` is open.
+The historical `m2-linguistic-segmentation-foundation` branch was deleted
+after an exact-SHA guard verified the reviewed candidate and durable closure
+`main`. GitHub independently returns 404 for the branch. Retained M0.7/M1/M2
+proof and diagnostic evidence remains preserved while `G2-X01` is open.

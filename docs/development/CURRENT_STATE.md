@@ -29,8 +29,9 @@ Durable implementation tree:
 
 `cbdd9e77407a6bd853a4856ca7a927da679d3ed3`
 
-The reviewed candidate has the same exact tree. The implementation branch
-remains available pending separate exact-SHA-guarded cleanup authorization.
+The reviewed candidate has the same exact tree. The historical implementation
+branch was deleted after durable closure under an exact-SHA guard; GitHub
+independently returns 404 for the branch.
 
 Frozen M2 outcome:
 
@@ -664,15 +665,26 @@ Durable truths:
 - `HRA-F09`:
   retained visual debt.
 
-Implementation-branch cleanup is **PENDING**. The remote branch remains at
-exact candidate `7cf756694e429abc50bf604ab2757fb3e44959c6`. Its deletion
-requires separate explicit Human authorization and an exact-SHA guard after
-this closure commit is independently verified.
+Implementation-branch cleanup is **PASS**.
+
+Cleanup evidence:
+
+- the Human-run guard fetched `origin/main` and the implementation branch;
+- `origin/main` equaled the exact durable closure commit
+  `557a31825accf2d7c789df4ca211d7cb1bfe723b`;
+- the remote branch equaled exact reviewed candidate
+  `7cf756694e429abc50bf604ab2757fb3e44959c6` before deletion;
+- the remote branch was deleted and remote-tracking refs were pruned;
+- the Human-reported terminal guard ended with
+  `PASS: exact-guarded M2 implementation branch cleanup complete.`;
+- GitHub independently returns HTTP 404 `Branch not found` and an empty branch
+  search result for `m2-linguistic-segmentation-foundation`;
+- PR #11 and the candidate commit remain available as historical provenance.
 
 Proof/diagnostic cleanup is **DEFERRED** while `G2-X01` remains open. The M2
 proof repository/commit, CircleCI pipeline/artifacts, M0.7/M1 proof
 repositories, GitHub Actions diagnostics, runner probe, and retained support
-evidence remain protected and were not modified by this closure.
+evidence remain protected and were not modified by branch cleanup.
 
 ### 11.8 Next authority boundary
 
@@ -680,6 +692,6 @@ No M3 or later implementation is authorized. A later milestone must begin with
 fresh repository-reality reconstruction, Gate 1, a bounded contract, Human
 freeze, and explicit implementation authorization.
 
-The only immediate cleanup action eligible for separate review is exact-SHA
-guarded deletion of `m2-linguistic-segmentation-foundation` while preserving
-all proof and diagnostic evidence.
+M2 has no remaining implementation-branch cleanup action. Proof and
+diagnostic evidence remains retained while `G2-X01` is open. No M3 or later
+repository mutation is authorized by this record.

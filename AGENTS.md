@@ -77,8 +77,7 @@ tree-identity verification.
 - PR #11: MERGED by rebase;
 - Gate 3 post-merge integrity: PASS;
 - durable-state closure: PASS;
-- implementation-branch cleanup: PENDING separate exact-SHA-guarded Human
-  authorization.
+- implementation-branch cleanup: PASS under an exact-SHA guard.
 
 The M2 exception waived only successful proof specifically on a GitHub-hosted
 runner. It did not waive semantic gates, runtime baselines, hosted Linux,
@@ -161,11 +160,13 @@ No M3 or later implementation is authorized by M2 closure. Any next
 architecture checkpoint requires repository-reality reconstruction, a bounded
 contract, Human freeze, and explicit implementation authorization.
 
-The merged implementation branch still exists at exact candidate
-`7cf756694e429abc50bf604ab2757fb3e44959c6`. Deletion requires a separate
-exact-SHA guard and explicit Human authorization. Do not delete or rewrite M2,
-M1, or M0.7 proof repositories, diagnostic refs, workflow history, or retained
-artifacts while `G2-X01` remains open.
+The historical M2 implementation branch was deleted only after the Human-run
+guard verified `origin/main@557a31825accf2d7c789df4ca211d7cb1bfe723b`
+and the branch at exact candidate
+`7cf756694e429abc50bf604ab2757fb3e44959c6`. GitHub independently returns
+HTTP 404 for that branch. Do not delete or rewrite M2, M1, or M0.7 proof
+repositories, diagnostic refs, workflow history, or retained artifacts while
+`G2-X01` remains open.
 
 ## Scope discipline
 
