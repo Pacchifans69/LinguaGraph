@@ -342,7 +342,6 @@ def test_replacement_rolls_back_completely_on_failure(
 def _wait_for_postgresql_lock(
     db_engine,
     *,
-    backend_pid: int,
     worker: threading.Thread,
 ) -> None:
     """Wait until the worker is blocked on the TextVersion coordination lock."""
@@ -350,14 +349,19 @@ def _wait_for_postgresql_lock(
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline:
         with db_engine.connect() as conn:
-            wait_event_type = conn.execute(
+            is_waiting = conn.execute(
                 text(
-                    "SELECT wait_event_type FROM pg_stat_activity "
-                    "WHERE pid = :backend_pid"
-                ),
-                {"backend_pid": backend_pid},
-            ).scalar_one_or_none()
-        if wait_event_type == "Lock":
+                    "SELECT EXISTS ("
+                    "SELECT 1 FROM pg_stat_activity "
+                    "WHERE datname = current_database() "
+                    "AND pid <> pg_backend_pid() "
+                    "AND wait_event_type = 'Lock' "
+                    "AND query ILIKE '%text_versions%' "
+                    "AND query ILIKE '%FOR UPDATE%'"
+                    ")"
+                )
+            ).scalar_one()
+        if is_waiting:
             return
         if not worker.is_alive():
             break
@@ -379,17 +383,12 @@ def _run_while_segmentation_is_uncommitted(
         expire_on_commit=False,
     )
     ready = threading.Event()
-    backend_pid: list[int] = []
     results: list[object] = []
     errors: list[Exception] = []
 
     def worker_target() -> None:
         try:
             with factory() as worker_session:
-                pid = worker_session.scalar(text("SELECT pg_backend_pid()"))
-                worker_session.commit()
-                assert pid is not None
-                backend_pid.append(pid)
                 ready.set()
                 results.append(operation(worker_session))
         except Exception as exc:  # pragma: no cover - asserted by caller
@@ -430,7 +429,6 @@ def _run_while_segmentation_is_uncommitted(
                 assert ready.wait(timeout=5)
                 _wait_for_postgresql_lock(
                     db_engine,
-                    backend_pid=backend_pid[0],
                     worker=worker,
                 )
         worker.join(timeout=5)
