@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+import threading
+import time
 import uuid
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
+from sqlalchemy.orm import sessionmaker
 
 from app.api.errors import DomainError
-from app.db.models import Segment, SegmentationLayer
+from app.db.models import Segment, SegmentationLayer, TextVersion
 from app.db.session import read_transaction
-from app.services import segmentation_service
+from app.services import segmentation_service, text_version_service
 from app.services.segmentation_service import SegmentRange
 from app.tests.integration.test_persistence import (
     make_document,
@@ -333,6 +336,193 @@ def test_replacement_rolls_back_completely_on_failure(
     assert [(item.start_offset, item.end_offset) for item in segments] == [
         (0, 9)
     ]
+
+
+
+def _wait_for_postgresql_lock(
+    db_engine,
+    *,
+    backend_pid: int,
+    worker: threading.Thread,
+) -> None:
+    """Wait until the worker is blocked on the TextVersion coordination lock."""
+
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        with db_engine.connect() as conn:
+            wait_event_type = conn.execute(
+                text(
+                    "SELECT wait_event_type FROM pg_stat_activity "
+                    "WHERE pid = :backend_pid"
+                ),
+                {"backend_pid": backend_pid},
+            ).scalar_one_or_none()
+        if wait_event_type == "Lock":
+            return
+        if not worker.is_alive():
+            break
+        time.sleep(0.01)
+    raise AssertionError("worker did not wait on the TextVersion row lock")
+
+
+def _run_while_segmentation_is_uncommitted(
+    db_engine,
+    *,
+    text_version_id,
+    operation,
+) -> tuple[list[object], list[Exception]]:
+    """Run a TextVersion mutation while a locked segmentation insert is pending."""
+
+    factory = sessionmaker(
+        bind=db_engine,
+        autoflush=False,
+        expire_on_commit=False,
+    )
+    ready = threading.Event()
+    backend_pid: list[int] = []
+    results: list[object] = []
+    errors: list[Exception] = []
+
+    def worker_target() -> None:
+        try:
+            with factory() as worker_session:
+                pid = worker_session.scalar(text("SELECT pg_backend_pid()"))
+                worker_session.commit()
+                assert pid is not None
+                backend_pid.append(pid)
+                ready.set()
+                results.append(operation(worker_session))
+        except Exception as exc:  # pragma: no cover - asserted by caller
+            errors.append(exc)
+
+    worker = threading.Thread(target=worker_target)
+    try:
+        with factory() as annotating_session:
+            with annotating_session.begin():
+                version = annotating_session.scalar(
+                    select(TextVersion)
+                    .where(TextVersion.id == text_version_id)
+                    .with_for_update()
+                )
+                assert version is not None
+                layer = SegmentationLayer(
+                    text_version_id=version.id,
+                    granularity="sentence",
+                    requested_locale=version.language_tag,
+                    resolved_locale=version.language_tag,
+                    origin="manual",
+                    content_hash=version.content_hash,
+                )
+                annotating_session.add(layer)
+                annotating_session.flush()
+                annotating_session.add(
+                    Segment(
+                        segmentation_layer_id=layer.id,
+                        ordinal=0,
+                        start_offset=0,
+                        end_offset=len(version.content),
+                        exact_text=version.content,
+                    )
+                )
+                annotating_session.flush()
+
+                worker.start()
+                assert ready.wait(timeout=5)
+                _wait_for_postgresql_lock(
+                    db_engine,
+                    backend_pid=backend_pid[0],
+                    worker=worker,
+                )
+        worker.join(timeout=5)
+    finally:
+        if worker.is_alive():
+            worker.join(timeout=5)
+
+    assert not worker.is_alive()
+    return results, errors
+
+
+def test_content_replacement_waits_for_inflight_segmentation_then_rejects(
+    db_session,
+    db_engine,
+) -> None:
+    project = make_project(db_session)
+    document = make_document(db_session, project.id)
+    version = make_version(
+        db_session,
+        document.id,
+        language_tag="en",
+        label="English",
+        content="Original.",
+    )
+
+    results, errors = _run_while_segmentation_is_uncommitted(
+        db_engine,
+        text_version_id=version.id,
+        operation=lambda session: text_version_service.replace_content(
+            session,
+            version.id,
+            content="Changed.",
+        ),
+    )
+
+    assert results == []
+    assert len(errors) == 1
+    assert isinstance(errors[0], DomainError)
+    assert errors[0].code == "TEXT_HAS_ANNOTATIONS"
+    with db_engine.connect() as conn:
+        assert conn.execute(
+            text("SELECT content FROM text_versions WHERE id = :id"),
+            {"id": version.id},
+        ).scalar_one() == "Original."
+        assert conn.execute(
+            text(
+                "SELECT count(*) FROM segmentation_layers "
+                "WHERE text_version_id = :id"
+            ),
+            {"id": version.id},
+        ).scalar_one() == 1
+
+
+def test_default_delete_waits_for_inflight_segmentation_then_rejects(
+    db_session,
+    db_engine,
+) -> None:
+    project = make_project(db_session)
+    document = make_document(db_session, project.id)
+    version = make_version(
+        db_session,
+        document.id,
+        language_tag="en",
+        label="English",
+        content="Original.",
+    )
+
+    results, errors = _run_while_segmentation_is_uncommitted(
+        db_engine,
+        text_version_id=version.id,
+        operation=lambda session: text_version_service.delete_text_version(
+            session,
+            version.id,
+        ),
+    )
+
+    assert results == []
+    assert len(errors) == 1
+    assert isinstance(errors[0], DomainError)
+    assert errors[0].code == "TEXT_HAS_ANNOTATIONS"
+    with db_engine.connect() as conn:
+        assert conn.execute(
+            text("SELECT count(*) FROM text_versions WHERE id = :id"),
+            {"id": version.id},
+        ).scalar_one() == 1
+        assert conn.execute(
+            text(
+                "SELECT count(*) FROM segmentation_layers "
+                "WHERE text_version_id = :id"
+            ),
+            {"id": version.id},
+        ).scalar_one() == 1
 
 
 def test_service_rejects_unsupported_granularity(db_session) -> None:

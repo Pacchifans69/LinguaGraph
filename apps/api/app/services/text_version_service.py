@@ -151,7 +151,11 @@ def replace_content(
         content, max_codepoints=get_settings().max_text_version_codepoints
     )
     with write_transaction(db):
-        version = db.get(TextVersion, text_version_id)
+        version = db.scalar(
+            select(TextVersion)
+            .where(TextVersion.id == text_version_id)
+            .with_for_update()
+        )
         if version is None:
             raise DomainError(
                 "NOT_FOUND",
@@ -203,7 +207,11 @@ def delete_text_version(
     (report section 4).
     """
     with write_transaction(db):
-        version = db.get(TextVersion, text_version_id)
+        version = db.scalar(
+            select(TextVersion)
+            .where(TextVersion.id == text_version_id)
+            .with_for_update()
+        )
         if version is None:
             raise DomainError(
                 "NOT_FOUND",
