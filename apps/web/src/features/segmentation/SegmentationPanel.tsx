@@ -334,7 +334,7 @@ export function SegmentationPanel({
           type="button"
           size="sm"
           variant="primary"
-          disabled={isMutating || !dirty}
+          disabled={isMutating || !activeDirty}
           onClick={save}
         >
           {putMutation.isPending ? 'Saving…' : 'Save segmentation'}
