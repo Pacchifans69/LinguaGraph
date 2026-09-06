@@ -46,9 +46,10 @@ export function SegmentationPanel({
 }: SegmentationPanelProps) {
   const putMutation = usePutSentenceSegmentation(documentId);
   const deleteMutation = useDeleteSentenceSegmentation(documentId);
+  const authoritativeRangeKey = JSON.stringify(savedRanges(savedSegments));
   const authoritativeRanges = useMemo(
-    () => savedRanges(savedSegments),
-    [savedSegments],
+    () => JSON.parse(authoritativeRangeKey) as SegmentDraft[],
+    [authoritativeRangeKey],
   );
   const [draft, setDraft] = useState<SegmentDraft[]>(authoritativeRanges);
   const [origin, setOrigin] = useState<'manual' | 'intl_segmenter'>(
@@ -62,9 +63,12 @@ export function SegmentationPanel({
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const savedIdentity = savedLayer
-    ? `${savedLayer.id}:${savedLayer.updated_at}`
-    : 'none';
+  const authoritativeIdentity = [
+    version.content_hash,
+    savedLayer?.id ?? 'none',
+    savedLayer?.updated_at ?? 'none',
+    authoritativeRangeKey,
+  ].join(':');
   useEffect(() => {
     setDraft(authoritativeRanges);
     setOrigin(savedLayer?.origin ?? 'manual');
@@ -74,7 +78,7 @@ export function SegmentationPanel({
     setSuggestionError(null);
   }, [
     authoritativeRanges,
-    savedIdentity,
+    authoritativeIdentity,
     savedLayer?.origin,
     savedLayer?.resolved_locale,
     version.language_tag,

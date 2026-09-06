@@ -158,4 +158,48 @@ describe('SegmentationPanel', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]?.init?.method).toBe('DELETE');
   });
+
+  it('preserves a dirty preview across equivalent refetches and resets for new content', () => {
+    const view = renderWithProviders(
+      <SegmentationPanel
+        documentId="doc-1"
+        version={version}
+        savedSegments={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start manual' }));
+    fireEvent.change(screen.getByLabelText('Split at'), {
+      target: { value: '5' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Split' }));
+    expect(screen.getByText('Unsaved preview')).toBeInTheDocument();
+    expect(screen.getByText('2. [5, 9)')).toBeInTheDocument();
+
+    view.rerender(
+      <SegmentationPanel
+        documentId="doc-1"
+        version={{ ...version }}
+        savedSegments={[]}
+      />,
+    );
+    expect(screen.getByText('Unsaved preview')).toBeInTheDocument();
+    expect(screen.getByText('2. [5, 9)')).toBeInTheDocument();
+
+    view.rerender(
+      <SegmentationPanel
+        documentId="doc-1"
+        version={{
+          ...version,
+          content: 'Changed.',
+          content_hash: 'b'.repeat(64),
+        }}
+        savedSegments={[]}
+      />,
+    );
+    expect(screen.getByText('Not saved')).toBeInTheDocument();
+    expect(screen.getByText(/No preview/)).toBeInTheDocument();
+    expect(screen.queryByText('2. [5, 9)')).not.toBeInTheDocument();
+  });
+
 });
