@@ -51,7 +51,14 @@ export function SegmentationPanel({
     () => JSON.parse(authoritativeRangeKey) as SegmentDraft[],
     [authoritativeRangeKey],
   );
+  const authoritativeIdentity = [
+    version.content_hash,
+    savedLayer?.id ?? 'none',
+    savedLayer?.updated_at ?? 'none',
+    authoritativeRangeKey,
+  ].join(':');
   const [draft, setDraft] = useState<SegmentDraft[]>(authoritativeRanges);
+  const [draftIdentity, setDraftIdentity] = useState(authoritativeIdentity);
   const [origin, setOrigin] = useState<'manual' | 'intl_segmenter'>(
     savedLayer?.origin ?? 'manual',
   );
@@ -63,14 +70,9 @@ export function SegmentationPanel({
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const authoritativeIdentity = [
-    version.content_hash,
-    savedLayer?.id ?? 'none',
-    savedLayer?.updated_at ?? 'none',
-    authoritativeRangeKey,
-  ].join(':');
   useEffect(() => {
     setDraft(authoritativeRanges);
+    setDraftIdentity(authoritativeIdentity);
     setOrigin(savedLayer?.origin ?? 'manual');
     setResolvedLocale(savedLayer?.resolved_locale ?? version.language_tag);
     setDirty(false);
@@ -84,11 +86,21 @@ export function SegmentationPanel({
     version.language_tag,
   ]);
 
+  const draftIsCurrent = draftIdentity === authoritativeIdentity;
+  const activeDraft = draftIsCurrent ? draft : authoritativeRanges;
+  const activeOrigin = draftIsCurrent
+    ? origin
+    : (savedLayer?.origin ?? 'manual');
+  const activeResolvedLocale = draftIsCurrent
+    ? resolvedLocale
+    : (savedLayer?.resolved_locale ?? version.language_tag);
+  const activeDirty = draftIsCurrent && dirty;
   const isMutating = putMutation.isPending || deleteMutation.isPending;
   const suggestionSupported = hasIntlSentenceSegmenter();
 
   function beginManual() {
     setDraft(manualSentencePartition(version.content));
+    setDraftIdentity(authoritativeIdentity);
     setOrigin('manual');
     setResolvedLocale(version.language_tag);
     setDirty(true);
@@ -103,6 +115,7 @@ export function SegmentationPanel({
         version.language_tag,
       );
       setDraft(suggestion.ranges);
+      setDraftIdentity(authoritativeIdentity);
       setOrigin('intl_segmenter');
       setResolvedLocale(suggestion.resolvedLocale);
       setDirty(true);
@@ -126,7 +139,8 @@ export function SegmentationPanel({
   function split(index: number) {
     const value = Number(splitInputs[index]);
     try {
-      setDraft(splitSegment(version.content, draft, index, value));
+      setDraft(splitSegment(version.content, activeDraft, index, value));
+      setDraftIdentity(authoritativeIdentity);
       setDirty(true);
       setSplitInputs({});
       setSuggestionError(null);
@@ -139,7 +153,8 @@ export function SegmentationPanel({
 
   function merge(index: number) {
     try {
-      setDraft(mergeWithPrevious(version.content, draft, index));
+      setDraft(mergeWithPrevious(version.content, activeDraft, index));
+      setDraftIdentity(authoritativeIdentity);
       setDirty(true);
       setSplitInputs({});
       setSuggestionError(null);
@@ -152,6 +167,7 @@ export function SegmentationPanel({
 
   function discard() {
     setDraft(authoritativeRanges);
+    setDraftIdentity(authoritativeIdentity);
     setOrigin(savedLayer?.origin ?? 'manual');
     setResolvedLocale(savedLayer?.resolved_locale ?? version.language_tag);
     setDirty(false);
@@ -160,16 +176,16 @@ export function SegmentationPanel({
   }
 
   function save() {
-    if (!dirty || isMutating) {
+    if (!activeDirty || isMutating) {
       return;
     }
     putMutation.mutate({
       textVersionId: version.id,
       content_hash: version.content_hash,
       requested_locale: version.language_tag,
-      resolved_locale: resolvedLocale,
-      origin,
-      segments: draft,
+      resolved_locale: activeResolvedLocale,
+      origin: activeOrigin,
+      segments: activeDraft,
     });
   }
 
@@ -190,16 +206,16 @@ export function SegmentationPanel({
           <h4 id={`segmentation-${version.id}`}>{version.label}</h4>
         </div>
         <span className="segmentation-status">
-          {dirty ? 'Unsaved preview' : savedLayer ? 'Saved' : 'Not saved'}
+          {activeDirty ? 'Unsaved preview' : savedLayer ? 'Saved' : 'Not saved'}
         </span>
       </div>
 
       <p className="segmentation-provenance">
         Requested: <code>{version.language_tag}</code>
         {' · '}
-        Resolved: <code>{resolvedLocale}</code>
+        Resolved: <code>{activeResolvedLocale}</code>
         {' · '}
-        Origin: <code>{origin}</code>
+        Origin: <code>{activeOrigin}</code>
       </p>
 
       <div className="segmentation-actions">
@@ -225,7 +241,7 @@ export function SegmentationPanel({
           type="button"
           size="sm"
           variant="quiet"
-          disabled={isMutating || !dirty}
+          disabled={isMutating || !activeDirty}
           onClick={discard}
         >
           Discard preview
@@ -247,7 +263,7 @@ export function SegmentationPanel({
         <ErrorMessage error={deleteMutation.error} />
       ) : null}
 
-      {draft.length === 0 ? (
+      {activeDraft.length === 0 ? (
         <p className="segmentation-empty">
           {version.content.length === 0
             ? 'Canonical content is empty; the saved partition contains no segments.'
@@ -255,7 +271,7 @@ export function SegmentationPanel({
         </p>
       ) : (
         <ol className="segmentation-list">
-          {draft.map((range, index) => {
+          {activeDraft.map((range, index) => {
             const splitValue = Number(splitInputs[index]);
             const splitIsValid =
               Number.isInteger(splitValue) &&
