@@ -2,6 +2,10 @@
  * Document workspace: M0 semantics with M1 presentation/interaction hierarchy.
  * Canonical text rendering, selection, registry and connector routing remain
  * owned by their existing frozen modules.
+ *
+ * The complete workspace opts out of browser translation. Translation engines
+ * rewrite owned text nodes outside React, which invalidates canonical text
+ * offsets and can break reconciliation while dynamic alignment UI unmounts.
  */
 
 import { useMemo, useState } from 'react';
@@ -394,7 +398,11 @@ function DocumentWorkspacePage({ documentId }: { documentId: string }) {
 
   if (workspaceQuery.isPending) {
     return (
-      <section className="workspace-page page-stack" aria-labelledby="workspace-loading-heading">
+      <section
+        className="workspace-page page-stack"
+        aria-labelledby="workspace-loading-heading"
+        translate="no"
+      >
         <PageHeader
           eyebrow="Document workspace"
           title="Workspace"
@@ -408,7 +416,11 @@ function DocumentWorkspacePage({ documentId }: { documentId: string }) {
 
   if (workspaceQuery.isError) {
     return (
-      <section className="workspace-page page-stack" aria-labelledby="workspace-error-heading">
+      <section
+        className="workspace-page page-stack"
+        aria-labelledby="workspace-error-heading"
+        translate="no"
+      >
         <PageHeader
           eyebrow="Document workspace"
           title="Workspace unavailable"
@@ -448,7 +460,11 @@ function DocumentWorkspacePage({ documentId }: { documentId: string }) {
       serverAlignmentGroupIds={serverAlignmentGroupIds}
       isCreatingAlignment={createMutation.isPending}
     >
-      <section className="workspace-page page-stack" aria-labelledby="workspace-heading">
+      <section
+        className="workspace-page page-stack"
+        aria-labelledby="workspace-heading"
+        translate="no"
+      >
         <PageHeader
           eyebrow="Document workspace"
           title={`Workspace — ${normalized.document.title}`}

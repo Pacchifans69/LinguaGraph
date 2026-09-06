@@ -494,6 +494,25 @@ describe('TextPanel (M0.6 alignment visualization)', () => {
     expect(deRoot.textContent).toBe(DE_CONTENT);
   });
 
+  it('keeps span registrations stable across interaction-only rerenders', () => {
+    const { registry, enRuns, deRuns } = renderTwoPanels({
+      enGroups: ['group-alpha'],
+      deSpans: [{ id: 'span-de', start: 4, end: 21, groups: ['group-alpha'] }],
+    });
+
+    expect(registry.getElements('span-en')).toContain(enRuns[1]);
+    expect(registry.getElements('span-de')).toContain(deRuns[1]);
+
+    fireEvent.pointerEnter(enRuns[1]);
+    expect(registry.getElements('span-en')).toContain(enRuns[1]);
+    expect(registry.getElements('span-de')).toContain(deRuns[1]);
+
+    fireEvent.pointerLeave(enRuns[1]);
+    fireEvent.click(enRuns[1]);
+    expect(registry.getElements('span-en')).toContain(enRuns[1]);
+    expect(registry.getElements('span-de')).toContain(deRuns[1]);
+  });
+
   it('hovers the single group on pointer enter and propagates to ALL its runs', () => {
     const { enRuns, deRuns } = renderTwoPanels({
       enGroups: ['group-alpha'],

@@ -1707,6 +1707,10 @@ describe('WorkspacePage (M0.6 Round 2 Alignment Inspector)', () => {
       () => json(200, current),
     );
     const view = await renderAligned();
+    expect(view.container.querySelector('.workspace-page')).toHaveAttribute(
+      'translate',
+      'no',
+    );
     fireEvent.click(enAlignedRun(view.container));
     await screen.findByRole('region', { name: 'Alignment inspector' });
     expect(screen.getByTestId('connector-overlay')).toBeInTheDocument();
