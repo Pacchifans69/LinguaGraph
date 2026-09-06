@@ -42,7 +42,7 @@
  *   render, so its candidates always reflect current alignment membership.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { selectionToCanonical } from '../../shared/text/selection';
 import type { PendingSpan, RunDescriptor } from '../../shared/text/types';
 import { runClassNames } from '../../shared/rendering/runStates';
@@ -112,6 +112,31 @@ export function TextPanel({
   survivingGroupIds,
 }: TextPanelProps) {
   const contentRootRef = useRef<HTMLDivElement | null>(null);
+  const runElementsRef = useRef(new Map<string, HTMLElement>());
+
+  // Keep registry ownership separate from callback-ref identity. Interaction
+  // state (hover, active group, chooser, query refresh status) can rerender
+  // this panel without changing the rendered run DOM. Registering from an
+  // inline callback ref tied registry membership to those rerenders and could
+  // leave the stable registry temporarily empty in a real browser. Layout
+  // effects run after refs are attached and before the connector's scheduled
+  // measurement, so every committed run set has one deterministic registry
+  // registration lifecycle.
+  useLayoutEffect(() => {
+    const cleanups: Array<() => void> = [];
+    for (const run of runs) {
+      const element = runElementsRef.current.get(`${run.start}-${run.end}`);
+      if (element !== undefined) {
+        cleanups.push(spanRegistry.register(run.spanIds, element));
+      }
+    }
+    return () => {
+      for (const cleanup of cleanups) {
+        cleanup();
+      }
+    };
+  }, [runs, spanRegistry]);
+
   const {
     currentSelection,
     captureSelection,
@@ -252,12 +277,12 @@ export function TextPanel({
             <span
               key={`${run.start}-${run.end}`}
               ref={(element) => {
+                const locator = `${run.start}-${run.end}`;
                 if (element === null) {
-                  return;
+                  runElementsRef.current.delete(locator);
+                } else {
+                  runElementsRef.current.set(locator, element);
                 }
-                // React 19 ref-callback cleanup: unregisters this element
-                // from every span bucket on unmount.
-                return spanRegistry.register(run.spanIds, element);
               }}
               data-run
               data-start={run.start}
