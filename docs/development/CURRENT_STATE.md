@@ -13,21 +13,26 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 Current completed implementation milestone:
 
-**M1 — Workbench Interaction & UI Foundation:
+**M2 — Linguistic Segmentation Foundation:
 COMPLETE / MERGED / CLOSED**
 
-The implementation-branch cleanup is complete and independently verified.
+M2 Gate 1, frozen contract execution, Gate 2 under the approved checkpoint
+exception, bounded Static Human Diff Review, Human Runtime Acceptance, PR #11
+rebase merge, Gate 3 exact tree identity, and durable-state closure are
+complete.
 
-Active architecture checkpoint:
+Durable implementation `main` immediately after merge:
 
-**M2 — Linguistic Segmentation Foundation:
-BOUNDED IMPLEMENTATION IN PROGRESS**
+`8972609a86d15d411917aafe6cf02c4577b7176f`
 
-M2 Gate 1 passed against durable pre-freeze base
-`8ad87aaa789d86535adf3aed34035317c515b6e6` / tree `f9a75c9c7c02dd4ca7c3b0cbcac8ca1f10d9897b`. Human approved and froze the bounded
-M2 v1 contract on 2026-09-05.
+Durable implementation tree:
 
-Frozen M2 v1 outcome:
+`cbdd9e77407a6bd853a4856ca7a927da679d3ed3`
+
+The reviewed candidate has the same exact tree. The implementation branch
+remains available pending separate exact-SHA-guarded cleanup authorization.
+
+Frozen M2 outcome:
 
 - persistent sentence-only `SegmentationLayer` / `Segment` domain;
 - canonical Unicode code-point coordinates and backend-derived exact text;
@@ -36,13 +41,8 @@ Frozen M2 v1 outcome:
 - Alembic `0003`;
 - Segmentation controls outside the canonical content root;
 - no word/token segmentation, direct segment-to-tray behavior, linguistic
-  annotation, candidate/automatic alignment or NLP/LLM provider.
-
-Exact freeze provenance and docs-only scope were verified. The authorized
-implementation base is `59e39ac436d8b1e3b4a29992b80fe72f3be2b13f` / tree
-`3564dbcdb5e897db9d07dfc67b9d705eab14e056`. The active implementation
-branch `m2-linguistic-segmentation-foundation` was created at that exact
-commit under explicit Human authorization.
+  annotation, candidate/automatic alignment, NLP/LLM provider, or connector
+  routing redesign.
 
 ### Checkpoint ledger
 
@@ -56,9 +56,10 @@ commit under explicit Human authorization.
 | M0.6 Alignment Visualization | #8 | `f86d6429d41e76d4093e08898a9e7879e3774c49` | `55442d4ce7f71bd28c3368de641802f942e57055` |
 | M0.7 Hardening | #9 | `580e27cbea09e50f40782a92da426e7332e8a54d` | rebase → `697b019dc2820c67dacbc0b58a718e198ab655be` |
 | M1 Workbench Interaction & UI Foundation | #10 | `bdd32cbaed63966c346caaf44f1fd3a0197750a7` | rebase → `3a3361aebdb7c9c8d3a1b850c5b30dc9f5a5b6ea` |
+| M2 Linguistic Segmentation Foundation | #11 | `7cf756694e429abc50bf604ab2757fb3e44959c6` | rebase → `8972609a86d15d411917aafe6cf02c4577b7176f` |
 
 M0.5 and M0.6 merge commits were verified to contain the exact reviewed file
-trees. M0.7 and M1 used repository-permitted rebase merge; their Gate 3
+trees. M0.7, M1, and M2 used repository-permitted rebase merge; their Gate 3
 bridges are exact candidate-to-durable-main tree identities.
 
 ---
@@ -476,40 +477,209 @@ Evidence preservation was rechecked after deletion:
 The deleted implementation branch is distinct from retained Gate 2 evidence.
 No proof or diagnostic ref was deleted.
 
-## 11. M2 active implementation
+## 11. M2 durable closure
 
-**M2 Gate 1: PASS**
+### 11.1 Final status
 
-**M2 contract v1: FROZEN — HUMAN APPROVED 2026-09-05**
+**M2 — Linguistic Segmentation Foundation: COMPLETE / MERGED / CLOSED**
 
-Approved pre-freeze durable base:
+The frozen `docs/development/M2_CONTRACT.md` acceptance criteria are satisfied.
+No later checkpoint is implied or authorized by this closure.
 
-`8ad87aaa789d86535adf3aed34035317c515b6e6`
+### 11.2 Provenance
 
-Approved pre-freeze durable tree:
+- approved pre-freeze durable base:
+  `8ad87aaa789d86535adf3aed34035317c515b6e6`;
+- approved pre-freeze durable tree:
+  `f9a75c9c7c02dd4ca7c3b0cbcac8ca1f10d9897b`;
+- docs-only contract-freeze / implementation base:
+  `59e39ac436d8b1e3b4a29992b80fe72f3be2b13f`;
+- freeze tree:
+  `3564dbcdb5e897db9d07dfc67b9d705eab14e056`;
+- implementation branch:
+  `m2-linguistic-segmentation-foundation`;
+- final reviewed and independently proven candidate:
+  `7cf756694e429abc50bf604ab2757fb3e44959c6`;
+- candidate parent:
+  `f367f53f0c0de1dcef1f46f62cefbe4fc911d207`;
+- candidate tree:
+  `cbdd9e77407a6bd853a4856ca7a927da679d3ed3`;
+- frozen-base compare:
+  ahead 13 / behind 0, merge base exactly the implementation base;
+- implementation scope:
+  13 commits, 43 files, +3163 / -122.
 
-`f9a75c9c7c02dd4ca7c3b0cbcac8ca1f10d9897b`
+The candidate remained frozen through the final independent proof, bounded
+Static Human Diff Review, Human Runtime Acceptance, PR creation, and merge
+decision.
 
-The contract permits a sentence-only linguistic segmentation foundation and is
-authoritative at `docs/development/M2_CONTRACT.md`.
+### 11.3 Gate 2
 
-Verified freeze / implementation base:
+Formal result:
 
-`59e39ac436d8b1e3b4a29992b80fe72f3be2b13f`
+**PASS under the approved M2 External Infrastructure Exception**
 
-Verified freeze tree:
+The exception waived only successful proof specifically on a GitHub-hosted
+runner. It did not waive exact provenance, hosted Linux, Python 3.13, Node 24,
+PostgreSQL 18, dependency locks, migrations, semantic tests, Playwright,
+cleanup, or tree integrity.
 
-`3564dbcdb5e897db9d07dfc67b9d705eab14e056`
+Accepted independent hosted proof:
 
-Active branch:
+- repository:
+  `Pacchifans69/linguagraph-m2-proof`;
+- executable proof commit:
+  `bf1be70ad3115f4474fe432eef4db2c05394e128`;
+- proof tree:
+  `eec06a88e2682a436e24fbdd9bc0dcac58301e58`;
+- CircleCI pipeline #6:
+  SUCCESS;
+- exact application candidate/tree:
+  `7cf756694e429abc50bf604ab2757fb3e44959c6` /
+  `cbdd9e77407a6bd853a4856ca7a927da679d3ed3`;
+- retained artifacts:
+  40.
 
-`m2-linguistic-segmentation-foundation`
+The proof executed the frozen semantic matrix: Python 3.13, Node 24,
+PostgreSQL 18, `uv sync --frozen`, Alembic empty → `0003` / current / check,
+full pytest against real PostgreSQL with a zero-skip guard, `npm ci`, lint,
+typecheck, Vitest, production build, Playwright golden path, Unicode release
+blocker and M2 segmentation path, disposable-database cleanup, and final
+tracked-tree/proof integrity.
 
-The branch was created from that exact base after verifying the docs-only
-freeze boundary. Implementation remains bounded to the frozen M2 contract and
-off `main`. Candidate freeze, Gate 2, Human reviews, PR creation and merge
-remain future explicit boundaries.
+GitHub Actions provider evidence:
 
-Do not reuse `m1-workbench-ui-foundation` or `m0.7-hardening`. Do not treat
-M0.7/M1 exception or proof authority as M2 authority. Retained proof and
-diagnostic evidence remains protected.
+- exact-candidate push run #53 / `34019986551`, job
+  `101450659607`: failure before steps, steps `[]`;
+- PR run #54 / `34035107519`, job `101491623119`:
+  failure before steps, steps `[]`;
+- post-merge `main` run #55 / `34036214018`, job
+  `101494649799`: failure before steps, steps `[]`.
+
+No application, migration, test, build, or Playwright command ran in those
+jobs. GitHub Actions provider proof remains **BLOCKED / EXTERNAL** and
+`G2-X01` remains **OPEN / EXTERNAL**. No provider internal root cause is
+asserted.
+
+### 11.4 Human review
+
+Bounded Static Human Diff Review:
+
+**PASS — BLOCKER 0 / HIGH 0 / MEDIUM 0.**
+
+One nonblocking stale implementation-detail comment remains in
+`apps/web/src/shared/rendering/spanRegistry.ts`. The runtime invariant is
+correct; changing tracked source after the proven candidate would have created
+a new candidate, so the comment remains recorded for a later authorized scope.
+
+Human Runtime Acceptance:
+
+**PASS.**
+
+The Human completed M2 and inherited regression scenarios in:
+
+- Microsoft Edge at 1280 × 720 and 1440 × 900;
+- Google Chrome at 1280 × 720 and 1440 × 900.
+
+Acceptance included manual and locale-sensitive sentence segmentation,
+preview/discard, split/merge, save/reload/delete, Unicode/emoji boundaries,
+canonical selection, inherited Alignment behavior, connector stability, and
+clean alignment deletion without the browser-translation `removeChild` crash.
+
+`HRA-F09` remains recorded visual debt: the inherited center-to-hub connector
+geometry can overlap or cross text. Routing was not redesigned in M2.
+
+### 11.5 Merge and Gate 3
+
+PR #11 — `M2 — Linguistic Sentence Segmentation Foundation` — was created
+against exact base `59e39ac436d8b1e3b4a29992b80fe72f3be2b13f` and exact head
+`7cf756694e429abc50bf604ab2757fb3e44959c6` after explicit Human
+authorization.
+
+Repository settings allowed rebase merge only. After a separate explicit
+Human merge authorization, GitHub merged PR #11 by rebase on 2026-09-06.
+
+Durable implementation `main` tip immediately after merge:
+
+`8972609a86d15d411917aafe6cf02c4577b7176f`
+
+Rebase merge rewrote commit identities. Gate 3 therefore used exact tree
+identity:
+
+```text
+candidate 7cf7566... tree = cbdd9e77407a6bd853a4856ca7a927da679d3ed3
+main      8972609... tree = cbdd9e77407a6bd853a4856ca7a927da679d3ed3
+```
+
+**Gate 3 result: PASS / EXACT TREE IDENTITY.**
+
+The durable implementation `main` is 13 commits ahead of the implementation
+base and 0 behind, with merge base exactly
+`59e39ac436d8b1e3b4a29992b80fe72f3be2b13f`. PR #11 is closed with
+`merged=true`. No candidate content was lost or added.
+
+### 11.6 Delivered durable outcome
+
+M2 durably establishes:
+
+- independent persisted sentence segmentation, separate from Alignment spans;
+- one authoritative sentence layer per TextVersion/granularity;
+- complete canonical-text partitions and backend-derived exact text;
+- Unicode code-point persisted coordinates;
+- stale-content protection and atomic full replacement;
+- independent segmentation deletion and annotation-aware TextVersion deletion;
+- authoritative workspace read-model normalization;
+- manual construction plus ephemeral `Intl.Segmenter` suggestions;
+- split/adjacent-merge, preview/discard/save/reload/delete UI lifecycle;
+- Alembic `0003` while `0001` and `0002` remain unchanged;
+- preserved canonical DOM, native selection, Alignment tray, hover/active
+  visualization, and connector binding;
+- no package/runtime baseline drift;
+- no M2 explicit non-goal implemented.
+
+### 11.7 Cleanup and retention
+
+Durable truths:
+
+- M2: **COMPLETE / MERGED / CLOSED**;
+- PR #11: merged by rebase;
+- formal reviewed/proven candidate:
+  `7cf756694e429abc50bf604ab2757fb3e44959c6`;
+- durable implementation merge lineage:
+  `main@8972609a86d15d411917aafe6cf02c4577b7176f` immediately after merge;
+- candidate/main implementation trees:
+  exactly equal;
+- Gate 2:
+  PASS under the approved M2 External Infrastructure Exception;
+- CircleCI independent proof:
+  PASS;
+- GitHub Actions provider proof:
+  BLOCKED / EXTERNAL;
+- `G2-X01`:
+  OPEN / EXTERNAL;
+- Alembic head:
+  `0003`;
+- ADR-001 through ADR-010:
+  retained;
+- `HRA-F09`:
+  retained visual debt.
+
+Implementation-branch cleanup is **PENDING**. The remote branch remains at
+exact candidate `7cf756694e429abc50bf604ab2757fb3e44959c6`. Its deletion
+requires separate explicit Human authorization and an exact-SHA guard after
+this closure commit is independently verified.
+
+Proof/diagnostic cleanup is **DEFERRED** while `G2-X01` remains open. The M2
+proof repository/commit, CircleCI pipeline/artifacts, M0.7/M1 proof
+repositories, GitHub Actions diagnostics, runner probe, and retained support
+evidence remain protected and were not modified by this closure.
+
+### 11.8 Next authority boundary
+
+No M3 or later implementation is authorized. A later milestone must begin with
+fresh repository-reality reconstruction, Gate 1, a bounded contract, Human
+freeze, and explicit implementation authorization.
+
+The only immediate cleanup action eligible for separate review is exact-SHA
+guarded deletion of `m2-linguistic-segmentation-foundation` while preserving
+all proof and diagnostic evidence.
