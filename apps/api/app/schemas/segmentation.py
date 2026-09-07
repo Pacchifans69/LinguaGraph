@@ -30,6 +30,25 @@ class SentenceSegmentationPutRequest(BaseModel):
     segments: list[SegmentCoordinates]
 
 
+class TokenSegmentCoordinates(SegmentCoordinates):
+    """Submitted token coordinates and required Human-reviewed classification."""
+
+    is_word_like: bool
+
+
+class TokenSegmentationPutRequest(BaseModel):
+    """Full authoritative replacement of one sentence-bound token layer."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    content_hash: str = Field(min_length=64, max_length=64)
+    basis_sentence_layer_id: uuid.UUID
+    requested_locale: str = Field(min_length=1, max_length=100)
+    resolved_locale: str = Field(min_length=1, max_length=100)
+    origin: Literal["manual", "intl_segmenter"]
+    segments: list[TokenSegmentCoordinates]
+
+
 class SegmentationLayerResponse(BaseModel):
     """Flat persisted segmentation-layer data."""
 
@@ -38,6 +57,7 @@ class SegmentationLayerResponse(BaseModel):
     id: uuid.UUID
     text_version_id: uuid.UUID
     granularity: str
+    basis_layer_id: uuid.UUID | None
     requested_locale: str
     resolved_locale: str
     origin: str
@@ -57,6 +77,7 @@ class SegmentResponse(BaseModel):
     start_offset: int
     end_offset: int
     exact_text: str
+    is_word_like: bool | None
     created_at: datetime
 
 
@@ -67,3 +88,7 @@ class SentenceSegmentationResponse(BaseModel):
 
     layer: SegmentationLayerResponse
     segments: list[SegmentResponse]
+
+
+class TokenSegmentationResponse(SentenceSegmentationResponse):
+    """Authoritative token layer and its ordered complete partition."""

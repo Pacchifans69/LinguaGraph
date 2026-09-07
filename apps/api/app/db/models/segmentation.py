@@ -7,6 +7,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     CHAR,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -32,7 +33,7 @@ class SegmentationLayer(Base):
             name="uq_segmentation_layers_text_version_granularity",
         ),
         CheckConstraint(
-            "granularity IN ('sentence')",
+            "granularity IN ('sentence', 'token')",
             name="ck_segmentation_layers_granularity",
         ),
         CheckConstraint(
@@ -40,6 +41,7 @@ class SegmentationLayer(Base):
             name="ck_segmentation_layers_origin",
         ),
         Index("ix_segmentation_layers_text_version_id", "text_version_id"),
+        Index("ix_segmentation_layers_basis_layer_id", "basis_layer_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -52,6 +54,14 @@ class SegmentationLayer(Base):
         nullable=False,
     )
     granularity: Mapped[str] = mapped_column(String(32), nullable=False)
+    basis_layer_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey(
+            "segmentation_layers.id",
+            ondelete="CASCADE",
+            name="fk_segmentation_layers_basis_layer_id_segmentation_layers",
+        ),
+        nullable=True,
+    )
     requested_locale: Mapped[str] = mapped_column(String(100), nullable=False)
     resolved_locale: Mapped[str] = mapped_column(String(100), nullable=False)
     origin: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -130,6 +140,7 @@ class Segment(Base):
     start_offset: Mapped[int] = mapped_column(Integer, nullable=False)
     end_offset: Mapped[int] = mapped_column(Integer, nullable=False)
     exact_text: Mapped[str] = mapped_column(Text, nullable=False)
+    is_word_like: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
