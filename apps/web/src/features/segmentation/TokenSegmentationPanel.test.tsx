@@ -1,8 +1,9 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '../../test/harness';
 import { installFetchMock, json } from '../../test/mockFetch';
 import type { SegmentationLayer, TextVersion } from '../workspace/api';
+import { SegmentationPanel } from './SegmentationPanel';
 import { TokenSegmentationPanel } from './TokenSegmentationPanel';
 
 const version: TextVersion = {
@@ -20,6 +21,10 @@ const sentenceSegments = [
   { id: 's1', segmentation_layer_id: sentenceLayer.id, ordinal: 0, start_offset: 0, end_offset: 5, exact_text: 'One. ', is_word_like: null, created_at: '2026-01-01T00:00:00Z' },
   { id: 's2', segmentation_layer_id: sentenceLayer.id, ordinal: 1, start_offset: 5, end_offset: 9, exact_text: 'Two.', is_word_like: null, created_at: '2026-01-01T00:00:00Z' },
 ];
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('TokenSegmentationPanel', () => {
   it('explains the sentence prerequisite', () => {
@@ -48,4 +53,94 @@ describe('TokenSegmentationPanel', () => {
       ],
     });
   });
+
+  it('shows unsupported word suggestions while manual construction and discard remain available', () => {
+    vi.stubGlobal('Intl', { Segmenter: undefined });
+    renderWithProviders(<TokenSegmentationPanel documentId="doc-1" version={version} sentenceLayer={sentenceLayer} sentenceSegments={sentenceSegments} savedSegments={[]} />);
+
+    expect(screen.getByRole('button', { name: 'Generate word suggestion' })).toBeDisabled();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Intl.Segmenter word mode is unavailable. Manual construction remains available.',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start manual' }));
+    expect(screen.getByText('Unsaved preview')).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard preview' }));
+    expect(screen.getByText('Not saved')).toBeInTheDocument();
+    expect(screen.getByText('No token preview.')).toBeInTheDocument();
+  });
+
+  it('renders the stable stale-basis error returned by the API', async () => {
+    installFetchMock([
+      [
+        '/segmentations/token',
+        async () =>
+          json(409, {
+            code: 'STALE_SEGMENTATION_BASIS',
+            message: 'token segmentation basis is not the current sentence layer',
+            details: {},
+          }),
+      ],
+    ]);
+    renderWithProviders(<TokenSegmentationPanel documentId="doc-1" version={version} sentenceLayer={sentenceLayer} sentenceSegments={sentenceSegments} savedSegments={[]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start manual' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save tokens' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveAttribute('data-error-code', 'STALE_SEGMENTATION_BASIS');
+    expect(alert).toHaveTextContent('token segmentation basis is not the current sentence layer');
+  });
+
+  it('disables sentence and token controls while any segmentation mutation is pending', async () => {
+    let release!: () => void;
+    installFetchMock([
+      [
+        '/segmentations/token',
+        () =>
+          new Promise((resolve) => {
+            release = () =>
+              resolve({
+                status: 200,
+                body: { layer: {}, segments: [] },
+              });
+          }),
+      ],
+    ]);
+
+    const view = renderWithProviders(
+      <>
+        <SegmentationPanel documentId="doc-1" version={version} savedSegments={[]} />
+        <TokenSegmentationPanel documentId="doc-1" version={version} sentenceLayer={sentenceLayer} sentenceSegments={sentenceSegments} savedSegments={[]} />
+      </>,
+    );
+    const tokenPanel = view.container.querySelector('.token-segmentation-panel');
+    const sentencePanel = view.container.querySelector(
+      '.segmentation-panel:not(.token-segmentation-panel)',
+    );
+    expect(tokenPanel).not.toBeNull();
+    expect(sentencePanel).not.toBeNull();
+
+    fireEvent.click(within(tokenPanel as HTMLElement).getByRole('button', { name: 'Start manual' }));
+    fireEvent.click(within(tokenPanel as HTMLElement).getByRole('button', { name: 'Save tokens' }));
+
+    await waitFor(() => {
+      expect(
+        within(sentencePanel as HTMLElement).getByRole('button', { name: 'Start manual' }),
+      ).toBeDisabled();
+      expect(
+        within(tokenPanel as HTMLElement).getByRole('button', { name: 'Discard preview' }),
+      ).toBeDisabled();
+    });
+
+    release();
+    await waitFor(() =>
+      expect(
+        within(sentencePanel as HTMLElement).getByRole('button', { name: 'Start manual' }),
+      ).toBeEnabled(),
+    );
+  });
+
 });
