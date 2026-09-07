@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation, StrictBool
 
 
 class SegmentCoordinates(BaseModel):
@@ -33,7 +33,9 @@ class SentenceSegmentationPutRequest(BaseModel):
 class TokenSegmentCoordinates(SegmentCoordinates):
     """Submitted token coordinates and required Human-reviewed classification."""
 
-    is_word_like: StrictBool | None = None
+    # Preserve a Boolean OpenAPI contract while allowing the domain service to
+    # own the stable INVALID_TOKEN_CLASSIFICATION error for missing/wrong JSON.
+    is_word_like: SkipValidation[StrictBool | None] = None
 
 
 class TokenSegmentationPutRequest(BaseModel):

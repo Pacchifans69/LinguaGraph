@@ -127,6 +127,14 @@ def test_token_rejects_cross_sentence_stale_basis_and_missing_classification(api
     )
     assert missing.status_code == 422
     assert missing.json()["code"] == "INVALID_TOKEN_CLASSIFICATION"
+    wrong_type = _tokens(
+        api_client,
+        version,
+        sentence["layer"]["id"],
+        [{"start": 0, "end": 19, "is_word_like": 1}],
+    )
+    assert wrong_type.status_code == 422
+    assert wrong_type.json()["code"] == "INVALID_TOKEN_CLASSIFICATION"
 
 
 def test_sentence_mutation_blocks_until_token_is_explicitly_deleted(api_client) -> None:
