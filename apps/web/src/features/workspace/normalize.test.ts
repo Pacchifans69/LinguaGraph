@@ -109,6 +109,7 @@ describe('normalizeWorkspace', () => {
             id: 'layer-en',
             text_version_id: 'tv-en',
             granularity: 'sentence',
+            basis_layer_id: null,
             requested_locale: 'en',
             resolved_locale: 'en-US',
             origin: 'intl_segmenter',
@@ -125,6 +126,7 @@ describe('normalizeWorkspace', () => {
             start_offset: 3,
             end_offset: 5,
             exact_text: 'lo',
+            is_word_like: null,
             created_at: '2026-01-01T00:00:00Z',
           },
           {
@@ -134,6 +136,7 @@ describe('normalizeWorkspace', () => {
             start_offset: 0,
             end_offset: 3,
             exact_text: 'Hel',
+            is_word_like: null,
             created_at: '2026-01-01T00:00:00Z',
           },
         ],

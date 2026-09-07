@@ -35,6 +35,7 @@ import { PageHeader } from '../../shared/ui/PageHeader';
 import { Toolbar } from '../../shared/ui/Toolbar';
 import { useWorkspaceKeyboard } from './useWorkspaceKeyboard';
 import { SegmentationPanel } from '../segmentation/SegmentationPanel';
+import { TokenSegmentationPanel } from '../segmentation/TokenSegmentationPanel';
 
 interface PendingForceDelete {
   versionId: string;
@@ -258,18 +259,30 @@ function WorkspaceBody({
                   survivingGroupIds={survivingGroupIds}
                 />
                 {(() => {
-                  const layer = (segmentation.layersByVersion[id] ?? []).find(
+                  const layers = segmentation.layersByVersion[id] ?? [];
+                  const layer = layers.find(
                     (candidate) => candidate.granularity === 'sentence',
                   );
+                  const tokenLayer = layers.find(
+                    (candidate) => candidate.granularity === 'token',
+                  );
                   return (
-                    <SegmentationPanel
-                      documentId={documentId}
-                      version={version}
-                      savedLayer={layer}
-                      savedSegments={
-                        layer ? segmentation.segmentsByLayer[layer.id] ?? [] : []
-                      }
-                    />
+                    <>
+                      <SegmentationPanel
+                        documentId={documentId}
+                        version={version}
+                        savedLayer={layer}
+                        savedSegments={layer ? segmentation.segmentsByLayer[layer.id] ?? [] : []}
+                      />
+                      <TokenSegmentationPanel
+                        documentId={documentId}
+                        version={version}
+                        sentenceLayer={layer}
+                        sentenceSegments={layer ? segmentation.segmentsByLayer[layer.id] ?? [] : []}
+                        savedLayer={tokenLayer}
+                        savedSegments={tokenLayer ? segmentation.segmentsByLayer[tokenLayer.id] ?? [] : []}
+                      />
+                    </>
                   );
                 })()}
               </div>

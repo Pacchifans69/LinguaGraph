@@ -1269,3 +1269,16 @@ select:focus-visible {
   justify-content: flex-end;
   padding-top: var(--space-2);
 }
+
+.token-segmentation-panel {
+  border-top-style: dashed;
+  background: #f7faff;
+}
+
+.token-preview {
+  font-family: var(--font-mono);
+}
+
+.token-list {
+  max-height: 20rem;
+}
