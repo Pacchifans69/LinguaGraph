@@ -3,6 +3,13 @@
 from __future__ import annotations
 
 import pytest
+from sqlalchemy import select
+
+from app.db.models import Segment, SegmentationLayer
+from app.db.session import read_transaction
+from app.services import segmentation_service
+from app.services.segmentation_service import SegmentRange, TokenSegmentRange
+from app.tests.integration.test_persistence import make_document, make_project, make_version
 
 pytestmark = pytest.mark.integration
 
@@ -119,7 +126,7 @@ def test_token_rejects_cross_sentence_stale_basis_and_missing_classification(api
         [{"start": 0, "end": 19}],
     )
     assert missing.status_code == 422
-    assert missing.json()["code"] == "VALIDATION_ERROR"
+    assert missing.json()["code"] == "INVALID_TOKEN_CLASSIFICATION"
 
 
 def test_sentence_mutation_blocks_until_token_is_explicitly_deleted(api_client) -> None:
@@ -147,3 +154,74 @@ def test_sentence_mutation_blocks_until_token_is_explicitly_deleted(api_client) 
     assert api_client.delete(
         f"/api/v1/text-versions/{version['id']}/segmentations/sentence"
     ).status_code == 204
+
+
+def test_token_replacement_rolls_back_completely_on_child_insert_failure(db_session, monkeypatch) -> None:
+    project = make_project(db_session)
+    document = make_document(db_session, project.id)
+    version = make_version(db_session, document.id, language_tag="en", label="English", content="One.")
+    sentence = segmentation_service.replace_sentence_segmentation(
+        db_session,
+        version.id,
+        content_hash=version.content_hash,
+        requested_locale="en",
+        resolved_locale="en",
+        origin="manual",
+        ranges=[SegmentRange(start=0, end=4)],
+    )
+    first = segmentation_service.replace_token_segmentation(
+        db_session,
+        version.id,
+        content_hash=version.content_hash,
+        basis_sentence_layer_id=sentence.layer.id,
+        requested_locale="en",
+        resolved_locale="en",
+        origin="manual",
+        ranges=[TokenSegmentRange(start=0, end=4, is_word_like=True)],
+    )
+
+    def fail_add_all(_instances) -> None:
+        raise RuntimeError("simulated token child insert failure")
+
+    monkeypatch.setattr(db_session, "add_all", fail_add_all)
+    with pytest.raises(RuntimeError, match="simulated token child insert failure"):
+        segmentation_service.replace_token_segmentation(
+            db_session,
+            version.id,
+            content_hash=version.content_hash,
+            basis_sentence_layer_id=sentence.layer.id,
+            requested_locale="en",
+            resolved_locale="en",
+            origin="manual",
+            ranges=[
+                TokenSegmentRange(start=0, end=3, is_word_like=True),
+                TokenSegmentRange(start=3, end=4, is_word_like=False),
+            ],
+        )
+    assert db_session.in_transaction() is False
+    with read_transaction(db_session):
+        token_layers = list(db_session.scalars(select(SegmentationLayer).where(SegmentationLayer.granularity == "token")).all())
+        token_segments = list(db_session.scalars(select(Segment).where(Segment.segmentation_layer_id == first.layer.id)).all())
+    assert [layer.id for layer in token_layers] == [first.layer.id]
+    assert [(item.start_offset, item.end_offset, item.is_word_like) for item in token_segments] == [(0, 4, True)]
+
+
+def test_force_text_version_delete_cascades_sentence_and_token_layers(api_client) -> None:
+    document, version = _version(api_client)
+    sentence = _sentences(api_client, version, [{"start": 0, "end": 19}]).json()
+    assert _tokens(
+        api_client,
+        version,
+        sentence["layer"]["id"],
+        [{"start": 0, "end": 19, "is_word_like": True}],
+    ).status_code == 200
+    blocked = api_client.delete(f"/api/v1/text-versions/{version['id']}")
+    assert blocked.status_code == 409
+    assert api_client.delete(
+        f"/api/v1/text-versions/{version['id']}?force=true"
+    ).status_code == 204
+    workspace = api_client.get(
+        f"/api/v1/documents/{document['id']}/workspace"
+    ).json()
+    assert workspace["segmentation_layers"] == []
+    assert workspace["segments"] == []

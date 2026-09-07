@@ -39,6 +39,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # Token rows are the explicit M3 addition. Remove them before restoring
+    # the M2 sentence-only constraint; sentence rows remain byte-for-byte.
+    op.execute("DELETE FROM segmentation_layers WHERE granularity = 'token'")
     op.drop_constraint("ck_segmentation_layers_granularity", "segmentation_layers", type_="check")
     op.create_check_constraint(
         "ck_segmentation_layers_granularity",

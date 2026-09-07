@@ -18,6 +18,7 @@ Safety guarantees:
 """
 
 import os
+import uuid
 from pathlib import Path
 
 import pytest
@@ -142,6 +143,48 @@ def test_downgrade_to_base_then_upgrade_again() -> None:
         # Partial downgrade to the M0.1 revision removes only the M0.2 tables.
         _run_alembic(url, "downgrade", "0001")
         assert _public_tables(url) == ["alembic_version"]
+    finally:
+        drop_disposable_database(admin_engine, target_url)
+
+
+def test_0003_to_0004_cycle_preserves_existing_sentence_rows() -> None:
+    """M3 columns are additive and the M2 sentence authority survives a cycle."""
+    admin_engine, target_url = create_disposable_database("linguagraph_m3_cycle")
+    url = target_url.render_as_string(hide_password=False)
+    project_id, document_id, version_id, layer_id, segment_id, token_layer_id, token_segment_id = [uuid.uuid4() for _ in range(7)]
+    try:
+        _run_alembic(url, "upgrade", "0003")
+        engine = create_bounded_engine(url)
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("INSERT INTO projects (id, name, created_at, updated_at) VALUES (:id, 'M3', now(), now())"), {"id": project_id})
+                conn.execute(text("INSERT INTO parallel_documents (id, project_id, title, created_at, updated_at) VALUES (:id, :project, 'Tokens', now(), now())"), {"id": document_id, "project": project_id})
+                conn.execute(text("INSERT INTO text_versions (id, document_id, language_tag, label, content, content_hash, sort_order, created_at, updated_at) VALUES (:id, :document, 'en', 'English', 'Hi.', :hash, 0, now(), now())"), {"id": version_id, "document": document_id, "hash": "a" * 64})
+                conn.execute(text("INSERT INTO segmentation_layers (id, text_version_id, granularity, requested_locale, resolved_locale, origin, content_hash, created_at, updated_at) VALUES (:id, :version, 'sentence', 'en', 'en', 'manual', :hash, now(), now())"), {"id": layer_id, "version": version_id, "hash": "a" * 64})
+                conn.execute(text("INSERT INTO segments (id, segmentation_layer_id, ordinal, start_offset, end_offset, exact_text, created_at) VALUES (:id, :layer, 0, 0, 3, 'Hi.', now())"), {"id": segment_id, "layer": layer_id})
+        finally:
+            engine.dispose()
+
+        _run_alembic(url, "upgrade", "0004")
+        engine = create_bounded_engine(url)
+        try:
+            with engine.connect() as conn:
+                assert conn.execute(text("SELECT basis_layer_id FROM segmentation_layers WHERE id=:id"), {"id": layer_id}).scalar_one() is None
+                assert conn.execute(text("SELECT is_word_like FROM segments WHERE id=:id"), {"id": segment_id}).scalar_one() is None
+            with engine.begin() as conn:
+                conn.execute(text("INSERT INTO segmentation_layers (id, text_version_id, granularity, basis_layer_id, requested_locale, resolved_locale, origin, content_hash, created_at, updated_at) VALUES (:id, :version, 'token', :basis, 'en', 'en', 'manual', :hash, now(), now())"), {"id": token_layer_id, "version": version_id, "basis": layer_id, "hash": "a" * 64})
+                conn.execute(text("INSERT INTO segments (id, segmentation_layer_id, ordinal, start_offset, end_offset, exact_text, is_word_like, created_at) VALUES (:id, :layer, 0, 0, 3, 'Hi.', true, now())"), {"id": token_segment_id, "layer": token_layer_id})
+        finally:
+            engine.dispose()
+        _run_alembic(url, "downgrade", "0003")
+        _run_alembic(url, "upgrade", "0004")
+        engine = create_bounded_engine(url)
+        try:
+            with engine.connect() as conn:
+                assert conn.execute(text("SELECT exact_text FROM segments WHERE id=:id"), {"id": segment_id}).scalar_one() == "Hi."
+                assert conn.execute(text("SELECT count(*) FROM segmentation_layers WHERE granularity='token'")).scalar_one() == 0
+        finally:
+            engine.dispose()
     finally:
         drop_disposable_database(admin_engine, target_url)
 

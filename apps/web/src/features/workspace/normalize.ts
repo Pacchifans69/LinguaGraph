@@ -36,6 +36,10 @@ export interface NormalizedWorkspace {
   segmentationLayers: SegmentationLayer[];
   segmentationLayersById: Record<string, SegmentationLayer>;
   segmentationLayersByVersion: Record<string, SegmentationLayer[]>;
+  segmentationLayersByVersionAndGranularity: Record<
+    string,
+    Partial<Record<SegmentationLayer['granularity'], SegmentationLayer>>
+  >;
   segments: LinguisticSegment[];
   segmentsByLayer: Record<string, LinguisticSegment[]>;
 }
@@ -70,8 +74,12 @@ export function normalizeWorkspace(snapshot: WorkspaceSnapshot): NormalizedWorks
   }
 
   const segmentationLayersByVersion: Record<string, SegmentationLayer[]> = {};
+  const segmentationLayersByVersionAndGranularity: NormalizedWorkspace['segmentationLayersByVersionAndGranularity'] = {};
   for (const layer of segmentationLayers) {
     (segmentationLayersByVersion[layer.text_version_id] ??= []).push(layer);
+    (segmentationLayersByVersionAndGranularity[layer.text_version_id] ??= {})[
+      layer.granularity
+    ] = layer;
   }
 
   const segmentsByLayer: Record<string, LinguisticSegment[]> = {};
@@ -97,6 +105,7 @@ export function normalizeWorkspace(snapshot: WorkspaceSnapshot): NormalizedWorks
     segmentationLayers,
     segmentationLayersById,
     segmentationLayersByVersion,
+    segmentationLayersByVersionAndGranularity,
     segments,
     segmentsByLayer,
   };

@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 
 class SegmentCoordinates(BaseModel):
@@ -33,7 +33,7 @@ class SentenceSegmentationPutRequest(BaseModel):
 class TokenSegmentCoordinates(SegmentCoordinates):
     """Submitted token coordinates and required Human-reviewed classification."""
 
-    is_word_like: bool
+    is_word_like: StrictBool | None = None
 
 
 class TokenSegmentationPutRequest(BaseModel):
