@@ -155,6 +155,53 @@ describe('normalizeWorkspace', () => {
     ).toEqual([0, 1]);
   });
 
+  it('indexes coexisting sentence and token layers by granularity', () => {
+    const sentenceLayer = {
+      id: 'sentence-en',
+      text_version_id: 'tv-en',
+      granularity: 'sentence' as const,
+      basis_layer_id: null,
+      requested_locale: 'en',
+      resolved_locale: 'en',
+      origin: 'manual' as const,
+      content_hash: 'h1',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    };
+    const tokenLayer = {
+      id: 'token-en',
+      text_version_id: 'tv-en',
+      granularity: 'token' as const,
+      basis_layer_id: sentenceLayer.id,
+      requested_locale: 'en',
+      resolved_locale: 'en-US',
+      origin: 'intl_segmenter' as const,
+      content_hash: 'h1',
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    };
+    const normalized = normalizeWorkspace(
+      snapshot({
+        segmentation_layers: [sentenceLayer, tokenLayer],
+        segments: [],
+      }),
+    );
+
+    expect(
+      normalized.segmentationLayersByVersionAndGranularity['tv-en'].sentence,
+    ).toBe(normalized.segmentationLayersById[sentenceLayer.id]);
+    expect(
+      normalized.segmentationLayersByVersionAndGranularity['tv-en'].token,
+    ).toBe(normalized.segmentationLayersById[tokenLayer.id]);
+    expect(
+      normalized.segmentationLayersByVersionAndGranularity['tv-en'].token?.basis_layer_id,
+    ).toBe(sentenceLayer.id);
+    expect(normalized.segmentationLayersByVersion['tv-en']).toEqual([
+      sentenceLayer,
+      tokenLayer,
+    ]);
+  });
+
   it('normalizes an empty snapshot without throwing', () => {
     const empty = snapshot({
       text_versions: [],
