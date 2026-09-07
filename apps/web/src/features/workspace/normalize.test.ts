@@ -146,6 +146,9 @@ describe('normalizeWorkspace', () => {
     expect(normalized.segmentationLayersById['layer-en'].resolved_locale).toBe(
       'en-US',
     );
+    expect(
+      normalized.segmentationLayersByVersionAndGranularity['tv-en'].sentence?.id,
+    ).toBe('layer-en');
     expect(normalized.segmentationLayersByVersion['tv-en']).toHaveLength(1);
     expect(
       normalized.segmentsByLayer['layer-en'].map((segment) => segment.ordinal),

@@ -67,6 +67,7 @@ function WorkspaceBody({
   survivingGroupIds: ReadonlySet<string>;
   segmentation: {
     layersByVersion: ReturnType<typeof normalizeWorkspace>['segmentationLayersByVersion'];
+    layersByVersionAndGranularity: ReturnType<typeof normalizeWorkspace>['segmentationLayersByVersionAndGranularity'];
     segmentsByLayer: ReturnType<typeof normalizeWorkspace>['segmentsByLayer'];
   };
 }) {
@@ -259,13 +260,9 @@ function WorkspaceBody({
                   survivingGroupIds={survivingGroupIds}
                 />
                 {(() => {
-                  const layers = segmentation.layersByVersion[id] ?? [];
-                  const layer = layers.find(
-                    (candidate) => candidate.granularity === 'sentence',
-                  );
-                  const tokenLayer = layers.find(
-                    (candidate) => candidate.granularity === 'token',
-                  );
+                  const layers = segmentation.layersByVersionAndGranularity[id];
+                  const layer = layers?.sentence;
+                  const tokenLayer = layers?.token;
                   return (
                     <>
                       <SegmentationPanel
@@ -506,6 +503,8 @@ function DocumentWorkspacePage({ documentId }: { documentId: string }) {
           survivingGroupIds={new Set(serverAlignmentGroupIds)}
           segmentation={{
             layersByVersion: normalized.segmentationLayersByVersion,
+            layersByVersionAndGranularity:
+              normalized.segmentationLayersByVersionAndGranularity,
             segmentsByLayer: normalized.segmentsByLayer,
           }}
         />

@@ -43,7 +43,7 @@ class SegmentRange:
 class TokenSegmentRange(SegmentRange):
     """One submitted token interval and its Human-reviewed classification."""
 
-    is_word_like: bool
+    is_word_like: bool | None
 
 
 def _dependent_error(text_version_id: uuid.UUID, layer_id: uuid.UUID) -> DomainError:
@@ -405,7 +405,7 @@ def replace_token_segmentation(
             sentence_boundaries.add(sentence.end_offset)
         token_boundaries = {0, len(text_version.content)}
         for item in ranges:
-            if not isinstance(item.is_word_like, bool):
+            if type(item.is_word_like) is not bool:
                 raise DomainError(
                     "INVALID_TOKEN_CLASSIFICATION",
                     "every token requires a Boolean word-like classification",
