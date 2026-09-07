@@ -233,3 +233,145 @@ def test_force_text_version_delete_cascades_sentence_and_token_layers(api_client
     ).json()
     assert workspace["segmentation_layers"] == []
     assert workspace["segments"] == []
+
+def test_token_empty_content_uses_empty_sentence_basis_and_empty_partition(api_client) -> None:
+    document, version = _version(api_client, content="")
+    sentence_response = _sentences(api_client, version, [])
+    assert sentence_response.status_code == 200
+    sentence = sentence_response.json()
+
+    token_response = _tokens(
+        api_client,
+        version,
+        sentence["layer"]["id"],
+        [],
+        origin="manual",
+    )
+    assert token_response.status_code == 200
+    body = token_response.json()
+    assert body["layer"]["basis_layer_id"] == sentence["layer"]["id"]
+    assert body["segments"] == []
+
+    workspace = api_client.get(
+        f"/api/v1/documents/{document['id']}/workspace"
+    ).json()
+    assert {layer["granularity"] for layer in workspace["segmentation_layers"]} == {
+        "sentence",
+        "token",
+    }
+    assert workspace["segments"] == []
+
+
+def test_token_combining_marks_use_code_point_offsets_and_exact_text(api_client) -> None:
+    _document, version = _version(api_client, content="e\u0301 🙂")
+    sentence = _sentences(
+        api_client,
+        version,
+        [{"start": 0, "end": 4}],
+    ).json()
+
+    response = _tokens(
+        api_client,
+        version,
+        sentence["layer"]["id"],
+        [
+            {"start": 0, "end": 2, "is_word_like": True},
+            {"start": 2, "end": 3, "is_word_like": False},
+            {"start": 3, "end": 4, "is_word_like": False},
+        ],
+    )
+    assert response.status_code == 200
+    assert [
+        (item["start_offset"], item["end_offset"], item["exact_text"])
+        for item in response.json()["segments"]
+    ] == [(0, 2, "e\u0301"), (2, 3, " "), (3, 4, "🙂")]
+
+
+def test_token_rejects_stale_content_and_cross_text_version_or_token_basis(api_client) -> None:
+    _document, version = _version(api_client)
+    sentence = _sentences(
+        api_client,
+        version,
+        [{"start": 0, "end": 19}],
+    ).json()
+
+    stale_content = _tokens(
+        api_client,
+        version,
+        sentence["layer"]["id"],
+        [{"start": 0, "end": 19, "is_word_like": True}],
+        content_hash="0" * 64,
+    )
+    assert stale_content.status_code == 409
+    assert stale_content.json()["code"] == "STALE_SEGMENTATION_CONTENT"
+
+    valid_token = _tokens(
+        api_client,
+        version,
+        sentence["layer"]["id"],
+        [{"start": 0, "end": 19, "is_word_like": True}],
+    )
+    assert valid_token.status_code == 200
+    token_layer_id = valid_token.json()["layer"]["id"]
+
+    wrong_granularity = _tokens(
+        api_client,
+        version,
+        token_layer_id,
+        [{"start": 0, "end": 19, "is_word_like": True}],
+    )
+    assert wrong_granularity.status_code == 409
+    assert wrong_granularity.json()["code"] == "STALE_SEGMENTATION_BASIS"
+
+    _other_document, other_version = _version(api_client, content="Other.")
+    cross_version = _tokens(
+        api_client,
+        other_version,
+        sentence["layer"]["id"],
+        [{"start": 0, "end": 6, "is_word_like": True}],
+    )
+    assert cross_version.status_code == 409
+    assert cross_version.json()["code"] == "STALE_SEGMENTATION_BASIS"
+
+
+def test_workspace_exposes_ordered_token_read_model_with_classification(api_client) -> None:
+    document, version = _version(api_client, content="Hi !")
+    sentence = _sentences(
+        api_client,
+        version,
+        [{"start": 0, "end": 4}],
+    ).json()
+    token = _tokens(
+        api_client,
+        version,
+        sentence["layer"]["id"],
+        [
+            {"start": 0, "end": 2, "is_word_like": True},
+            {"start": 2, "end": 3, "is_word_like": False},
+            {"start": 3, "end": 4, "is_word_like": False},
+        ],
+    ).json()
+
+    workspace = api_client.get(
+        f"/api/v1/documents/{document['id']}/workspace"
+    ).json()
+    token_layer = next(
+        layer
+        for layer in workspace["segmentation_layers"]
+        if layer["granularity"] == "token"
+    )
+    assert token_layer["id"] == token["layer"]["id"]
+    assert token_layer["basis_layer_id"] == sentence["layer"]["id"]
+    token_segments = sorted(
+        (
+            segment
+            for segment in workspace["segments"]
+            if segment["segmentation_layer_id"] == token_layer["id"]
+        ),
+        key=lambda segment: segment["ordinal"],
+    )
+    assert [
+        (segment["ordinal"], segment["exact_text"], segment["is_word_like"])
+        for segment in token_segments
+    ] == [(0, "Hi", True), (1, " ", False), (2, "!", False)]
+
