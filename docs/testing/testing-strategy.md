@@ -72,7 +72,7 @@ Rules:
 - Playwright's backend uses the same disposable lifecycle and fail-closed
   cleanup path.
 
-Current Alembic head: `0003`.
+Current Alembic head: `0004`.
 
 ### 1.4 Frontend unit/component tests
 
@@ -93,6 +93,9 @@ Coverage includes:
 - Playwright configuration isolation guards.
 - sentence suggestion UTF-16/code-point conversion, complete partitions,
   manual split/merge and SegmentationPanel save/discard/delete behavior.
+- word suggestion sentence-local UTF-16/global code-point conversion,
+  word-like capture/override, cross-sentence merge prevention, and token
+  preview/save/reload/delete behavior.
 
 ### 1.5 Playwright E2E
 
@@ -114,13 +117,17 @@ exercises an astral-emoji boundary, Human-reviewed manual split/save,
 workspace persistence/reload, replacement, explicit confirmed deletion and
 the continued independence of the Alignment Tray.
 
-All three specs use an isolated disposable E2E database. The Vite instance started
+All release specs use an isolated disposable E2E database. The Vite instance started
 by Playwright proxies `/api` only to the isolated E2E backend and is not
 silently reused.
 
+`token-segmentation.spec.ts` is the M3 exact-basis token release path. It
+covers suggestion/manual review, Unicode tokens, split/merge/classification,
+save/reload, sentence dependency conflict, and explicit token deletion.
+
 ## 2. Canonical release-baseline workflow configuration
 
-`.github/workflows/ci.yml` is the canonical M2 release-baseline workflow
+`.github/workflows/ci.yml` is the canonical M3 release-baseline workflow
 configuration. Its semantic gates are:
 
 - Python 3.13;
@@ -130,7 +137,7 @@ configuration. Its semantic gates are:
 - PostgreSQL 18 service;
 - backend pytest with real PostgreSQL;
 - fail-closed skipped-test guard;
-- Alembic empty-database upgrade/current/check with `0003 (head)` assertion;
+- Alembic empty-database upgrade/current/check with `0004 (head)` assertion;
 - frontend lint;
 - frontend typecheck;
 - Vitest / React Testing Library;
@@ -138,6 +145,7 @@ configuration. Its semantic gates are:
 - Playwright golden path;
 - Playwright Unicode release blocker.
 - Playwright M2 segmentation release path.
+- Playwright M3 token segmentation release path.
 
 Workflow configuration by itself is not execution evidence.
 

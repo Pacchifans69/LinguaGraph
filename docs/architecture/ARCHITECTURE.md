@@ -1,6 +1,6 @@
-# LinguaGraph — Architecture (as built, active M2 branch)
+# LinguaGraph — Architecture (as built through active M3 implementation)
 
-This document describes the architecture implemented through the active M2
+This document describes the architecture implemented through the active M3
 branch. It is a description, not a new authority: the accepted ADRs
 (`docs/adr/ADR-001…ADR-010`) and the authoritative
 pre-implementation documents
@@ -129,7 +129,7 @@ HTTP route (parse/validate HTTP, map responses)
 Eight domain tables, all language-neutral: `projects`,
 `parallel_documents`, `text_versions`, `spans`, `alignment_groups`,
 `alignment_members`, `segmentation_layers`, `segments`. Schema is
-managed exclusively by Alembic (revision `0003` is the active M2 head;
+managed exclusively by Alembic (revision `0004` is the active M3 head;
 `0001` is the no-op foundation and `0002` remains unchanged). Constraints
 and indexes live in migrations; cross-table and complete-partition invariants
 are service responsibilities. See `docs/api/api-contract.md` for the offset
@@ -156,6 +156,11 @@ contract and `docs/development/CURRENT_STATE.md` for the schema summary.
   alignment Span, render run, tray item or candidate alignment. Replacement
   locks the TextVersion, checks its content hash, validates the full partition
   and commits atomically.
+- **Sentence-bound tokens (ADR-011)**: a token layer binds by
+  `basis_layer_id` to one exact sentence layer, refines every sentence
+  boundary, completely partitions canonical text, and carries required
+  Human-reviewed `is_word_like` classification. Ordinary sentence mutation is
+  blocked while the token dependent exists; token deletion remains explicit.
 - **Text immutability (ADR-005 / ADR-010)**: annotated `TextVersion.content` is
   immutable; deletion of an annotated version requires the explicit
   `DELETE ?force=true` destructive-reset flow, which revalidates affected

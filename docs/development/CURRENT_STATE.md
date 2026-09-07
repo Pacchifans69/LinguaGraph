@@ -723,17 +723,21 @@ proof repository/commit, CircleCI pipeline/artifacts, M0.7/M1 proof
 repositories, GitHub Actions diagnostics, runner probe, and retained support
 evidence remain protected and were not modified by branch cleanup.
 
-### 11.8 Next authority boundary
+### 11.8 M3 bounded implementation state
 
 M3 repository-reality reconstruction, Gate 1, bounded contract review, and
 Human freeze are complete against exact pre-freeze durable
 `main@f0d205fea996a5027d469255987c63b7ade17b51` and tree
 `ae01d94f3e9d3e75bcff39dc4ba1b9795da231a6`.
 
-The docs-only M3 contract-freeze commit does not authorize branch creation or
-implementation. After the freeze commit is independently verified, creation of
-`m3-word-token-segmentation-foundation` and bounded M3 implementation require
-a separate explicit Human authorization tied to that exact commit.
+The docs-only M3 contract-freeze commit is
+`fa861409947705f658209e53b8c507b535c5233a` with tree
+`2e2b732bcd9e90b7430ee4a74bb7a98149899b06`. The Human separately authorized
+`m3-word-token-segmentation-foundation` from that exact commit and bounded M3
+implementation. The active branch adds ADR-011, Alembic `0004`, exact
+sentence-basis token persistence/API behavior, Human-review UI, and required
+tests. Gate 2, Static Human Diff Review, HRA, PR, and merge remain pending and
+separately governed.
 
 M2 has no remaining implementation-branch cleanup action. Proof and diagnostic
 evidence remains retained while `G2-X01` is open.

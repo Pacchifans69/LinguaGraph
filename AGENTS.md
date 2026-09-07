@@ -40,14 +40,14 @@ implementation code:
 The active architecture checkpoint is:
 
 **M3 — Human-Reviewed Word/Token Segmentation Foundation
-(CONTRACT FROZEN / IMPLEMENTATION NOT AUTHORIZED)**
+(CONTRACT FROZEN / BOUNDED IMPLEMENTATION ACTIVE)**
 
 M3 contract v1 was Human-approved on 2026-09-07 against exact durable base
 `f0d205fea996a5027d469255987c63b7ade17b51` and tree
-`ae01d94f3e9d3e75bcff39dc4ba1b9795da231a6`. The docs-only freeze does not authorize an implementation
-branch or implementation work. The next authority boundary is independent
-verification of the freeze commit followed by separate explicit Human
-authorization to create `m3-word-token-segmentation-foundation`.
+`ae01d94f3e9d3e75bcff39dc4ba1b9795da231a6`. The verified docs-only freeze
+commit is `fa861409947705f658209e53b8c507b535c5233a`. The Human separately
+authorized creation of `m3-word-token-segmentation-foundation` from that exact
+commit and bounded M3 implementation. No PR or merge is authorized.
 
 The current completed architecture checkpoint remains:
 

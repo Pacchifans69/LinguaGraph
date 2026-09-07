@@ -205,7 +205,7 @@ BCP-47 tags, derives every `exact_text`, assigns zero-based ordinals and
 replaces the old layer/segments in one transaction.
 
 There is at most one persisted layer per
-`(text_version_id, granularity)`. M2 supports only `sentence`; origin is
+`(text_version_id, granularity)`. M3 supports `sentence | token`; origin is
 `manual` or `intl_segmenter`. Suggested boundaries are never persisted
 until the Human saves them. DELETE affects no AlignmentGroup, AlignmentMember
 or Span.
@@ -239,7 +239,25 @@ Response:
 }
 ```
 
-## 8. Workspace read model
+## 8. Token segmentation (M3 / ADR-011)
+
+| Method | Path | Purpose |
+|---|---|---|
+| PUT | `/api/v1/text-versions/{text_version_id}/segmentations/token` | Atomically create or replace the exact-sentence-bound token layer |
+| DELETE | `/api/v1/text-versions/{text_version_id}/segmentations/token` | Explicitly delete tokens while preserving sentences and Alignment |
+
+PUT includes `content_hash`, `basis_sentence_layer_id`, locale provenance,
+`manual | intl_segmenter` origin, and a complete list of
+`{start,end,is_word_like}` tokens. The basis must be the current sentence layer
+for the same TextVersion/content hash. Tokens use Unicode code-point offsets,
+tile canonical content exactly, remain inside one sentence, and preserve every
+sentence boundary. `exact_text` is backend-derived.
+
+Sentence PUT/DELETE returns `409 SEGMENTATION_HAS_DEPENDENTS` while a token
+layer depends on it. Stale basis returns `409 STALE_SEGMENTATION_BASIS`;
+cross-sentence tokens and non-Boolean classification use stable 422 errors.
+
+## 9. Workspace read model
 
 `GET /api/v1/documents/{document_id}/workspace` → 200 document-level
 snapshot (no pagination in M0):
@@ -251,8 +269,8 @@ snapshot (no pagination in M0):
   "spans": [ { "id", "text_version_id", "start_offset", "end_offset", "exact_text", "prefix", "suffix", "created_at" } ],
   "alignment_groups": [ { "id", "document_id", "note", "created_at", "updated_at" } ],
   "alignment_members": [ { "id", "alignment_group_id", "span_id", "created_at" } ],
-  "segmentation_layers": [ { "id", "text_version_id", "granularity", "requested_locale", "resolved_locale", "origin", "content_hash", "created_at", "updated_at" } ],
-  "segments": [ { "id", "segmentation_layer_id", "ordinal", "start_offset", "end_offset", "exact_text", "created_at" } ]
+  "segmentation_layers": [ { "id", "text_version_id", "granularity", "basis_layer_id", "requested_locale", "resolved_locale", "origin", "content_hash", "created_at", "updated_at" } ],
+  "segments": [ { "id", "segmentation_layer_id", "ordinal", "start_offset", "end_offset", "exact_text", "is_word_like", "created_at" } ]
 }
 ```
 
