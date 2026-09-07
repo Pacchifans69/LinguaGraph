@@ -98,6 +98,7 @@ describe('SegmentationPanel', () => {
       id: 'layer-1',
       text_version_id: version.id,
       granularity: 'sentence',
+      basis_layer_id: null,
       requested_locale: 'en',
       resolved_locale: 'en-US',
       origin: 'intl_segmenter',
@@ -113,6 +114,7 @@ describe('SegmentationPanel', () => {
         start_offset: 0,
         end_offset: 5,
         exact_text: 'One. ',
+        is_word_like: null,
         created_at: '2026-01-01T00:00:00Z',
       },
       {
@@ -122,6 +124,7 @@ describe('SegmentationPanel', () => {
         start_offset: 5,
         end_offset: 9,
         exact_text: 'Two.',
+        is_word_like: null,
         created_at: '2026-01-01T00:00:00Z',
       },
     ];

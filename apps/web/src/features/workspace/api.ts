@@ -53,7 +53,8 @@ export interface AlignmentMember {
 export interface SegmentationLayer {
   id: string;
   text_version_id: string;
-  granularity: 'sentence';
+  granularity: 'sentence' | 'token';
+  basis_layer_id: string | null;
   requested_locale: string;
   resolved_locale: string;
   origin: 'manual' | 'intl_segmenter';
@@ -69,6 +70,7 @@ export interface LinguisticSegment {
   start_offset: number;
   end_offset: number;
   exact_text: string;
+  is_word_like: boolean | null;
   created_at: string;
 }
 
@@ -89,6 +91,20 @@ export interface SentenceSegmentationPutInput {
   resolved_locale: string;
   origin: 'manual' | 'intl_segmenter';
   segments: SegmentCoordinates[];
+}
+
+export interface TokenSegmentCoordinates extends SegmentCoordinates {
+  is_word_like: boolean;
+}
+
+export interface TokenSegmentationPutInput {
+  textVersionId: string;
+  content_hash: string;
+  basis_sentence_layer_id: string;
+  requested_locale: string;
+  resolved_locale: string;
+  origin: 'manual' | 'intl_segmenter';
+  segments: TokenSegmentCoordinates[];
 }
 
 /** The raw document-level snapshot returned by GET /workspace (flat arrays). */
@@ -213,6 +229,31 @@ export function useDeleteSentenceSegmentation(documentId: string) {
       apiClient.del(
         `/api/v1/text-versions/${textVersionId}/segmentations/sentence`,
       ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
+    },
+  });
+}
+
+export function usePutTokenSegmentation(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ textVersionId, ...payload }: TokenSegmentationPutInput) =>
+      apiClient.put<SentenceSegmentation>(
+        `/api/v1/text-versions/${textVersionId}/segmentations/token`,
+        payload,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
+    },
+  });
+}
+
+export function useDeleteTokenSegmentation(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (textVersionId: string) =>
+      apiClient.del(`/api/v1/text-versions/${textVersionId}/segmentations/token`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
     },
