@@ -40,6 +40,11 @@ class SegmentationLayer(Base):
             "origin IN ('manual', 'intl_segmenter')",
             name="ck_segmentation_layers_origin",
         ),
+        CheckConstraint(
+            "(granularity = 'sentence' AND basis_layer_id IS NULL) OR "
+            "(granularity = 'token' AND basis_layer_id IS NOT NULL)",
+            name="ck_segmentation_layers_basis_by_granularity",
+        ),
         Index("ix_segmentation_layers_text_version_id", "text_version_id"),
         Index("ix_segmentation_layers_basis_layer_id", "basis_layer_id"),
     )

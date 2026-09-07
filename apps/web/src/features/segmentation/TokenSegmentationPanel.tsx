@@ -4,7 +4,7 @@ import { Button } from '../../shared/ui/Button';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
 import { ErrorMessage } from '../../shared/ui/feedback';
 import type { LinguisticSegment, SegmentationLayer, TextVersion } from '../workspace/api';
-import { useDeleteTokenSegmentation, usePutTokenSegmentation } from '../workspace/api';
+import { useDeleteTokenSegmentation, usePutTokenSegmentation, useSegmentationMutationPending } from '../workspace/api';
 import type { SegmentDraft } from './sentenceSuggestion';
 import {
   hasIntlWordSegmenter,
@@ -51,6 +51,7 @@ export function TokenSegmentationPanel({
 }: Props) {
   const put = usePutTokenSegmentation(documentId);
   const remove = useDeleteTokenSegmentation(documentId);
+  const anySegmentationMutationPending = useSegmentationMutationPending(documentId);
   const sentenceKey = JSON.stringify(ranges(sentenceSegments));
   const sentences = useMemo(
     () => JSON.parse(sentenceKey) as SegmentDraft[],
@@ -83,7 +84,7 @@ export function TokenSegmentationPanel({
 
   const current = draftIdentity === identity ? draft : authoritative;
   const changed = draftIdentity === identity && dirty;
-  const pending = put.isPending || remove.isPending;
+  const pending = anySegmentationMutationPending;
 
   function adopt(next: TokenDraft[]) {
     setDraft(next);
