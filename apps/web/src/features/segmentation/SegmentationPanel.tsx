@@ -7,6 +7,7 @@ import type {
 import {
   useDeleteSentenceSegmentation,
   usePutSentenceSegmentation,
+  useSegmentationMutationPending,
 } from '../workspace/api';
 import { sliceByCodePoints } from '../../shared/text/offset';
 import { Button } from '../../shared/ui/Button';
@@ -46,6 +47,7 @@ export function SegmentationPanel({
 }: SegmentationPanelProps) {
   const putMutation = usePutSentenceSegmentation(documentId);
   const deleteMutation = useDeleteSentenceSegmentation(documentId);
+  const anySegmentationMutationPending = useSegmentationMutationPending(documentId);
   const authoritativeRangeKey = JSON.stringify(savedRanges(savedSegments));
   const authoritativeRanges = useMemo(
     () => JSON.parse(authoritativeRangeKey) as SegmentDraft[],
@@ -95,7 +97,7 @@ export function SegmentationPanel({
     ? resolvedLocale
     : (savedLayer?.resolved_locale ?? version.language_tag);
   const activeDirty = draftIsCurrent && dirty;
-  const isMutating = putMutation.isPending || deleteMutation.isPending;
+  const isMutating = anySegmentationMutationPending;
   const suggestionSupported = hasIntlSentenceSegmenter();
 
   function beginManual() {

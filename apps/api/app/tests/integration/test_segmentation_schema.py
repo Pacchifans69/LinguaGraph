@@ -63,6 +63,7 @@ def test_segmentation_tables_constraints_indexes_and_cascades(db_engine) -> None
         )
     }
     assert layer_checks == {
+        "ck_segmentation_layers_basis_by_granularity",
         "ck_segmentation_layers_granularity",
         "ck_segmentation_layers_origin",
     }

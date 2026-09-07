@@ -7,7 +7,7 @@
  * the parent document), so panels always render the canonical server content.
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../shared/api/client';
 import { documentKeys } from '../documents/api';
 import type { ParallelDocument } from '../documents/api';
@@ -130,6 +130,13 @@ export const workspaceKeys = {
   detail: (documentId: string) => ['workspace', documentId] as const,
 };
 
+const segmentationMutationKey = (documentId: string) =>
+  ['segmentation-mutation', documentId] as const;
+
+export function useSegmentationMutationPending(documentId: string): boolean {
+  return useIsMutating({ mutationKey: segmentationMutationKey(documentId) }) > 0;
+}
+
 export function useWorkspace(documentId: string) {
   return useQuery({
     queryKey: workspaceKeys.detail(documentId),
@@ -208,6 +215,7 @@ export function useDeleteTextVersion(documentId: string) {
 export function usePutSentenceSegmentation(documentId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: segmentationMutationKey(documentId),
     mutationFn: ({
       textVersionId,
       ...payload
@@ -225,6 +233,7 @@ export function usePutSentenceSegmentation(documentId: string) {
 export function useDeleteSentenceSegmentation(documentId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: segmentationMutationKey(documentId),
     mutationFn: (textVersionId: string) =>
       apiClient.del(
         `/api/v1/text-versions/${textVersionId}/segmentations/sentence`,
@@ -238,6 +247,7 @@ export function useDeleteSentenceSegmentation(documentId: string) {
 export function usePutTokenSegmentation(documentId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: segmentationMutationKey(documentId),
     mutationFn: ({ textVersionId, ...payload }: TokenSegmentationPutInput) =>
       apiClient.put<SentenceSegmentation>(
         `/api/v1/text-versions/${textVersionId}/segmentations/token`,
@@ -252,6 +262,7 @@ export function usePutTokenSegmentation(documentId: string) {
 export function useDeleteTokenSegmentation(documentId: string) {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: segmentationMutationKey(documentId),
     mutationFn: (textVersionId: string) =>
       apiClient.del(`/api/v1/text-versions/${textVersionId}/segmentations/token`),
     onSuccess: () => {
