@@ -91,7 +91,7 @@ def test_all_domain_tables_exist(conn) -> None:
 def test_alembic_version_is_head(conn) -> None:
     assert (
         conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        == "0003"
+        == "0004"
     )
 
 
@@ -244,6 +244,7 @@ def test_all_foreign_keys_cascade(conn) -> None:
         ("alignment_members", "fk_alignment_members_alignment_group_id_alignment_groups", "alignment_groups", "c"),
         ("alignment_members", "fk_alignment_members_span_id_spans", "spans", "c"),
         ("parallel_documents", "fk_parallel_documents_project_id_projects", "projects", "c"),
+        ("segmentation_layers", "fk_segmentation_layers_basis_layer_id_segmentation_layers", "segmentation_layers", "c"),
         ("segmentation_layers", "fk_segmentation_layers_text_version_id_text_versions", "text_versions", "c"),
         ("segments", "fk_segments_segmentation_layer_id_segmentation_layers", "segmentation_layers", "c"),
         ("spans", "fk_spans_text_version_id_text_versions", "text_versions", "c"),
