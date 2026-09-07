@@ -263,12 +263,14 @@ def test_token_empty_content_uses_empty_sentence_basis_and_empty_partition(api_c
 
 
 def test_token_combining_marks_use_code_point_offsets_and_exact_text(api_client) -> None:
-    _document, version = _version(api_client, content="e\u0301 🙂")
-    sentence = _sentences(
+    _document, version = _version(api_client, content="x\u0301 🙂")
+    sentence_response = _sentences(
         api_client,
         version,
         [{"start": 0, "end": 4}],
-    ).json()
+    )
+    assert sentence_response.status_code == 200
+    sentence = sentence_response.json()
 
     response = _tokens(
         api_client,
@@ -284,7 +286,7 @@ def test_token_combining_marks_use_code_point_offsets_and_exact_text(api_client)
     assert [
         (item["start_offset"], item["end_offset"], item["exact_text"])
         for item in response.json()["segments"]
-    ] == [(0, 2, "e\u0301"), (2, 3, " "), (3, 4, "🙂")]
+    ] == [(0, 2, "x\u0301"), (2, 3, " "), (3, 4, "🙂")]
 
 
 def test_token_rejects_stale_content_and_cross_text_version_or_token_basis(api_client) -> None:
