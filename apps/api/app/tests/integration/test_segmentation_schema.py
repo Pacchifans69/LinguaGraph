@@ -22,6 +22,7 @@ def test_segmentation_tables_constraints_indexes_and_cascades(db_engine) -> None
         "id",
         "text_version_id",
         "granularity",
+        "basis_layer_id",
         "requested_locale",
         "resolved_locale",
         "origin",
@@ -29,7 +30,12 @@ def test_segmentation_tables_constraints_indexes_and_cascades(db_engine) -> None
         "created_at",
         "updated_at",
     }
-    assert all(not column["nullable"] for column in layer_columns.values())
+    assert layer_columns["basis_layer_id"]["nullable"]
+    assert all(
+        not column["nullable"]
+        for name, column in layer_columns.items()
+        if name != "basis_layer_id"
+    )
 
     segment_columns = {
         column["name"]: column for column in inspector.get_columns("segments")
@@ -41,9 +47,15 @@ def test_segmentation_tables_constraints_indexes_and_cascades(db_engine) -> None
         "start_offset",
         "end_offset",
         "exact_text",
+        "is_word_like",
         "created_at",
     }
-    assert all(not column["nullable"] for column in segment_columns.values())
+    assert segment_columns["is_word_like"]["nullable"]
+    assert all(
+        not column["nullable"]
+        for name, column in segment_columns.items()
+        if name != "is_word_like"
+    )
 
     layer_checks = {
         item["name"] for item in inspector.get_check_constraints(
@@ -78,15 +90,21 @@ def test_segmentation_tables_constraints_indexes_and_cascades(db_engine) -> None
     }.issubset(segment_uniques)
 
     layer_fk = inspector.get_foreign_keys("segmentation_layers")
-    assert len(layer_fk) == 1
-    assert layer_fk[0]["referred_table"] == "text_versions"
-    assert layer_fk[0]["options"].get("ondelete") == "CASCADE"
+    assert len(layer_fk) == 2
+    assert {item["referred_table"] for item in layer_fk} == {
+        "text_versions",
+        "segmentation_layers",
+    }
+    assert all(item["options"].get("ondelete") == "CASCADE" for item in layer_fk)
     segment_fk = inspector.get_foreign_keys("segments")
     assert len(segment_fk) == 1
     assert segment_fk[0]["referred_table"] == "segmentation_layers"
     assert segment_fk[0]["options"].get("ondelete") == "CASCADE"
 
     assert "ix_segmentation_layers_text_version_id" in {
+        item["name"] for item in inspector.get_indexes("segmentation_layers")
+    }
+    assert "ix_segmentation_layers_basis_layer_id" in {
         item["name"] for item in inspector.get_indexes("segmentation_layers")
     }
     assert "ix_segments_segmentation_layer_id" in {

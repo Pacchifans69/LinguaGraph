@@ -116,7 +116,7 @@ def test_migrate_from_zero_to_head(disposable_db_url: str) -> None:
             version_num = conn.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            assert version_num == "0003"
+            assert version_num == "0004"
     finally:
         engine.dispose()
 
