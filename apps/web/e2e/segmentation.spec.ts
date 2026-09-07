@@ -47,7 +47,7 @@ test('M2 sentence segmentation persists, reloads, replaces, and deletes', async 
   await panel.getByRole('button', { name: 'Split' }).click();
   await expect(panel.locator('.segmentation-row')).toHaveCount(2);
   await panel.getByRole('button', { name: 'Save segmentation' }).click();
-  await expect(panel.getByText('Saved')).toBeVisible();
+  await expect(panel.getByText('Saved', { exact: true })).toBeVisible();
 
   let snapshotResponse = await request.get(
     `/api/v1/documents/${document.id}/workspace`,
@@ -93,7 +93,7 @@ test('M2 sentence segmentation persists, reloads, replaces, and deletes', async 
   await reloadedPanel
     .getByRole('button', { name: 'Save segmentation' })
     .click();
-  await expect(reloadedPanel.getByText('Saved')).toBeVisible();
+  await expect(reloadedPanel.getByText('Saved', { exact: true })).toBeVisible();
 
   snapshotResponse = await request.get(
     `/api/v1/documents/${document.id}/workspace`,
