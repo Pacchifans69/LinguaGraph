@@ -230,11 +230,26 @@ M0/M1 alignment boundary.
     `intl_segmenter` origin. If unavailable, verify manual construction
     remains enabled.
 
-## 13. Verification commands (green check)
+## 13. M3 token-segmentation scenario
+
+For Edge and Chrome at 1280×720 and 1440×900:
+
+1. Save a sentence layer and confirm token controls become available.
+2. Generate a word suggestion; inspect word-like, punctuation, whitespace,
+   emoji, and supplementary-plane text.
+3. Start manual construction; split within a sentence, merge adjacent tokens,
+   verify cross-sentence merge is disabled, and toggle classification.
+4. Save, reload, and confirm exact ranges/text/classification persist.
+5. Confirm sentence replacement/deletion is blocked while tokens exist.
+6. Delete tokens through confirmation; confirm sentences and Alignment remain.
+7. Re-run native selection, Alignment tray, hover/active connectors, and record
+   HRA-F09 without changing its routing boundary.
+
+## 14. Verification commands (green check)
 
 From the repository root (Windows): `.\scripts\verify.ps1` runs the full
 local verification (backend pytest with real PostgreSQL, Alembic
 current/check, frontend lint/typecheck/test/build, Playwright golden path,
-Unicode release blocker and M2 segmentation path) and exits non-zero on the
+Unicode release blocker and M2/M3 segmentation paths) and exits non-zero on the
 first failure.
 Manual equivalents are in the root `README.md`.

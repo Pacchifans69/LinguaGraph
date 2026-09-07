@@ -237,14 +237,14 @@ uv run alembic current
 uv run alembic check
 ```
 
-The current completed schema head before M3 implementation is:
+The active M3 schema head is:
 
 ```text
-0003 (head)
+0004 (head)
 ```
 
-M2 adds `0003` for independent sentence-segmentation layers and segments;
-`0001` and `0002` remain unchanged.
+M2 adds `0003` for sentence segmentation; M3 adds `0004` for exact-basis token
+segmentation. `0001` through `0003` remain unchanged.
 
 ## Verification
 
@@ -282,7 +282,7 @@ npm.cmd run lint
 npm.cmd run typecheck
 npm.cmd run test
 npm.cmd run build
-npx.cmd playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmentation.spec.ts
+npx.cmd playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmentation.spec.ts e2e/token-segmentation.spec.ts
 ```
 
 A full release-baseline proof requires real PostgreSQL integration tests. A
@@ -382,9 +382,20 @@ These remain accepted at M1 durable closure:
   native desktop packaging, mobile/browser extensions and document-reader
   subsystems.
 
+## Active M3 implementation boundary
+
+M3 bounded implementation is active on
+`m3-word-token-segmentation-foundation`, created from the verified docs-only
+freeze `fa861409947705f658209e53b8c507b535c5233a`. It adds one exhaustive
+Human-reviewed token layer bound to an exact saved sentence layer, Boolean
+word-like classification, Alembic `0004`, and no new dependency. Alignment,
+canonical DOM, connector routing/HRA-F09, token-to-tray behavior, and lexical
+annotation remain unchanged or out of scope. Gate 2, Human reviews, PR, and
+merge remain separately authorized.
+
 ## Post-M2 development boundary
 
-M2 is complete, merged, and durably recorded. Word/token segmentation,
+M2 is complete, merged, and durably recorded. M3 now owns word/token segmentation;
 linguistic annotation, candidate/automatic alignment, NLP/LLM providers,
 direct segment-to-tray integration, and connector-routing redesign remain
 outside the completed scope.
