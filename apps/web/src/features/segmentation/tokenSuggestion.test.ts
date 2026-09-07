@@ -76,4 +76,64 @@ describe('M3 token suggestion', () => {
       /sentence boundary/,
     );
   });
+
+  it('preserves combining marks as code points and rejects inconsistent runtime output', () => {
+    class CombiningWordSegmenter {
+      constructor(locale: string, options: { granularity: 'word' }) {
+        expect(locale).toBe('en');
+        expect(options).toEqual({ granularity: 'word' });
+      }
+
+      segment(text: string) {
+        expect(text).toBe('e\u0301🙂');
+        return [
+          { segment: 'e\u0301', index: 0, isWordLike: true },
+          { segment: '🙂', index: 2, isWordLike: false },
+        ];
+      }
+
+      resolvedOptions() {
+        return { locale: 'en' };
+      }
+    }
+
+    expect(
+      suggestTokens('e\u0301🙂', [{ start: 0, end: 3 }], 'en', CombiningWordSegmenter),
+    ).toEqual({
+      resolvedLocale: 'en',
+      ranges: [
+        { start: 0, end: 2, isWordLike: true },
+        { start: 2, end: 3, isWordLike: false },
+      ],
+    });
+
+    class InconsistentWordSegmenter {
+      segment() {
+        return [{ segment: 'wrong', index: 0, isWordLike: true }];
+      }
+
+      resolvedOptions() {
+        return { locale: 'en' };
+      }
+    }
+
+    expect(() =>
+      suggestTokens('right', [{ start: 0, end: 5 }], 'en', InconsistentWordSegmenter),
+    ).toThrow(/does not tile/);
+  });
+
+  it('merges only inside one sentence and combines classification conservatively', () => {
+    expect(
+      mergeTokenWithPrevious(
+        'abcd',
+        [{ start: 0, end: 4 }],
+        [
+          { start: 0, end: 2, isWordLike: true },
+          { start: 2, end: 4, isWordLike: false },
+        ],
+        1,
+      ),
+    ).toEqual([{ start: 0, end: 4, isWordLike: false }]);
+  });
+
 });
