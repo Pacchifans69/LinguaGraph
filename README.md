@@ -11,6 +11,18 @@ schema structure.
 
 ## Current milestone
 
+**M3 — Human-Reviewed Word/Token Segmentation Foundation:
+CONTRACT FROZEN / IMPLEMENTATION NOT AUTHORIZED**
+
+M3 contract v1 is frozen against exact pre-freeze durable
+`main@f0d205fea996a5027d469255987c63b7ade17b51` and tree
+`ae01d94f3e9d3e75bcff39dc4ba1b9795da231a6`. The planned bounded implementation branch is
+`m3-word-token-segmentation-foundation`, but branch creation and
+implementation require separate explicit Human authorization after the
+docs-only freeze commit is verified.
+
+The current completed implementation milestone remains:
+
 **M2 — Linguistic Segmentation Foundation:
 COMPLETE / MERGED / CLOSED**
 
@@ -87,7 +99,8 @@ Read these when reconstructing project state:
 - `docs/adr/` — accepted ADR-001 … ADR-009;
 - `docs/development/CURRENT_STATE.md` — durable engineering handoff;
 - `docs/development/M1_CONTRACT.md` — frozen completed M1 contract;
-- `docs/development/M2_CONTRACT.md` — active frozen M2 execution contract;
+- `docs/development/M2_CONTRACT.md` — completed frozen M2 execution contract;
+- `docs/development/M3_CONTRACT.md` — active frozen M3 execution contract;
 - `docs/development/M0_7_CLOSEOUT.md` — M0.7 Gate 2/Human Review/merge/Gate 3
   evidence ledger;
 - `docs/architecture/ARCHITECTURE.md` — as-built architecture;
@@ -224,7 +237,7 @@ uv run alembic current
 uv run alembic check
 ```
 
-The active M2 schema head is:
+The current completed schema head before M3 implementation is:
 
 ```text
 0003 (head)
@@ -341,7 +354,7 @@ M1 adds bounded presentation primitives, application design tokens, coherent
 feedback/action states, and centralized workspace keyboard behavior while
 preserving those M0 semantics.
 
-The active M2 branch adds an independent persisted sentence-segmentation
+The completed M2 milestone adds an independent persisted sentence-segmentation
 layer, server-validated complete partitions, stale-content protection,
 Human-reviewed manual/Intl.Segmenter drafts, and a Segmentation panel outside
 the canonical text root. Segment entities are not alignment Spans and do not
@@ -376,9 +389,10 @@ linguistic annotation, candidate/automatic alignment, NLP/LLM providers,
 direct segment-to-tray integration, and connector-routing redesign remain
 outside the completed scope.
 
-No later checkpoint implementation is authorized by this closure. Begin any
-next milestone with repository-reality reconstruction, a bounded contract,
-Human freeze, and explicit implementation authorization.
+M3 repository-reality reconstruction, bounded contract review, and Human
+freeze are complete. The docs-only freeze does not authorize branch creation
+or implementation. The next step requires separate explicit Human
+authorization tied to the exact freeze commit.
 
 The historical `m2-linguistic-segmentation-foundation` branch was deleted
 after an exact-SHA guard verified the reviewed candidate and durable closure

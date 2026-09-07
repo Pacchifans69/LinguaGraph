@@ -9,6 +9,43 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ---
 
+## 0. M3 contract freeze
+
+Active checkpoint:
+
+**M3 — Human-Reviewed Word/Token Segmentation Foundation:
+CONTRACT FROZEN / IMPLEMENTATION NOT AUTHORIZED**
+
+Human-approved contract:
+
+`docs/development/M3_CONTRACT.md`
+
+Approved pre-freeze durable base:
+
+`f0d205fea996a5027d469255987c63b7ade17b51`
+
+Approved pre-freeze durable tree:
+
+`ae01d94f3e9d3e75bcff39dc4ba1b9795da231a6`
+
+Planned implementation branch:
+
+`m3-word-token-segmentation-foundation`
+
+The frozen M3 boundary introduces one future `token` granularity refined by
+the exact saved sentence layer, with a complete canonical-text partition and
+Human-reviewed `is_word_like` classification. It excludes lexical
+annotation, token-to-tray behavior, automatic alignment, NLP/LLM providers,
+dependency/runtime changes, connector-routing redesign, and HRA-F09
+remediation.
+
+This docs-only freeze does not authorize branch creation or implementation.
+The next authority boundary is verification of the exact freeze commit,
+followed by separate explicit Human authorization for the bounded
+implementation branch.
+
+---
+
 ## 1. Repository checkpoint
 
 Current completed implementation milestone:
@@ -688,10 +725,15 @@ evidence remain protected and were not modified by branch cleanup.
 
 ### 11.8 Next authority boundary
 
-No M3 or later implementation is authorized. A later milestone must begin with
-fresh repository-reality reconstruction, Gate 1, a bounded contract, Human
-freeze, and explicit implementation authorization.
+M3 repository-reality reconstruction, Gate 1, bounded contract review, and
+Human freeze are complete against exact pre-freeze durable
+`main@f0d205fea996a5027d469255987c63b7ade17b51` and tree
+`ae01d94f3e9d3e75bcff39dc4ba1b9795da231a6`.
 
-M2 has no remaining implementation-branch cleanup action. Proof and
-diagnostic evidence remains retained while `G2-X01` is open. No M3 or later
-repository mutation is authorized by this record.
+The docs-only M3 contract-freeze commit does not authorize branch creation or
+implementation. After the freeze commit is independently verified, creation of
+`m3-word-token-segmentation-foundation` and bounded M3 implementation require
+a separate explicit Human authorization tied to that exact commit.
+
+M2 has no remaining implementation-branch cleanup action. Proof and diagnostic
+evidence remains retained while `G2-X01` is open.

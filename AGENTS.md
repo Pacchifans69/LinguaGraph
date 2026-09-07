@@ -11,9 +11,13 @@ The completed M1 execution contract is:
 
 `docs/development/M1_CONTRACT.md`
 
-The active frozen M2 execution contract is:
+The completed M2 execution contract is:
 
 `docs/development/M2_CONTRACT.md`
+
+The active frozen M3 execution contract is:
+
+`docs/development/M3_CONTRACT.md`
 
 Before planning, modifying files, installing dependencies, or writing
 implementation code:
@@ -33,7 +37,19 @@ implementation code:
 
 ## Current phase
 
-The current completed architecture checkpoint is:
+The active architecture checkpoint is:
+
+**M3 — Human-Reviewed Word/Token Segmentation Foundation
+(CONTRACT FROZEN / IMPLEMENTATION NOT AUTHORIZED)**
+
+M3 contract v1 was Human-approved on 2026-09-07 against exact durable base
+`f0d205fea996a5027d469255987c63b7ade17b51` and tree
+`ae01d94f3e9d3e75bcff39dc4ba1b9795da231a6`. The docs-only freeze does not authorize an implementation
+branch or implementation work. The next authority boundary is independent
+verification of the freeze commit followed by separate explicit Human
+authorization to create `m3-word-token-segmentation-foundation`.
+
+The current completed architecture checkpoint remains:
 
 **M2 — Linguistic Segmentation Foundation
 (COMPLETE / MERGED / CLOSED)**
@@ -156,9 +172,10 @@ Word/token segmentation, direct segment-to-tray behavior, linguistic
 annotations, candidate/automatic alignment, NLP/LLM providers, and
 connector-routing redesign remain outside the completed M2 scope.
 
-No M3 or later implementation is authorized by M2 closure. Any next
-architecture checkpoint requires repository-reality reconstruction, a bounded
-contract, Human freeze, and explicit implementation authorization.
+M3 repository reconstruction, bounded contract review, and Human freeze are
+complete. This docs-only freeze does not authorize creation of the M3
+implementation branch or any implementation change. Those actions require a
+separate explicit Human authorization tied to the exact freeze commit.
 
 The historical M2 implementation branch was deleted only after the Human-run
 guard verified `origin/main@557a31825accf2d7c789df4ca211d7cb1bfe723b`
