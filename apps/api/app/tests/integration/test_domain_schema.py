@@ -85,13 +85,14 @@ def test_all_domain_tables_exist(conn) -> None:
         "segments",
         "spans",
         "text_versions",
+        "token_lemma_annotations",
     ]
 
 
 def test_alembic_version_is_head(conn) -> None:
     assert (
         conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        == "0004"
+        == "0005"
     )
 
 
@@ -134,6 +135,12 @@ TYPE_EXPECTATIONS: list[tuple[str, str, str, bool]] = [
     ("alignment_members", "alignment_group_id", "uuid", False),
     ("alignment_members", "span_id", "uuid", False),
     ("alignment_members", "created_at", "timestamp with time zone", False),
+    # M4: one sparse occurrence-level lemma annotation per saved token.
+    ("token_lemma_annotations", "id", "uuid", False),
+    ("token_lemma_annotations", "token_segment_id", "uuid", False),
+    ("token_lemma_annotations", "lemma", "text", False),
+    ("token_lemma_annotations", "created_at", "timestamp with time zone", False),
+    ("token_lemma_annotations", "updated_at", "timestamp with time zone", False),
 ]
 
 
@@ -187,6 +194,10 @@ def test_unique_constraints(conn) -> None:
     ]
     assert unique_constraints(conn, "alignment_members") == [
         ["alignment_group_id", "span_id"]
+    ]
+    # M4: exactly one authoritative lemma annotation per token occurrence.
+    assert unique_constraints(conn, "token_lemma_annotations") == [
+        ["token_segment_id"]
     ]
     assert unique_constraints(conn, "projects") == []
     assert unique_constraints(conn, "parallel_documents") == []
@@ -249,6 +260,7 @@ def test_all_foreign_keys_cascade(conn) -> None:
         ("segments", "fk_segments_segmentation_layer_id_segmentation_layers", "segmentation_layers", "c"),
         ("spans", "fk_spans_text_version_id_text_versions", "text_versions", "c"),
         ("text_versions", "fk_text_versions_document_id_parallel_documents", "parallel_documents", "c"),
+        ("token_lemma_annotations", "fk_token_lemma_annotations_token_segment_id_segments", "segments", "c"),
     ]
     assert [(r[0], r[1], r[2], r[3]) for r in rows] == expected
 
@@ -262,7 +274,8 @@ def test_expected_indexes(conn) -> None:
                 "SELECT indexname FROM pg_indexes"
                 " WHERE schemaname = 'public' AND tablename IN"
                 " ('projects','parallel_documents','text_versions','spans',"
-                "  'alignment_groups','alignment_members')"
+                "  'alignment_groups','alignment_members',"
+                "  'token_lemma_annotations')"
             )
         ).scalars()
     )
@@ -276,11 +289,13 @@ def test_expected_indexes(conn) -> None:
         "uq_text_versions_document_label",
         "uq_spans_text_version_start_end",
         "uq_alignment_members_group_span",
+        "uq_token_lemma_annotations_token_segment_id",
         "alignment_groups_pkey",
         "alignment_members_pkey",
         "parallel_documents_pkey",
         "projects_pkey",
         "spans_pkey",
         "text_versions_pkey",
+        "token_lemma_annotations_pkey",
     ):
         assert expected in indexes, f"missing index {expected}"

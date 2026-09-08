@@ -38,7 +38,7 @@ ALEMBIC_INI = API_ROOT / "alembic.ini"
 
 pytestmark = pytest.mark.integration
 
-# Expected public schema at HEAD: the Alembic version table plus the eight domain tables (M0_PREIMPLEMENTATION_REPORT.md section 4).
+# Expected public schema at HEAD: the Alembic version table plus the nine domain tables (M0_PREIMPLEMENTATION_REPORT.md section 4; M4 adds token_lemma_annotations).
 HEAD_TABLES = [
     "alembic_version",
     "alignment_groups",
@@ -49,6 +49,7 @@ HEAD_TABLES = [
     "segments",
     "spans",
     "text_versions",
+    "token_lemma_annotations",
 ]
 
 
@@ -117,7 +118,7 @@ def test_migrate_from_zero_to_head(disposable_db_url: str) -> None:
             version_num = conn.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
-            assert version_num == "0004"
+            assert version_num == "0005"
     finally:
         engine.dispose()
 
@@ -187,6 +188,127 @@ def test_0003_to_0004_cycle_preserves_existing_sentence_rows() -> None:
             engine.dispose()
     finally:
         drop_disposable_database(admin_engine, target_url)
+
+
+def test_0004_to_0005_cycle_preserves_m0_to_m3_rows_and_removes_only_m4() -> None:
+    """M4 is additive: the downgrade removes only M4-owned lemma schema/data.
+
+    Every M0–M3 row (project, document, TextVersion, sentence layer/segments,
+    token layer/segments, span, alignment group/member) must survive the
+    ``0005 -> 0004`` downgrade, and the re-applied ``0004 -> 0005`` must
+    restore an empty M4 table.
+    """
+    admin_engine, target_url = create_disposable_database("linguagraph_m4_cycle")
+    url = target_url.render_as_string(hide_password=False)
+    (
+        project_id,
+        document_id,
+        version_id,
+        sentence_layer_id,
+        sentence_segment_id,
+        token_layer_id,
+        token_segment_id,
+        span_id,
+        group_id,
+        member_id,
+        annotation_id,
+    ) = [uuid.uuid4() for _ in range(11)]
+    try:
+        _run_alembic(url, "upgrade", "0004")
+        engine = create_bounded_engine(url)
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("INSERT INTO projects (id, name, created_at, updated_at) VALUES (:id, 'M4', now(), now())"), {"id": project_id})
+                conn.execute(text("INSERT INTO parallel_documents (id, project_id, title, created_at, updated_at) VALUES (:id, :project, 'M4 doc', now(), now())"), {"id": document_id, "project": project_id})
+                conn.execute(text("INSERT INTO text_versions (id, document_id, language_tag, label, content, content_hash, sort_order, created_at, updated_at) VALUES (:id, :document, 'en', 'English', 'Hi there.', :hash, 0, now(), now())"), {"id": version_id, "document": document_id, "hash": "b" * 64})
+                conn.execute(text("INSERT INTO segmentation_layers (id, text_version_id, granularity, requested_locale, resolved_locale, origin, content_hash, created_at, updated_at) VALUES (:id, :version, 'sentence', 'en', 'en', 'manual', :hash, now(), now())"), {"id": sentence_layer_id, "version": version_id, "hash": "b" * 64})
+                conn.execute(text("INSERT INTO segments (id, segmentation_layer_id, ordinal, start_offset, end_offset, exact_text, created_at) VALUES (:id, :layer, 0, 0, 9, 'Hi there.', now())"), {"id": sentence_segment_id, "layer": sentence_layer_id})
+                conn.execute(text("INSERT INTO segmentation_layers (id, text_version_id, granularity, basis_layer_id, requested_locale, resolved_locale, origin, content_hash, created_at, updated_at) VALUES (:id, :version, 'token', :basis, 'en', 'en', 'manual', :hash, now(), now())"), {"id": token_layer_id, "version": version_id, "basis": sentence_layer_id, "hash": "b" * 64})
+                conn.execute(text("INSERT INTO segments (id, segmentation_layer_id, ordinal, start_offset, end_offset, exact_text, is_word_like, created_at) VALUES (:id, :layer, 0, 0, 2, 'Hi', true, now())"), {"id": token_segment_id, "layer": token_layer_id})
+                conn.execute(text("INSERT INTO spans (id, text_version_id, start_offset, end_offset, exact_text, prefix, suffix, created_at) VALUES (:id, :version, 0, 2, 'Hi', '', ' there.', now())"), {"id": span_id, "version": version_id})
+                conn.execute(text("INSERT INTO alignment_groups (id, document_id, note, created_at, updated_at) VALUES (:id, :document, NULL, now(), now())"), {"id": group_id, "document": document_id})
+                conn.execute(text("INSERT INTO alignment_members (id, alignment_group_id, span_id, created_at) VALUES (:id, :group, :span, now())"), {"id": member_id, "group": group_id, "span": span_id})
+        finally:
+            engine.dispose()
+
+        _run_alembic(url, "upgrade", "0005")
+        engine = create_bounded_engine(url)
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("INSERT INTO token_lemma_annotations (id, token_segment_id, lemma, created_at, updated_at) VALUES (:id, :token, 'Haus', now(), now())"), {"id": annotation_id, "token": token_segment_id})
+            with engine.connect() as conn:
+                assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0005"
+                assert conn.execute(text("SELECT count(*) FROM token_lemma_annotations")).scalar_one() == 1
+        finally:
+            engine.dispose()
+
+        _run_alembic(url, "downgrade", "0004")
+        engine = create_bounded_engine(url)
+        try:
+            with engine.connect() as conn:
+                assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0004"
+                assert "token_lemma_annotations" not in _public_tables(url)
+                # Every M0–M3 row survives the M4 downgrade.
+                assert conn.execute(text("SELECT name FROM projects WHERE id=:id"), {"id": project_id}).scalar_one() == "M4"
+                assert conn.execute(text("SELECT title FROM parallel_documents WHERE id=:id"), {"id": document_id}).scalar_one() == "M4 doc"
+                assert conn.execute(text("SELECT content FROM text_versions WHERE id=:id"), {"id": version_id}).scalar_one() == "Hi there."
+                assert conn.execute(text("SELECT granularity FROM segmentation_layers WHERE id=:id"), {"id": sentence_layer_id}).scalar_one() == "sentence"
+                assert conn.execute(text("SELECT granularity FROM segmentation_layers WHERE id=:id"), {"id": token_layer_id}).scalar_one() == "token"
+                assert conn.execute(text("SELECT exact_text FROM segments WHERE id=:id"), {"id": sentence_segment_id}).scalar_one() == "Hi there."
+                assert conn.execute(text("SELECT is_word_like FROM segments WHERE id=:id"), {"id": token_segment_id}).scalar_one() is True
+                assert conn.execute(text("SELECT exact_text FROM spans WHERE id=:id"), {"id": span_id}).scalar_one() == "Hi"
+                assert conn.execute(text("SELECT count(*) FROM alignment_groups WHERE id=:id"), {"id": group_id}).scalar_one() == 1
+                assert conn.execute(text("SELECT count(*) FROM alignment_members WHERE id=:id"), {"id": member_id}).scalar_one() == 1
+        finally:
+            engine.dispose()
+
+        # Re-applying 0005 restores an EMPTY M4 table; no lemma data returns.
+        _run_alembic(url, "upgrade", "0005")
+        engine = create_bounded_engine(url)
+        try:
+            with engine.connect() as conn:
+                assert conn.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0005"
+                assert conn.execute(text("SELECT count(*) FROM token_lemma_annotations")).scalar_one() == 0
+        finally:
+            engine.dispose()
+    finally:
+        drop_disposable_database(admin_engine, target_url)
+
+
+def test_revision_chain_0001_to_0005_integrity() -> None:
+    """Historical revisions 0001–0004 stay intact and 0005 is the sole head."""
+    from alembic.script import ScriptDirectory
+
+    script = ScriptDirectory.from_config(Config(str(ALEMBIC_INI)))
+    expected = {
+        "0001": None,
+        "0002": "0001",
+        "0003": "0002",
+        "0004": "0003",
+        "0005": "0004",
+    }
+    for revision, down_revision in expected.items():
+        rev = script.get_revision(revision)
+        assert rev is not None, revision
+        assert rev.down_revision == down_revision, revision
+        assert rev.module.revision == revision
+    heads = script.get_heads()
+    assert list(heads) == ["0005"]
+
+
+def test_alembic_check_reports_no_schema_drift(disposable_db_url: str) -> None:
+    """``alembic check`` finds no drift between models and migration HEAD."""
+    cfg = Config(str(ALEMBIC_INI))
+    had_database_url = "DATABASE_URL" in os.environ
+    previous_database_url = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = disposable_db_url
+    try:
+        command.check(cfg)
+    finally:
+        if had_database_url:
+            os.environ["DATABASE_URL"] = previous_database_url
+        else:
+            os.environ.pop("DATABASE_URL", None)
 
 
 def test_revision_0001_is_unchanged() -> None:
