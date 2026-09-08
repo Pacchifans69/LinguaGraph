@@ -721,10 +721,21 @@ Word-like is classification metadata over an exhaustive token partition, and
 Delete tokens removes the complete token layer. Retain a non-blocking UX
 comprehension note. HRA-F09 routing is unchanged.
 
-### 12.5 Cleanup boundary
+### 12.5 Cleanup and retention
 
-The implementation branch remains retained at the reviewed candidate. Deletion
-requires separate Human approval with exact-SHA and required-main guards.
+The Human approved deletion of
+`m3-word-token-segmentation-foundation@d4254c1239e649b17dc4ae6d6f995e52bd4635db`
+under an exact-SHA guard requiring
+`origin/main@366ca893da187d5fa2239b3fd538853e3b57211a`.
+
+The Human-run guard fetched both refs, matched both exact SHAs, deleted only the
+M3 implementation branch, pruned the remote-tracking ref, and reported:
+
+`PASS: exact-guarded M3 implementation branch cleanup complete.`
+
+GitHub's refs API independently returns 404 for the deleted branch while
+`main` remains at the required closure commit.
 
 All proof repositories, successful artifacts, failed diagnostic pipelines, and
-GitHub Actions provider evidence must remain retained.
+GitHub Actions provider evidence remain retained. `G2-X01` remains
+`OPEN / EXTERNAL`.

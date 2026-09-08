@@ -89,11 +89,13 @@ See `docs/development/M0_7_CLOSEOUT.md` for the full historical ledger.
 ## Post-M3 boundary
 
 No checkpoint after M3 is authorized. M3 implementation is merged and closed.
-The retained branch
+The implementation branch
 `m3-word-token-segmentation-foundation@d4254c1239e649b17dc4ae6d6f995e52bd4635db`
-may be deleted only under separately approved exact-SHA guard.
+was deleted after an exact-SHA guard verified
+`origin/main@366ca893da187d5fa2239b3fd538853e3b57211a`. GitHub's refs API
+independently returns 404 for that branch.
 
-All proof and diagnostic evidence must remain retained. `G2-X01` remains
+All proof and diagnostic evidence remains retained. `G2-X01` remains
 `OPEN / EXTERNAL`.
 
 ## Scope discipline

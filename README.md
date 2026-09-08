@@ -333,15 +333,17 @@ These remain accepted at M1 durable closure:
 
 M3 delivered the bounded human-reviewed word/token segmentation foundation.
 Contract, implementation, proof, static review, runtime acceptance, PR, and
-rebase merge are complete. The implementation branch remains retained pending
-separately authorized exact-SHA cleanup.
+rebase merge are complete. The implementation branch was deleted only after
+the approved exact-SHA and required-main guards passed.
 
 ## Post-M3 development boundary
 
 No work beyond M3 is authorized. Any next checkpoint requires a new bounded
 contract and explicit Human approval.
 
-The M3 implementation branch remains retained at
-`d4254c1239e649b17dc4ae6d6f995e52bd4635db` pending separately authorized
-exact-SHA cleanup. All proof and diagnostic evidence remains retained;
+The M3 implementation branch
+`m3-word-token-segmentation-foundation@d4254c1239e649b17dc4ae6d6f995e52bd4635db`
+was deleted after the guard verified
+`origin/main@366ca893da187d5fa2239b3fd538853e3b57211a`. GitHub independently
+returns 404 for the ref. All proof and diagnostic evidence remains retained;
 `G2-X01` remains `OPEN / EXTERNAL`.
