@@ -13,11 +13,19 @@ schema structure.
 
 M3 — Human-Reviewed Word/Token Segmentation Foundation — is complete.
 
-Candidate `d4254c1239e649b17dc4ae6d6f995e52bd4635db` (tree
+M4 — Human-Reviewed Lemma Annotation Foundation — now has a Human-approved
+frozen execution contract in `docs/development/M4_CONTRACT.md`. M4
+implementation has not started and is not yet authorized; no M4 implementation
+branch exists or may be created until the docs-only freeze is independently
+verified and the Human separately authorizes bounded implementation.
+
+M3 candidate `d4254c1239e649b17dc4ae6d6f995e52bd4635db` (tree
 `bf59e847b8874c90b76032e92fb006343b4662d6`) was merged by rebase through
-PR #12. Resulting `main` is
-`fc607b597bee35aff31a06a3945fa7a256f6b5c8` with the same application
-tree. No later checkpoint is authorized.
+PR #12. The post-rebase implementation `main` was
+`fc607b597bee35aff31a06a3945fa7a256f6b5c8` with the same application tree.
+Post-merge durable-state closure is `366ca893da187d5fa2239b3fd538853e3b57211a`;
+the final M3 branch-cleanup record and M4 pre-freeze parent is
+`3cada0d2dcdcf349152aacc53992b15190271a75`.
 
 ## Evidence status
 
@@ -29,6 +37,10 @@ CircleCI pipeline #5 passed the complete required gates.
 GitHub Actions runs for candidate push, PR, and merged main failed before any
 step began. They are provider diagnostics, not application failures.
 `G2-X01` remains `OPEN / EXTERNAL`.
+
+The M3 External Infrastructure Exception does not carry forward to M4. Any M4
+exception would require exact M4 candidate evidence and separate Human
+approval at M4 Gate 2.
 
 Static Human Diff Review and Human Runtime Acceptance passed in Edge and Chrome
 at 1280×720 and 1440×900. A non-blocking UX comprehension note remains for
@@ -43,11 +55,13 @@ Read these when reconstructing project state:
   specification and Definition of Done;
 - `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` — accepted
   pre-implementation engineering report;
-- `docs/adr/` — accepted ADR-001 … ADR-009;
+- `docs/adr/` — accepted architecture decisions through ADR-011; M4 requires a
+  bounded ADR-012 during implementation;
 - `docs/development/CURRENT_STATE.md` — durable engineering handoff;
 - `docs/development/M1_CONTRACT.md` — frozen completed M1 contract;
 - `docs/development/M2_CONTRACT.md` — completed frozen M2 execution contract;
-- `docs/development/M3_CONTRACT.md` — active frozen M3 execution contract;
+- `docs/development/M3_CONTRACT.md` — completed frozen M3 execution contract;
+- `docs/development/M4_CONTRACT.md` — active frozen M4 execution contract;
 - `docs/development/M0_7_CLOSEOUT.md` — M0.7 Gate 2/Human Review/merge/Gate 3
   evidence ledger;
 - `docs/architecture/ARCHITECTURE.md` — as-built architecture;
@@ -184,7 +198,7 @@ uv run alembic current
 uv run alembic check
 ```
 
-The active M3 schema head is:
+The current **as-built** schema head remains:
 
 ```text
 0004 (head)
@@ -192,6 +206,10 @@ The active M3 schema head is:
 
 M2 adds `0003` for sentence segmentation; M3 adds `0004` for exact-basis token
 segmentation. `0001` through `0003` remain unchanged.
+
+The frozen M4 contract requires a future additive `0005` implementation, but
+contract freeze does not create that migration and does not change the current
+runtime schema.
 
 ## Verification
 
@@ -207,7 +225,7 @@ Windows PowerShell 5.1 fallback:
 powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1
 ```
 
-The authoritative semantic gates are:
+The current as-built semantic verification entry points remain:
 
 Backend:
 
@@ -235,6 +253,10 @@ npx.cmd playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmenta
 A full release-baseline proof requires real PostgreSQL integration tests. A
 run with skipped integration tests is not a full pass.
 
+M4 implementation, once separately authorized, must extend this semantic
+surface exactly as specified by `M4_CONTRACT.md`; the docs-only contract freeze
+does not pre-emptively change executable verification.
+
 The accepted M1 external Gate 2 proof recorded:
 
 ```text
@@ -257,8 +279,6 @@ provenance   exact SHA/tree PASS
 
 See `docs/testing/testing-strategy.md` for the distinction between local,
 GitHub-provider, and approved external CI evidence.
-
-
 
 ## Configuration
 
@@ -307,23 +327,30 @@ Human-reviewed manual/Intl.Segmenter drafts, and a Segmentation panel outside
 the canonical text root. Segment entities are not alignment Spans and do not
 enter the Alignment Tray in M2.
 
-For details and invariants, use the ADRs and the as-built architecture/API
-files rather than treating this README as a second specification.
+The completed M3 milestone extends that linguistic segmentation model with one
+saved sentence-bound token layer, exact sentence-basis identity, exhaustive
+token partitions, and Human-reviewed `is_word_like` classification. Token
+segmentation remains independent from Alignment.
+
+M4 lemma annotation described by the frozen contract is **not yet as-built**.
+For implemented behavior and invariants, use the ADRs and as-built
+architecture/API files rather than treating this README as a second
+specification.
 
 ## Known limitations / retained debt
 
-These remain accepted at M1 durable closure:
+These remain accepted at the M3 durable boundary:
 
-- GitHub-hosted-runner execution remains unavailable under `G2-X01`; the
-  accepted external CI proof remains the release evidence until provider
-  recovery is proven.
+- GitHub-hosted-runner execution remains unavailable under `G2-X01`; accepted
+  checkpoint-specific external CI proof remains historical release evidence
+  until provider recovery is proven.
 - Connector routing uses frozen center-to-hub geometry and can visually cross
-  text glyphs; binding correctness is intact.
+  text glyphs; binding correctness is intact (`HRA-F09`).
 - A malformed/broken local Node command that resolves but emits no version
   stdout can produce a low-level PowerShell/.NET prerequisite diagnostic.
-- Previously accepted concurrency limits remain: same-group concurrent PATCH
-  and destructive-operation interleavings are not redesigned into a broader
-  collaborative locking model.
+- Previously accepted concurrency limits remain; M4 freezes only its bounded
+  token/lemma TextVersion-root mutation ordering and does not establish a
+  general collaborative locking protocol.
 - M0 deliberately excludes machine translation, NLP/LLM alignment,
   authentication/collaboration, Redis/Neo4j/Elasticsearch/vector search,
   native desktop packaging, mobile/browser extensions and document-reader
@@ -331,15 +358,10 @@ These remain accepted at M1 durable closure:
 
 ## Completed M3 implementation boundary
 
-M3 delivered the bounded human-reviewed word/token segmentation foundation.
+M3 delivered the bounded Human-reviewed word/token segmentation foundation.
 Contract, implementation, proof, static review, runtime acceptance, PR, and
 rebase merge are complete. The implementation branch was deleted only after
 the approved exact-SHA and required-main guards passed.
-
-## Post-M3 development boundary
-
-No work beyond M3 is authorized. Any next checkpoint requires a new bounded
-contract and explicit Human approval.
 
 The M3 implementation branch
 `m3-word-token-segmentation-foundation@d4254c1239e649b17dc4ae6d6f995e52bd4635db`
@@ -347,3 +369,19 @@ was deleted after the guard verified
 `origin/main@366ca893da187d5fa2239b3fd538853e3b57211a`. GitHub independently
 returns 404 for the ref. All proof and diagnostic evidence remains retained;
 `G2-X01` remains `OPEN / EXTERNAL`.
+
+## M4 contract-freeze boundary
+
+The Human approved and froze **M4 — Human-Reviewed Lemma Annotation
+Foundation** against exact pre-freeze base
+`3cada0d2dcdcf349152aacc53992b15190271a75` / tree
+`51564978a2e92ce8de61997219b3d8c596a6fa9a`.
+
+The freeze is normative documentation only. Current application code,
+Alembic `0004`, dependencies, tests, workflow, and runtime remain the completed
+M3 as-built state.
+
+M4 implementation is **NOT STARTED / NOT AUTHORIZED**. The next safe action
+after independent freeze-integrity verification is a bounded Agent prompt and
+a separate Human decision on creating
+`m4-human-reviewed-lemma-annotation-foundation`.
