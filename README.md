@@ -11,44 +11,65 @@ schema structure.
 
 ## Current milestone
 
-M3 — Human-Reviewed Word/Token Segmentation Foundation — is complete.
+M4 — Human-Reviewed Lemma Annotation Foundation — is implemented, Human
+reviewed, merged by rebase through PR #13, and durably recorded through the
+post-merge closeout.
 
-M4 — Human-Reviewed Lemma Annotation Foundation — has a Human-approved frozen
-execution contract in `docs/development/M4_CONTRACT.md`, and a bounded
-implementation candidate now exists on the Human-authorized branch
-`m4-human-reviewed-lemma-annotation-foundation`, which derives from the frozen
-freeze commit `4e12a11e266367e0a368c6128f722a620ce47ed3` (tree
-`f3b09f9d9934686a07bdbbe7944f22d2df76f6e2`).
+Final reviewed and independently proven candidate:
 
-**M4 implementation candidate exists. Gate 2 has not been run, Human diff
-review has not been run, and M4 is not merged or complete.**
+`ac1cd40ae190577783453050f2cbc209cd3958a6`
 
-M3 candidate `d4254c1239e649b17dc4ae6d6f995e52bd4635db` (tree
-`bf59e847b8874c90b76032e92fb006343b4662d6`) was merged by rebase through
-PR #12. The post-rebase implementation `main` was
-`fc607b597bee35aff31a06a3945fa7a256f6b5c8` with the same application tree.
-Post-merge durable-state closure is `366ca893da187d5fa2239b3fd538853e3b57211a`;
-the final M3 branch-cleanup record and M4 pre-freeze parent is
-`3cada0d2dcdcf349152aacc53992b15190271a75`.
+Candidate tree:
+
+`18eff900b903d7f3743aa88fa9390d3dbdebc477`
+
+Post-rebase implementation `main`:
+
+`4cc435893207cdd32216012ca887d338e1932250`
+
+Its tree is exactly the reviewed candidate tree, so M4 Gate 3
+candidate-to-main identity is **PASS / EXACT**.
+
+The implementation branch remains retained only for the next separately
+authorized exact-guarded cleanup step. Until that cleanup passes, the M4
+implementation is merged and durably recorded but the full checkpoint
+lifecycle is not yet declared CLOSED.
+
+No M5 or later checkpoint is currently authorized.
 
 ## Evidence status
 
-M3 Gate 2 passed under its approved External Infrastructure Exception.
-Independent hosted Linux proof is retained in
-`Pacchifans69/linguagraph-m3-proof@2e95d307374bc279f42d1048caf988d2b730169c`;
-CircleCI pipeline #5 passed the complete required gates.
+M4 Gate 2 passed under a Human-approved M4-specific External Infrastructure
+Exception.
 
-GitHub Actions runs for candidate push, PR, and merged main failed before any
-step began. They are provider diagnostics, not application failures.
-`G2-X01` remains `OPEN / EXTERNAL`.
+The canonical GitHub Actions exact-candidate attempt — run #80 /
+`34245187052` — reproduced `G2-X01` before any workflow step executed. This is
+retained provider evidence and not an application failure.
 
-The M3 External Infrastructure Exception does not carry forward to M4. Any M4
-exception would require exact M4 candidate evidence and separate Human
-approval at M4 Gate 2.
+Independent hosted exact-candidate proof passed:
 
-Static Human Diff Review and Human Runtime Acceptance passed in Edge and Chrome
-at 1280×720 and 1440×900. A non-blocking UX comprehension note remains for
-Word-like classification versus whole-layer token deletion.
+- repository: `Pacchifans69/linguagraph-m4-proof`;
+- proof commit: `c66de6b0bf2ef7ae30644cea29ef6a8beaf45b4f`;
+- proof tree: `33c101ceb1cf6449f8e5f23d0592a0a320bb1d03`;
+- CircleCI build/pipeline: `#1`;
+- status: `ci/circleci: m4-exact-candidate-proof` — **SUCCESS**.
+
+That proof preserved exact application SHA/tree and frozen base while running
+Python 3.13, Node 24, PostgreSQL 18, Alembic empty → `0005` / current / check,
+the full real-PostgreSQL backend suite with zero skips, `npm ci`, lint,
+typecheck, Vitest, production build, the golden/Unicode/M2/M3/M4 Playwright
+paths, cleanup, dependency-hash checks, and final provenance/tree integrity.
+
+Static Human Diff Review: **PASS**.
+
+Human Runtime Acceptance: **PASS**.
+
+The initial HRA missing-panel observation was traced to stale Windows services
+from a different local checkout, not the exact candidate. The exact candidate
+passed the Human lemma workflow.
+
+`G2-X01` remains `OPEN / EXTERNAL`. `HRA-F09` remains inherited non-blocking
+visual debt.
 
 ## Authoritative documents
 
@@ -59,13 +80,12 @@ Read these when reconstructing project state:
   specification and Definition of Done;
 - `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` — accepted
   pre-implementation engineering report;
-- `docs/adr/` — accepted architecture decisions through ADR-011; M4 requires a
-  bounded ADR-012 during implementation;
+- `docs/adr/` — accepted architecture decisions through ADR-012;
 - `docs/development/CURRENT_STATE.md` — durable engineering handoff;
-- `docs/development/M1_CONTRACT.md` — frozen completed M1 contract;
+- `docs/development/M1_CONTRACT.md` — completed frozen M1 contract;
 - `docs/development/M2_CONTRACT.md` — completed frozen M2 execution contract;
 - `docs/development/M3_CONTRACT.md` — completed frozen M3 execution contract;
-- `docs/development/M4_CONTRACT.md` — active frozen M4 execution contract;
+- `docs/development/M4_CONTRACT.md` — completed frozen M4 execution contract;
 - `docs/development/M0_7_CLOSEOUT.md` — M0.7 Gate 2/Human Review/merge/Gate 3
   evidence ledger;
 - `docs/architecture/ARCHITECTURE.md` — as-built architecture;
@@ -202,18 +222,17 @@ uv run alembic current
 uv run alembic check
 ```
 
-The current **as-built** schema head remains:
+The current **as-built** schema head is:
 
 ```text
-0004 (head)
+0005 (head)
 ```
 
 M2 adds `0003` for sentence segmentation; M3 adds `0004` for exact-basis token
-segmentation. `0001` through `0003` remain unchanged.
+segmentation; M4 adds additive `0005_human_reviewed_lemma_annotations.py` for
+the sparse occurrence-level `token_lemma_annotations` table.
 
-The frozen M4 contract requires a future additive `0005` implementation, but
-contract freeze does not create that migration and does not change the current
-runtime schema.
+`0001` through `0004` remain unchanged by M4.
 
 ## Verification
 
@@ -229,7 +248,7 @@ Windows PowerShell 5.1 fallback:
 powershell -ExecutionPolicy Bypass -File .\scripts\verify.ps1
 ```
 
-The current as-built semantic verification entry points remain:
+Current as-built semantic verification entry points:
 
 Backend:
 
@@ -251,34 +270,26 @@ npm.cmd run lint
 npm.cmd run typecheck
 npm.cmd run test
 npm.cmd run build
-npx.cmd playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmentation.spec.ts e2e/token-segmentation.spec.ts
+npx.cmd playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmentation.spec.ts e2e/token-segmentation.spec.ts e2e/lemma-annotation.spec.ts
 ```
 
-A full release-baseline proof requires real PostgreSQL integration tests. A
-run with skipped integration tests is not a full pass.
+A full release-baseline proof requires real PostgreSQL integration tests and a
+zero-skip guard. A run with skipped integration tests is not a full pass.
 
-M4 implementation, once separately authorized, must extend this semantic
-surface exactly as specified by `M4_CONTRACT.md`; the docs-only contract freeze
-does not pre-emptively change executable verification.
-
-The accepted M1 external Gate 2 proof recorded:
+The accepted M4 exact-candidate hosted proof established:
 
 ```text
-Python       3.13
-Node         24
-PostgreSQL   18
-Alembic      0002 (head)
-backend      full real-PostgreSQL suite PASS
-skip guard   PASS
-npm ci       PASS
-lint         PASS
-typecheck    PASS
-Vitest/RTL   PASS
-build        PASS
-Playwright   golden + Unicode PASS
-DB cleanup   PASS
-tracked tree PASS
-provenance   exact SHA/tree PASS
+Python 3.13 / Node 24 / PostgreSQL 18    PASS
+exact SHA/tree/frozen-base guard          PASS
+uv sync --frozen                          PASS
+Alembic empty → 0005 / current / check    PASS
+full real-PostgreSQL backend suite        PASS
+zero skipped-test guard                   PASS
+npm ci / lint / typecheck / Vitest        PASS
+production build                          PASS
+Playwright golden + Unicode + M2/M3/M4    PASS
+disposable database cleanup               PASS
+dependency/tree/provenance integrity      PASS
 ```
 
 See `docs/testing/testing-strategy.md` for the distinction between local,
@@ -323,42 +334,52 @@ The M0 core consists of:
 
 M1 adds bounded presentation primitives, application design tokens, coherent
 feedback/action states, and centralized workspace keyboard behavior while
-preserving those M0 semantics.
+preserving M0 semantics.
 
-The completed M2 milestone adds an independent persisted sentence-segmentation
-layer, server-validated complete partitions, stale-content protection,
-Human-reviewed manual/Intl.Segmenter drafts, and a Segmentation panel outside
-the canonical text root. Segment entities are not alignment Spans and do not
-enter the Alignment Tray in M2.
+M2 adds an independent persisted Human-reviewed sentence-segmentation layer.
 
-The completed M3 milestone extends that linguistic segmentation model with one
-saved sentence-bound token layer, exact sentence-basis identity, exhaustive
-token partitions, and Human-reviewed `is_word_like` classification. Token
-segmentation remains independent from Alignment.
+M3 adds one saved sentence-bound exhaustive token layer with Human-reviewed
+`is_word_like` classification.
 
-M4 lemma annotation described by the frozen contract is **not yet as-built**.
-For implemented behavior and invariants, use the ADRs and as-built
-architecture/API files rather than treating this README as a second
-specification.
+M4 adds sparse Human-reviewed occurrence-level lemma annotation bound directly
+to saved eligible token `Segment.id`:
+
+- one optional lemma per saved word-like token occurrence;
+- `PUT` and `DELETE /api/v1/token-segments/{token_segment_id}/lemma`;
+- NFC/value validation without automatic case folding, trimming, stemming, or
+  dictionary rewriting;
+- retokenization fail-closed while lemma dependents exist;
+- shared TextVersion-root mutation ordering;
+- flat workspace `token_lemma_annotations` read authority;
+- `LemmaAnnotationPanel` outside the canonical text root;
+- explicit save/reload/edit/delete;
+- Alignment independence.
+
+M4 does not introduce Lexeme identity, POS/morphology/syntax, generic EAV
+annotation, automatic lemmatization, automatic alignment, NLP/LLM providers,
+or automatic re-anchoring.
 
 ## Known limitations / retained debt
 
-These remain accepted at the M3 durable boundary:
+These remain accepted at the M4 durable boundary:
 
-- GitHub-hosted-runner execution remains unavailable under `G2-X01`; accepted
-  checkpoint-specific external CI proof remains historical release evidence
-  until provider recovery is proven.
+- GitHub-hosted-runner execution remains unavailable under `G2-X01`; the
+  checkpoint-specific CircleCI proof is retained release evidence, not a
+  declaration that GitHub Actions recovered.
 - Connector routing uses frozen center-to-hub geometry and can visually cross
-  text glyphs; binding correctness is intact (`HRA-F09`).
+  text glyphs while binding correctness remains intact (`HRA-F09`).
 - A malformed/broken local Node command that resolves but emits no version
   stdout can produce a low-level PowerShell/.NET prerequisite diagnostic.
-- Previously accepted concurrency limits remain; M4 freezes only its bounded
-  token/lemma TextVersion-root mutation ordering and does not establish a
-  general collaborative locking protocol.
-- M0 deliberately excludes machine translation, NLP/LLM alignment,
-  authentication/collaboration, Redis/Neo4j/Elasticsearch/vector search,
-  native desktop packaging, mobile/browser extensions and document-reader
-  subsystems.
+- Existing mutation locking is not a general collaborative locking protocol;
+  M4 only adds the bounded token/lemma TextVersion-root serialization required
+  by its contract.
+- The initial M4 HRA page mismatch came from stale services in a different
+  Windows checkout. It is recorded as an environment observation rather than
+  an M4 product defect.
+- Later lexical ontology, automatic NLP/LLM features, authentication,
+  collaboration, graph/vector/search infrastructure, advanced connector
+  routing and later workbench expansion remain outside the completed M4
+  checkpoint.
 
 ## Completed M3 implementation boundary
 
@@ -374,29 +395,38 @@ was deleted after the guard verified
 returns 404 for the ref. All proof and diagnostic evidence remains retained;
 `G2-X01` remains `OPEN / EXTERNAL`.
 
-## M4 implementation candidate
+## Completed M4 implementation boundary
 
-The Human approved and froze **M4 — Human-Reviewed Lemma Annotation
-Foundation** against exact pre-freeze base
-`3cada0d2dcdcf349152aacc53992b15190271a75` / tree
-`51564978a2e92ce8de61997219b3d8c596a6fa9a`, then separately authorized and
-created the implementation branch from the frozen commit
-`4e12a11e266367e0a368c6128f722a620ce47ed3`.
+M4 delivered the bounded Human-reviewed lemma-annotation foundation defined by
+`docs/development/M4_CONTRACT.md` and ADR-012.
 
-The candidate adds one sparse occurrence-level lemma annotation bound directly
-to a saved token `Segment.id` (Alembic `0005`, ADR-012): no Lexeme, no generic
-annotation framework, Alignment-independent, retokenization fail-closed while
-dependents exist, and no automatic re-anchoring.
-
-Status boundaries that must not be collapsed:
+Durable implementation coordinates:
 
 ```text
-M4 implementation candidate exists
-≠ Gate 2 passed
-≠ Human diff review passed
-≠ M4 merged / complete
+frozen implementation base
+4e12a11e266367e0a368c6128f722a620ce47ed3
+
+final reviewed/proven candidate
+ac1cd40ae190577783453050f2cbc209cd3958a6
+
+candidate/application tree
+18eff900b903d7f3743aa88fa9390d3dbdebc477
+
+PR
+#13
+
+merge method
+rebase
+
+post-rebase implementation main
+4cc435893207cdd32216012ca887d338e1932250
 ```
 
-`pyproject.toml`, `uv.lock`, `package.json`, `package-lock.json` and the
-Python 3.13 / Node 24 / PostgreSQL 18 baseline are unchanged. `G2-X01` remains
-`OPEN / EXTERNAL`, and no M4 External Infrastructure Exception exists.
+Gate 3 confirmed exact candidate-to-main tree identity.
+
+The retained implementation branch
+`m4-human-reviewed-lemma-annotation-foundation` still points to the reviewed
+candidate and is pending a separate exact-guarded cleanup authorization. Proof
+and diagnostic evidence must not be deleted with the implementation branch.
+
+No later checkpoint is authorized by this closeout.

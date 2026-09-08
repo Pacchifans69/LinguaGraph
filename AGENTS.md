@@ -19,7 +19,7 @@ The completed frozen M3 execution contract is:
 
 `docs/development/M3_CONTRACT.md`
 
-The active frozen M4 execution contract is:
+The completed frozen M4 execution contract is:
 
 `docs/development/M4_CONTRACT.md`
 
@@ -41,58 +41,70 @@ implementation code:
 
 ## Current phase
 
-M3 — Human-Reviewed Word/Token Segmentation Foundation — is complete.
+M4 — Human-Reviewed Lemma Annotation Foundation — has completed bounded
+implementation, Gate 2, Static Human Diff Review, Human Runtime Acceptance,
+PR #13, Human Merge Decision, rebase merge, Gate 3 exact-tree verification,
+and this docs-only durable-state closure.
 
-M4 — Human-Reviewed Lemma Annotation Foundation — has a Human-approved frozen
-execution contract, and a bounded implementation candidate now exists on the
-Human-authorized implementation branch. The candidate is **not** Gate 2
-audited, **not** Human diff reviewed, and **not** merged: do not treat it as a
-completed milestone.
+Exact-guarded implementation-branch cleanup remains a separate final M4
+closeout step. Do not claim full M4 checkpoint closure until that cleanup has
+passed.
 
-M4 contract-freeze provenance:
+M4 durable implementation provenance:
 
 - approved pre-freeze durable base:
   `3cada0d2dcdcf349152aacc53992b15190271a75`;
-- approved pre-freeze durable tree:
-  `51564978a2e92ce8de61997219b3d8c596a6fa9a`;
-- governing contract: `docs/development/M4_CONTRACT.md`;
-- frozen implementation base / freeze commit:
+- frozen implementation base:
   `4e12a11e266367e0a368c6128f722a620ce47ed3`;
 - frozen base tree:
   `f3b09f9d9934686a07bdbbe7944f22d2df76f6e2`;
 - implementation branch:
   `m4-human-reviewed-lemma-annotation-foundation`;
-- implementation authorization: GRANTED by the Human for that branch only;
-- candidate status: local verification only — Gate 2, Human review, PR, merge
-  and branch cleanup have **not** happened.
+- final reviewed and independently proven candidate:
+  `ac1cd40ae190577783453050f2cbc209cd3958a6`;
+- candidate tree:
+  `18eff900b903d7f3743aa88fa9390d3dbdebc477`;
+- PR #13 — `M4 — Human-Reviewed Lemma Annotation Foundation`;
+- merge method: rebase;
+- post-rebase implementation `main`:
+  `4cc435893207cdd32216012ca887d338e1932250`;
+- post-rebase implementation tree:
+  `18eff900b903d7f3743aa88fa9390d3dbdebc477`;
+- candidate → post-rebase `main` tree identity:
+  **PASS / EXACT**.
 
-M3 durable provenance:
+M4 Gate 2 passed under the Human-approved M4-specific External Infrastructure
+Exception. The exception waived only successful execution specifically on a
+GitHub-hosted runner; it did not waive exact candidate identity, hosted Linux,
+Python 3.13, Node 24, PostgreSQL 18, frozen dependency installation,
+migration integrity, full PostgreSQL tests with zero skips, frontend
+verification, Playwright coverage, cleanup, or tree integrity.
 
-- contract-freeze parent: `f0d205fea996a5027d469255987c63b7ade17b51`;
-- contract-freeze commit: `fa861409947705f658209e53b8c507b535c5233a`;
-- reviewed implementation candidate: `d4254c1239e649b17dc4ae6d6f995e52bd4635db`;
-- reviewed/merged application tree: `bf59e847b8874c90b76032e92fb006343b4662d6`;
-- PR: `#12`, merged by rebase;
-- post-merge implementation `main`:
-  `fc607b597bee35aff31a06a3945fa7a256f6b5c8`;
-- post-merge durable-state closure:
-  `366ca893da187d5fa2239b3fd538853e3b57211a`;
-- branch-cleanup durable record / M4 pre-freeze parent:
-  `3cada0d2dcdcf349152aacc53992b15190271a75`.
+Accepted independent hosted proof:
 
-Gate 2 passed under the M3 External Infrastructure Exception using independent
-hosted Linux proof repository `Pacchifans69/linguagraph-m3-proof`, proof
-commit `2e95d307374bc279f42d1048caf988d2b730169c`, and successful CircleCI
-pipeline `#5`. GitHub-hosted runner execution remains blocked before any
-step starts, so `G2-X01` remains `OPEN / EXTERNAL`.
+- repository: `Pacchifans69/linguagraph-m4-proof`;
+- proof commit: `c66de6b0bf2ef7ae30644cea29ef6a8beaf45b4f`;
+- proof tree: `33c101ceb1cf6449f8e5f23d0592a0a320bb1d03`;
+- CircleCI build/pipeline: `#1`;
+- status context: `ci/circleci: m4-exact-candidate-proof`;
+- result: **SUCCESS**.
 
-The M3 exception does not carry forward to M4. Any M4 External Infrastructure
-Exception requires separate exact-candidate evidence and explicit Human
-approval at M4 Gate 2.
+Canonical GitHub Actions run #80 / `34245187052` targeted the exact corrected
+candidate and reproduced `G2-X01`: the verification job failed before any
+workflow step began, with no usable job logs. `G2-X01` therefore remains
+`OPEN / EXTERNAL`.
 
-Bounded Static Human Diff Review and Human Runtime Acceptance passed for M3.
-Retain a non-blocking comprehension note: Word-like classifies tokens;
-deleting tokens removes the complete token layer.
+Static Human Diff Review passed with no blocking M4 finding. Human Runtime
+Acceptance passed the lemma create/reload/edit/delete lifecycle, dependency
+blocking, Unicode behavior, Alignment independence, and canonical-DOM/UI
+boundary. The initial missing-panel observation was traced to stale Windows
+services from a separate local checkout at
+`C:/Users/ZJX/Desktop/LinguaGraph`, not to the exact WSL candidate.
+
+No unresolved M4 product defect is known. `HRA-F09` remains inherited,
+explicitly deferred visual debt.
+
+No M5 or later implementation checkpoint is authorized by M4 completion.
 
 ## Historical M0 state
 
@@ -120,38 +132,37 @@ diagnostic/support refs and repositories remain protected evidence while
 
 See `docs/development/M0_7_CLOSEOUT.md` for the full historical ledger.
 
-## Post-M3 / M4 boundary
+## Post-M4 boundary
 
-M3 implementation is merged and closed. The implementation branch
-`m3-word-token-segmentation-foundation@d4254c1239e649b17dc4ae6d6f995e52bd4635db`
-was deleted after an exact-SHA guard verified
-`origin/main@366ca893da187d5fa2239b3fd538853e3b57211a`. GitHub's refs API
-independently returns 404 for that branch.
+M4 implementation is merged and durably recorded. The retained implementation
+branch
+`m4-human-reviewed-lemma-annotation-foundation@ac1cd40ae190577783453050f2cbc209cd3958a6`
+exists only for the separately authorized exact-guarded branch-cleanup stage.
 
-M4 implementation is authorized only on the Human-created branch
-`m4-human-reviewed-lemma-annotation-foundation`, which derives from the frozen
-freeze commit `4e12a11e266367e0a368c6128f722a620ce47ed3`. Bounded
-implementation is present there as a candidate. The candidate's authority ends
-at local verification: Gate 2 integrity audit, Human diff review, PR, the Human
-merge decision, merge, Gate 3 and branch cleanup remain separate Human stages.
+Branch deletion must not occur merely because PR #13 is merged. Before
+deletion, the Human must separately authorize cleanup and the guard must prove
+both the then-current durable `main` closure coordinate and the exact retained
+candidate SHA.
 
-Do not create a PR, merge, rebase onto an unapproved base, rewrite
-`0001`–`0004`, change package manifests/lockfiles, or upgrade the runtime
-baseline. Do not declare M4 Gate 2 PASS, approve an M4 External Infrastructure
-Exception, or claim M4 complete.
+All proof repositories, successful CircleCI evidence, GitHub Actions
+diagnostics, PR history, and reviewed candidate history remain retained.
+`G2-X01` remains `OPEN / EXTERNAL`.
 
-All proof and diagnostic evidence remains retained. `G2-X01` remains
-`OPEN / EXTERNAL`.
+No M5 or later checkpoint has been reconstructed, frozen, or authorized.
 
 ## Scope discipline
 
-Do not introduce speculative NLP/LLM, automatic lemmatization, Lexeme or
-generic annotation ontology, translation, authentication, collaboration,
-graph/vector infrastructure, advanced workspace geometry, connector-routing
-redesign, or other later-stage functionality outside the frozen M4 contract.
+Do not introduce speculative NLP/LLM automation, automatic lemmatization,
+Lexeme/shared-vocabulary identity, generic annotation ontology, translation,
+authentication, collaboration, graph/vector infrastructure, advanced
+workspace geometry, connector-routing redesign, or other later-stage
+functionality without a separately reconstructed and Human-frozen later
+checkpoint.
 
 Detailed M0 constraints remain defined by the frozen M0 specification; the
-completed M1 presentation/interaction boundary remains defined by the frozen
-M1 contract; completed M2/M3 linguistic segmentation boundaries remain defined
-by their frozen contracts. This file records workflow state and does not
-replace those authorities.
+completed M1 interaction boundary remains defined by `M1_CONTRACT.md`;
+completed M2/M3 segmentation boundaries remain defined by their contracts; and
+the completed M4 occurrence-level lemma boundary remains defined by
+`M4_CONTRACT.md` and ADR-012.
+
+This file records workflow state and does not replace those authorities.
