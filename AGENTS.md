@@ -41,14 +41,13 @@ implementation code:
 
 ## Current phase
 
-M4 — Human-Reviewed Lemma Annotation Foundation — has completed bounded
-implementation, Gate 2, Static Human Diff Review, Human Runtime Acceptance,
-PR #13, Human Merge Decision, rebase merge, Gate 3 exact-tree verification,
-and this docs-only durable-state closure.
+M4 — Human-Reviewed Lemma Annotation Foundation — is
+**COMPLETE / MERGED / CLOSED**.
 
-Exact-guarded implementation-branch cleanup remains a separate final M4
-closeout step. Do not claim full M4 checkpoint closure until that cleanup has
-passed.
+The frozen contract, bounded implementation, Gate 2, Static Human Diff Review,
+Human Runtime Acceptance, PR #13, Human Merge Decision, rebase merge, Gate 3
+exact-tree verification, durable-state closure, and exact-guarded
+implementation-branch cleanup have all completed.
 
 M4 durable implementation provenance:
 
@@ -134,15 +133,14 @@ See `docs/development/M0_7_CLOSEOUT.md` for the full historical ledger.
 
 ## Post-M4 boundary
 
-M4 implementation is merged and durably recorded. The retained implementation
-branch
-`m4-human-reviewed-lemma-annotation-foundation@ac1cd40ae190577783453050f2cbc209cd3958a6`
-exists only for the separately authorized exact-guarded branch-cleanup stage.
+M4 is complete, merged, durably recorded, and closed.
 
-Branch deletion must not occur merely because PR #13 is merged. Before
-deletion, the Human must separately authorize cleanup and the guard must prove
-both the then-current durable `main` closure coordinate and the exact retained
-candidate SHA.
+The Human separately authorized exact-guarded deletion of
+`m4-human-reviewed-lemma-annotation-foundation@ac1cd40ae190577783453050f2cbc209cd3958a6`
+only after durable `main` was verified at
+`d90b0f52f96869d2710aa4b592514f34b7e2dd99`. The remote branch was deleted,
+the local branch was removed, and GitHub independently returned 404 plus an
+empty branch-search result for the deleted ref.
 
 All proof repositories, successful CircleCI evidence, GitHub Actions
 diagnostics, PR history, and reviewed candidate history remain retained.

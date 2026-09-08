@@ -16,9 +16,8 @@ implementation, exact-candidate Gate 2, Static Human Diff Review, Human Runtime
 Acceptance, PR #13, explicit Human Merge Decision, rebase merge, Gate 3 exact
 candidate-to-main tree verification, and this docs-only durable-state closure.
 
-The implementation branch is still retained pending a separate exact-guarded
-cleanup. Therefore the M4 implementation is merged and durably recorded, while
-full checkpoint `CLOSED` status waits for branch cleanup.
+The exact-guarded implementation-branch cleanup has completed. M4 is now
+**COMPLETE / MERGED / CLOSED**.
 
 M4 durable implementation coordinates:
 
@@ -55,8 +54,8 @@ No M5 or later checkpoint is reconstructed, frozen, or authorized.
 Current completed implementation checkpoint: **M4 — Human-Reviewed Lemma
 Annotation Foundation**.
 
-Current active lifecycle step: **M4 POST-MERGE DURABLE CLOSURE COMPLETE /
-IMPLEMENTATION-BRANCH CLEANUP NEXT / NO LATER CHECKPOINT AUTHORIZED**.
+Current lifecycle status: **M4 COMPLETE / MERGED / CLOSED / NO LATER
+CHECKPOINT AUTHORIZED**.
 
 Durable M4 implementation coordinates:
 
@@ -73,7 +72,11 @@ Durable M4 implementation coordinates:
   resolve the docs-only commit containing this record directly from Git
   history after it is written;
 - implementation branch cleanup:
-  **PENDING separate exact-guarded Human authorization**.
+  **PASS** — Human-authorized exact guard verified
+  `main@d90b0f52f96869d2710aa4b592514f34b7e2dd99` and
+  `m4-human-reviewed-lemma-annotation-foundation@ac1cd40ae190577783453050f2cbc209cd3958a6`
+  before deletion; GitHub independently returns 404 and an empty branch search
+  for the deleted ref.
 
 ### Checkpoint ledger
 
@@ -832,11 +835,11 @@ GitHub Actions provider evidence remain retained. `G2-X01` remains
 ### 13.1 Final status
 
 **M4 — Human-Reviewed Lemma Annotation Foundation:
-IMPLEMENTATION COMPLETE / HUMAN REVIEWED / MERGED / GATE 3 PASS /
-DURABLE CLOSURE PASS / IMPLEMENTATION-BRANCH CLEANUP PENDING**
+COMPLETE / MERGED / CLOSED**
 
-M4 is not yet declared fully `CLOSED` because branch cleanup is a later,
-separately Human-authorized lifecycle step.
+The frozen contract, implementation, Gate 2, Human reviews, PR #13, rebase
+merge, Gate 3, durable-state closure, and exact-guarded implementation-branch
+cleanup are complete.
 
 No later checkpoint is implied or authorized.
 
@@ -1022,26 +1025,44 @@ unchanged by M4.
 
 ### 13.7 Cleanup and retention boundary
 
-This docs-only commit is the M4 post-merge durable-state closure. Resolve its
-SHA/tree from Git history after creation rather than embedding a
-self-referential commit SHA here.
+Post-merge durable-state closure:
 
-Implementation-branch cleanup is **PENDING**.
+- commit:
+  `d90b0f52f96869d2710aa4b592514f34b7e2dd99`;
+- tree:
+  `a77ef2dc34ca80083195c476aeef1591d9c95f16`.
 
-The retained branch must remain exactly:
+Implementation-branch cleanup is **PASS**.
 
-`m4-human-reviewed-lemma-annotation-foundation@ac1cd40ae190577783453050f2cbc209cd3958a6`
+Human-authorized deletion guard:
 
-until a separate Human cleanup authorization.
+- required durable `main`:
+  `d90b0f52f96869d2710aa4b592514f34b7e2dd99`;
+- required implementation branch:
+  `m4-human-reviewed-lemma-annotation-foundation`;
+- required branch SHA:
+  `ac1cd40ae190577783453050f2cbc209cd3958a6`.
 
-The cleanup guard must verify:
+The Human-run guard verified both exact SHAs, deleted only the M4
+implementation branch, pruned the remote-tracking ref, removed the local
+implementation branch, rechecked that `main` remained unchanged, and reported:
 
-1. remote `main` equals the exact durable closure commit containing this
-   record;
-2. the remote implementation branch still equals exact reviewed candidate
-   `ac1cd40ae190577783453050f2cbc209cd3958a6`;
-3. only that implementation branch is deleted;
-4. proof repositories, CircleCI records/artifacts, GitHub Actions diagnostics,
-   PR #13 and candidate history remain retained.
+`PASS: exact-guarded M4 implementation branch cleanup complete`
 
-No M5 or later checkpoint work is authorized by this durable closure.
+GitHub independently verifies the deleted branch with both:
+
+- branch endpoint: `404 Branch not found`;
+- branch search: empty result.
+
+The reviewed candidate commit remains addressable by SHA, PR #13 remains
+merged, and `Pacchifans69/linguagraph-m4-proof` remains at
+`c66de6b0bf2ef7ae30644cea29ef6a8beaf45b4f` with proof tree
+`33c101ceb1cf6449f8e5f23d0592a0a320bb1d03`.
+
+All proof repositories, CircleCI records/artifacts, GitHub Actions diagnostics,
+PR history, and reviewed candidate history remain retained. `G2-X01` remains
+`OPEN / EXTERNAL`.
+
+M4 is **COMPLETE / MERGED / CLOSED**.
+
+No M5 or later checkpoint work is authorized by this cleanup record.

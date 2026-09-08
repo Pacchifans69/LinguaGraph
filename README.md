@@ -30,10 +30,8 @@ Post-rebase implementation `main`:
 Its tree is exactly the reviewed candidate tree, so M4 Gate 3
 candidate-to-main identity is **PASS / EXACT**.
 
-The implementation branch remains retained only for the next separately
-authorized exact-guarded cleanup step. Until that cleanup passes, the M4
-implementation is merged and durably recorded but the full checkpoint
-lifecycle is not yet declared CLOSED.
+Exact-guarded implementation-branch cleanup has passed. M4 is therefore
+**COMPLETE / MERGED / CLOSED**.
 
 No M5 or later checkpoint is currently authorized.
 
@@ -424,9 +422,13 @@ post-rebase implementation main
 
 Gate 3 confirmed exact candidate-to-main tree identity.
 
-The retained implementation branch
-`m4-human-reviewed-lemma-annotation-foundation` still points to the reviewed
-candidate and is pending a separate exact-guarded cleanup authorization. Proof
-and diagnostic evidence must not be deleted with the implementation branch.
+The implementation branch
+`m4-human-reviewed-lemma-annotation-foundation@ac1cd40ae190577783453050f2cbc209cd3958a6`
+was deleted only after the Human-approved exact guard verified durable
+`main@d90b0f52f96869d2710aa4b592514f34b7e2dd99`. GitHub independently returns
+404 and an empty branch-search result for the deleted ref.
+
+Proof repositories, CircleCI records/artifacts, GitHub Actions diagnostics,
+PR #13, and candidate commit history remain retained.
 
 No later checkpoint is authorized by this closeout.
