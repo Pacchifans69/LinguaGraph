@@ -85,7 +85,7 @@ self-referential SHA in this file.
 | M1 Workbench Interaction & UI Foundation | #10 | `bdd32cbaed63966c346caaf44f1fd3a0197750a7` | rebase → `3a3361aebdb7c9c8d3a1b850c5b30dc9f5a5b6ea` |
 | M2 Linguistic Segmentation Foundation | #11 | `7cf756694e429abc50bf604ab2757fb3e44959c6` | rebase → `8972609a86d15d411917aafe6cf02c4577b7176f` |
 | M3 Word/Token Segmentation Foundation | #12 | `d4254c1239e649b17dc4ae6d6f995e52bd4635db` | rebase → `fc607b597bee35aff31a06a3945fa7a256f6b5c8` |
-| M4 Human-Reviewed Lemma Annotation Foundation | — | implementation not started | contract frozen only |
+| M4 Human-Reviewed Lemma Annotation Foundation | — | bounded implementation candidate exists; Gate 2 not passed / not Human reviewed | not merged / not complete |
 
 M0.5 and M0.6 merge commits were verified to contain the exact reviewed file
 trees. M0.7, M1, M2, and M3 used repository-permitted rebase merge; their Gate 3
