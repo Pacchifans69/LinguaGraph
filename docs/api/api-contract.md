@@ -1,4 +1,4 @@
-# LinguaGraph — API Contract (as built, active M2 branch)
+# LinguaGraph — API Contract (as built through the M4 implementation candidate)
 
 This document describes the API surface as actually implemented. It is a
 description, not a new authority: the authoritative contract is
@@ -257,7 +257,51 @@ Sentence PUT/DELETE returns `409 SEGMENTATION_HAS_DEPENDENTS` while a token
 layer depends on it. Stale basis returns `409 STALE_SEGMENTATION_BASIS`;
 cross-sentence tokens and non-Boolean classification use stable 422 errors.
 
-## 9. Workspace read model
+Token segmentation PUT/DELETE also returns `409 SEGMENTATION_HAS_DEPENDENTS`
+while any token of the layer carries an M4 lemma annotation
+(`dependency_type: "lemma_annotations"`). Delete the dependent lemmas first.
+
+## 9. Token-segment lemma annotation (M4 / ADR-012)
+
+| Method | Path | Purpose |
+|---|---|---|
+| PUT | `/api/v1/token-segments/{token_segment_id}/lemma` | Create, update or logically no-op one token occurrence's lemma |
+| DELETE | `/api/v1/token-segments/{token_segment_id}/lemma` | Explicitly delete one token occurrence's lemma |
+
+There is no standalone lemma GET: the workspace snapshot is the read authority.
+
+PUT body carries exactly one field; any competing target authority
+(`text_version_id`, token layer id, coordinates, `exact_text`, `is_word_like`,
+`content_hash`, language tag) is rejected as `422 VALIDATION_ERROR`.
+
+```json
+{ "lemma": "house" }
+```
+
+The backend resolves the target from `token_segment_id` and answers `200` for
+create, update and logical no-op (a no-op does not advance `updated_at`):
+
+```json
+{ "id": "…", "token_segment_id": "…", "lemma": "house", "created_at": "…", "updated_at": "…" }
+```
+
+Eligibility: the `Segment` must exist, its owning layer must have
+`granularity = token`, and `is_word_like` must be `TRUE`. A structurally
+existing but ineligible target (sentence segment, whitespace/punctuation token)
+returns `422 INVALID_LEMMA_TARGET`; a missing token returns `404 NOT_FOUND`.
+
+Value contract (backend-authoritative): reject NUL and surrogate code points,
+NFC-normalize, then require 1..200 Unicode code points with no leading or
+trailing Unicode whitespace. The service never trims, lowercases, case-folds,
+NFKC-normalizes, stems or consults a dictionary, so `Haus` stays `Haus` and
+`être` stays `être`. Invalid values return `422 INVALID_LEMMA_VALUE`.
+
+DELETE returns `204`; a missing token or missing annotation returns
+`404 NOT_FOUND`. Deleting a lemma never deletes the token, the sentence
+segmentation or Alignment state. Lemma and token mutations serialize on the
+same `TextVersion` root lock (ADR-012).
+
+## 10. Workspace read model
 
 `GET /api/v1/documents/{document_id}/workspace` → 200 document-level
 snapshot (no pagination in M0):
@@ -270,7 +314,8 @@ snapshot (no pagination in M0):
   "alignment_groups": [ { "id", "document_id", "note", "created_at", "updated_at" } ],
   "alignment_members": [ { "id", "alignment_group_id", "span_id", "created_at" } ],
   "segmentation_layers": [ { "id", "text_version_id", "granularity", "basis_layer_id", "requested_locale", "resolved_locale", "origin", "content_hash", "created_at", "updated_at" } ],
-  "segments": [ { "id", "segmentation_layer_id", "ordinal", "start_offset", "end_offset", "exact_text", "is_word_like", "created_at" } ]
+  "segments": [ { "id", "segmentation_layer_id", "ordinal", "start_offset", "end_offset", "exact_text", "is_word_like", "created_at" } ],
+  "token_lemma_annotations": [ { "id", "token_segment_id", "lemma", "created_at", "updated_at" } ]
 }
 ```
 
@@ -278,9 +323,15 @@ Deterministic TextVersion ordering `(sort_order, created_at, id)`; the
 snapshot is fully materialized inside one owned read transaction (no lazy
 loading after service return). The frontend normalizes the flat arrays into
 lookup maps; the workspace snapshot is the authoritative persisted read
-model for alignment rendering and saved segmentation state.
+model for alignment rendering and saved segmentation/lemma state.
 
-## 9. Unicode code-point offset semantics (summary)
+`token_lemma_annotations` is scoped through
+`TokenLemmaAnnotation → Segment → SegmentationLayer → TextVersion → document`
+and ordered deterministically by `(created_at, id)`. The annotation stores no
+token context; the frontend must not depend on the collection's incidental
+order.
+
+## 11. Unicode code-point offset semantics (summary)
 
 - Persisted/API offsets are code-point offsets into the **canonical**
   `TextVersion.content` (NFC).
@@ -290,11 +341,14 @@ model for alignment rendering and saved segmentation state.
   utility layer (`apps/web/src/shared/text/offset.ts`); React components
   never reimplement conversion; surrogate-pair splits are rejected.
 
-## 10. Error examples
+## 12. Error examples
 
 ```json
 { "code": "SPAN_OUT_OF_RANGE", "message": "span [0,999) exceeds canonical content length 26", "details": { "text_version_id": "…", "start": 0, "end": 999 } }
 { "code": "STALE_SEGMENTATION_CONTENT", "message": "TextVersion content changed before segmentation could be saved", "details": { "text_version_id": "…", "submitted_content_hash": "…", "current_content_hash": "…" } }
 { "code": "TEXT_HAS_ANNOTATIONS", "message": "annotated text versions require force=true for destructive reset", "details": { "text_version_id": "…" } }
+{ "code": "SEGMENTATION_HAS_DEPENDENTS", "message": "delete the dependent lemma annotations before changing token segmentation", "details": { "text_version_id": "…", "token_layer_id": "…", "dependency_type": "lemma_annotations" } }
+{ "code": "INVALID_LEMMA_TARGET", "message": "token segment is not an eligible word-like lemma target", "details": { "token_segment_id": "…", "reason": "not_word_like" } }
+{ "code": "INVALID_LEMMA_VALUE", "message": "lemma value is invalid", "details": { "reason": "lemma must not have leading or trailing Unicode whitespace" } }
 { "code": "VALIDATION_ERROR", "message": "request validation failed", "details": { "errors": [ { "location": ["body","label"], "type": "string_too_long", "message": "…", "input_type": "str" } ] } }
 ```

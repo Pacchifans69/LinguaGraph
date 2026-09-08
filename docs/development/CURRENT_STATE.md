@@ -18,20 +18,23 @@ Static Human Diff Review, Human Runtime Acceptance, PR #12, rebase merge,
 post-merge durable-state closure, and exact-guarded implementation-branch
 cleanup have completed.
 
-M4 — Human-Reviewed Lemma Annotation Foundation — now has a Human-approved
-frozen execution contract in `docs/development/M4_CONTRACT.md`.
+M4 — Human-Reviewed Lemma Annotation Foundation — has a Human-approved frozen
+execution contract in `docs/development/M4_CONTRACT.md`, and a bounded
+implementation candidate now exists on the Human-authorized branch
+`m4-human-reviewed-lemma-annotation-foundation`.
 
-**M4 implementation is NOT STARTED / NOT AUTHORIZED.** The docs-only freeze
-changes no application code, migration, test, dependency, runtime, or workflow
-state. No M4 implementation branch may be created until this freeze is
-independently verified and the Human separately authorizes bounded
-implementation.
+**M4 implementation candidate exists. This is NOT the same as Gate 2 passed,
+NOT the same as Human diff review passed, and NOT the same as M4 merged or
+complete.** At the time of this state update the candidate has local
+verification only; no M4 Gate 2 evidence, no M4 External Infrastructure
+Exception, no PR, and no merge exists.
 
 M4 approved pre-freeze coordinates:
 
 - base: `3cada0d2dcdcf349152aacc53992b15190271a75`;
 - tree: `51564978a2e92ce8de61997219b3d8c596a6fa9a`;
-- planned implementation branch:
+- frozen implementation base: `4e12a11e266367e0a368c6128f722a620ce47ed3`;
+- implementation branch:
   `m4-human-reviewed-lemma-annotation-foundation`.
 
 `G2-X01` remains `OPEN / EXTERNAL`. The M3 External Infrastructure Exception
@@ -44,8 +47,9 @@ does not carry forward to M4.
 Current completed implementation checkpoint: **M3 — Human-Reviewed Word/Token
 Segmentation Foundation**.
 
-Current normative checkpoint: **M4 — Human-Reviewed Lemma Annotation
-Foundation / CONTRACT FROZEN / IMPLEMENTATION NOT AUTHORIZED**.
+Current active checkpoint: **M4 — Human-Reviewed Lemma Annotation Foundation /
+CONTRACT FROZEN / BOUNDED IMPLEMENTATION CANDIDATE EXISTS / GATE 2 NOT RUN /
+NOT REVIEWED / NOT MERGED**.
 
 Durable M3 implementation and closure coordinates:
 
@@ -896,3 +900,54 @@ Bounded Agent Prompt
 
 No M4 implementation branch or implementation work is authorized by the
 contract freeze itself.
+
+### 13.5 M4 implementation candidate
+
+**Status: BOUNDED IMPLEMENTATION CANDIDATE EXISTS / GATE 2 NOT RUN / HUMAN
+DIFF REVIEW NOT RUN / NOT MERGED / NOT COMPLETE.**
+
+After independent verification of the docs-only freeze commit
+(`4e12a11e266367e0a368c6128f722a620ce47ed3`, tree
+`f3b09f9d9934686a07bdbbe7944f22d2df76f6e2`), the Human separately authorized
+and created the implementation branch
+`m4-human-reviewed-lemma-annotation-foundation` from exactly that commit. The
+bounded implementation candidate was then produced on that branch.
+
+Resolve the candidate HEAD/tree directly from Git history on that branch rather
+than embedding a self-referential SHA in this file.
+
+As-built M4 facts recorded by the candidate:
+
+- Alembic head advances `0004` → `0005`
+  (`0005_human_reviewed_lemma_annotations.py`); `0001`–`0004` are unchanged;
+- one additive table `token_lemma_annotations`
+  (`id`, `token_segment_id`, `lemma`, `created_at`, `updated_at`) with
+  `UNIQUE(token_segment_id)` and
+  `FOREIGN KEY token_segment_id REFERENCES segments(id) ON DELETE CASCADE`;
+- `PUT`/`DELETE /api/v1/token-segments/{token_segment_id}/lemma` with stable
+  `INVALID_LEMMA_TARGET` (422), `INVALID_LEMMA_VALUE` (422) and inherited
+  `NOT_FOUND` (404) / `SEGMENTATION_HAS_DEPENDENTS` (409);
+- workspace snapshot gains the flat `token_lemma_annotations` collection;
+- ADR-012 — Token-occurrence lemma annotations;
+- frontend `LemmaAnnotationPanel` plus additive normalization
+  (`lemmaAnnotations`, `lemmaAnnotationsById`,
+  `lemmaAnnotationByTokenSegmentId`);
+- `e2e/lemma-annotation.spec.ts` primary, dependency and Unicode paths;
+- `pyproject.toml`, `uv.lock`, `package.json`, `package-lock.json` and the
+  Python 3.13 / Node 24 / PostgreSQL 18 baseline are unchanged.
+
+What does **not** exist at this stage and must not be claimed:
+
+```text
+M4 Gate 2 PASS
+M4 External Infrastructure Exception
+Human Static Diff Review PASS
+Human Runtime Acceptance PASS
+PR
+merge
+branch cleanup
+M4 complete
+```
+
+The next authority boundary is a separate Gate 2 integrity audit of the frozen
+candidate, then Human diff review, then a Human merge decision.
