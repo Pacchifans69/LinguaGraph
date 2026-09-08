@@ -217,4 +217,45 @@ describe('normalizeWorkspace', () => {
     expect(normalized.segmentationLayersByVersion).toEqual({});
     expect(normalized.segmentsByLayer).toEqual({});
   });
+
+  it('indexes M4 lemma annotations by id and by token segment id', () => {
+    const normalized = normalizeWorkspace(
+      snapshot({
+        token_lemma_annotations: [
+          {
+            id: 'lemma-1',
+            token_segment_id: 'token-1',
+            lemma: 'house',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+          },
+          {
+            id: 'lemma-2',
+            token_segment_id: 'token-2',
+            lemma: 'être',
+            created_at: '2026-01-01T00:00:01Z',
+            updated_at: '2026-01-01T00:00:01Z',
+          },
+        ],
+      }),
+    );
+    expect(normalized.lemmaAnnotations.map((item) => item.id)).toEqual([
+      'lemma-1',
+      'lemma-2',
+    ]);
+    expect(normalized.lemmaAnnotationsById['lemma-2'].lemma).toBe('être');
+    expect(normalized.lemmaAnnotationByTokenSegmentId['token-1'].lemma).toBe(
+      'house',
+    );
+    expect(
+      normalized.lemmaAnnotationByTokenSegmentId['token-missing'],
+    ).toBeUndefined();
+  });
+
+  it('normalizes a snapshot without M4 annotations to empty lemma maps', () => {
+    const normalized = normalizeWorkspace(snapshot());
+    expect(normalized.lemmaAnnotations).toEqual([]);
+    expect(normalized.lemmaAnnotationsById).toEqual({});
+    expect(normalized.lemmaAnnotationByTokenSegmentId).toEqual({});
+  });
 });

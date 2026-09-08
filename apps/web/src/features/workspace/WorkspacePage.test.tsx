@@ -1743,3 +1743,187 @@ describe('WorkspacePage (M0.6 Round 2 Alignment Inspector)', () => {
     expect(reruns.every((run) => !run.classList.contains('run-aligned'))).toBe(true);
   });
 });
+
+/**
+ * M4: the lemma annotation panel is composed per TextVersion after the token
+ * panel, outside the canonical content root. These tests prove the workspace
+ * composition contract and the inherited canonical/selection regressions.
+ */
+function segmentedSnapshot(
+  overrides: Partial<WorkspaceSnapshot> = {},
+): WorkspaceSnapshot {
+  const content = 'I look forward to seeing you tomorrow.';
+  const sentenceLayer = {
+    id: 'sentence-en',
+    text_version_id: 'tv-en',
+    granularity: 'sentence' as const,
+    basis_layer_id: null,
+    requested_locale: 'en',
+    resolved_locale: 'en',
+    origin: 'manual' as const,
+    content_hash: 'h-en',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  };
+  const tokenLayer = {
+    id: 'token-en',
+    text_version_id: 'tv-en',
+    granularity: 'token' as const,
+    basis_layer_id: sentenceLayer.id,
+    requested_locale: 'en',
+    resolved_locale: 'en',
+    origin: 'manual' as const,
+    content_hash: 'h-en',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+  };
+  let offset = 0;
+  const tokenSegments = (content.match(/\s+|\S+/g) ?? []).map((text, ordinal) => {
+    const start = offset;
+    offset += text.length;
+    return {
+      id: `tok-${ordinal}`,
+      segmentation_layer_id: tokenLayer.id,
+      ordinal,
+      start_offset: start,
+      end_offset: offset,
+      exact_text: text,
+      is_word_like: /\S/.test(text),
+      created_at: '2026-01-01T00:00:00Z',
+    };
+  });
+  return snapshot({
+    segmentation_layers: [sentenceLayer, tokenLayer],
+    segments: [
+      {
+        id: 'sent-0',
+        segmentation_layer_id: sentenceLayer.id,
+        ordinal: 0,
+        start_offset: 0,
+        end_offset: content.length,
+        exact_text: content,
+        is_word_like: null,
+        created_at: '2026-01-01T00:00:00Z',
+      },
+      ...tokenSegments,
+    ],
+    token_lemma_annotations: [
+      {
+        id: 'lemma-1',
+        token_segment_id: 'tok-2',
+        lemma: 'look',
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      },
+    ],
+    ...overrides,
+  });
+}
+
+describe('WorkspacePage — M4 lemma annotation', () => {
+  it('composes the lemma panel after the token panel and outside the content root', async () => {
+    installFetchMock([['/workspace', () => json(200, segmentedSnapshot())]]);
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    await openEnglishPanel();
+
+    const slot = view.container.querySelector('.panel-slot');
+    const sentence = slot?.querySelector(
+      '.segmentation-panel:not(.token-segmentation-panel):not(.lemma-annotation-panel)',
+    );
+    const token = slot?.querySelector('.token-segmentation-panel');
+    const lemma = slot?.querySelector('.lemma-annotation-panel');
+    expect(sentence).not.toBeNull();
+    expect(token).not.toBeNull();
+    expect(lemma).not.toBeNull();
+
+    // Conceptual order: TextPanel -> sentence -> token -> lemma.
+    const textPanel = slot?.querySelector('.text-panel');
+    expect(
+      textPanel!.compareDocumentPosition(sentence!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      sentence!.compareDocumentPosition(token!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      token!.compareDocumentPosition(lemma!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    // The lemma UI never enters the canonical text root.
+    const root = slot?.querySelector('[data-text-content-root]') as HTMLElement;
+    expect(root.contains(lemma as Node)).toBe(false);
+    expect(root.querySelector('.lemma-annotation-panel')).toBeNull();
+    expect(root.querySelector('input')).toBeNull();
+  });
+
+  it('leaves canonical text and native selection unchanged', async () => {
+    installFetchMock([['/workspace', () => json(200, segmentedSnapshot())]]);
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    await openEnglishPanel();
+
+    const root = view.container.querySelector(
+      '.text-panel [data-text-content-root]',
+    ) as HTMLElement;
+    // Canonical DOM text is exactly the server content: no lemma markup added.
+    expect(root.textContent).toBe('I look forward to seeing you tomorrow.');
+
+    // Native selection still drives the existing staging workflow.
+    await stageEnglishRange(view.container, 2, 17);
+    expect(await screen.findByText('“look forward to”')).toBeInTheDocument();
+  });
+
+  it('targets saved word-like tokens only and ignores unsaved token drafts', async () => {
+    installFetchMock([['/workspace', () => json(200, segmentedSnapshot())]]);
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    await openEnglishPanel();
+
+    const slot = view.container.querySelector('.panel-slot') as HTMLElement;
+    const lemmaPanel = slot.querySelector('.lemma-annotation-panel') as HTMLElement;
+    const savedIds = Array.from(
+      lemmaPanel.querySelectorAll('.lemma-row'),
+    ).map((row) => row.getAttribute('data-token-segment-id'));
+    expect(savedIds).toEqual(['tok-0', 'tok-2', 'tok-4', 'tok-6', 'tok-8', 'tok-10', 'tok-12']);
+    expect(within(lemmaPanel).getByText('1 annotated / 7 word-like')).toBeInTheDocument();
+
+    // Build an UNSAVED token preview in the token panel: extra draft rows must
+    // never become lemma targets.
+    const tokenPanel = slot.querySelector('.token-segmentation-panel') as HTMLElement;
+    fireEvent.click(within(tokenPanel).getByRole('button', { name: 'Start manual' }));
+    fireEvent.change(within(tokenPanel).getAllByLabelText('Split at')[0]!, {
+      target: { value: '1' },
+    });
+    fireEvent.click(within(tokenPanel).getAllByRole('button', { name: 'Split' })[0]!);
+    expect(within(tokenPanel).getByText('Unsaved preview')).toBeInTheDocument();
+
+    const afterDraftIds = Array.from(
+      lemmaPanel.querySelectorAll('.lemma-row'),
+    ).map((row) => row.getAttribute('data-token-segment-id'));
+    expect(afterDraftIds).toEqual(savedIds);
+  });
+
+  it('shows the saved-token prerequisite when no token layer exists', async () => {
+    installFetchMock([['/workspace', () => json(200, snapshot())]]);
+    renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    await openEnglishPanel();
+    expect(
+      await screen.findByText(
+        'Save token segmentation before adding lemma annotations.',
+      ),
+    ).toBeInTheDocument();
+  });
+});
