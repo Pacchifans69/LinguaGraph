@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.errors import DomainError
-from app.db.models import Segment, SegmentationLayer, TextVersion
+from app.db.models import Segment, SegmentationLayer, TextVersion, TokenLemmaAnnotation
 from app.db.session import write_transaction
 from app.text.bcp47 import validate_language_tag
 
@@ -60,6 +60,46 @@ def _token_dependent(db: Session, sentence_layer_id: uuid.UUID) -> SegmentationL
             SegmentationLayer.basis_layer_id == sentence_layer_id,
             SegmentationLayer.granularity == TOKEN_GRANULARITY,
         )
+    )
+
+
+def _token_layer_has_lemma_dependents(
+    db: Session, token_layer_id: uuid.UUID
+) -> bool:
+    """True when any token of this layer owns a saved M4 lemma annotation.
+
+    Checked while the TextVersion-root mutation lock is held, so a concurrent
+    lemma write cannot slip between the check and the layer mutation.
+    """
+
+    return (
+        db.scalars(
+            select(TokenLemmaAnnotation.id)
+            .join(Segment, TokenLemmaAnnotation.token_segment_id == Segment.id)
+            .where(Segment.segmentation_layer_id == token_layer_id)
+            .limit(1)
+        ).first()
+        is not None
+    )
+
+
+def _lemma_dependent_error(
+    text_version_id: uuid.UUID, token_layer_id: uuid.UUID
+) -> DomainError:
+    """Fail-closed token mutation while M4 lemma dependents exist.
+
+    M4 never re-anchors, copies, splits or recovers lemma annotations across
+    retokenization; the Human must delete the dependent lemmas explicitly.
+    """
+
+    return DomainError(
+        "SEGMENTATION_HAS_DEPENDENTS",
+        "delete the dependent lemma annotations before changing token segmentation",
+        {
+            "text_version_id": str(text_version_id),
+            "token_layer_id": str(token_layer_id),
+            "dependency_type": "lemma_annotations",
+        },
     )
 
 
@@ -436,6 +476,8 @@ def replace_token_segmentation(
             )
         )
         if existing is not None:
+            if _token_layer_has_lemma_dependents(db, existing.id):
+                raise _lemma_dependent_error(text_version_id, existing.id)
             db.delete(existing)
             db.flush()
         layer = SegmentationLayer(
@@ -466,10 +508,21 @@ def replace_token_segmentation(
 
 
 def delete_token_segmentation(db: Session, text_version_id: uuid.UUID) -> None:
-    """Delete only the token layer, preserving sentence and Alignment state."""
+    """Delete only the token layer, preserving sentence and Alignment state.
+
+    Uses the same TextVersion-root mutation lock as replacement and lemma
+    mutation before inspecting M4 lemma dependents and mutating the layer.
+    """
 
     with write_transaction(db):
-        if db.scalar(select(TextVersion.id).where(TextVersion.id == text_version_id)) is None:
+        if (
+            db.scalar(
+                select(TextVersion.id)
+                .where(TextVersion.id == text_version_id)
+                .with_for_update()
+            )
+            is None
+        ):
             raise _not_found(text_version_id)
         layer = db.scalar(
             select(SegmentationLayer).where(
@@ -483,4 +536,6 @@ def delete_token_segmentation(db: Session, text_version_id: uuid.UUID) -> None:
                 "token segmentation layer not found",
                 {"text_version_id": str(text_version_id), "granularity": TOKEN_GRANULARITY},
             )
+        if _token_layer_has_lemma_dependents(db, layer.id):
+            raise _lemma_dependent_error(text_version_id, layer.id)
         db.delete(layer)
