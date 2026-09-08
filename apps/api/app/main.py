@@ -8,6 +8,7 @@ from app.api.middleware import RequestBodySizeLimitMiddleware
 from app.api.routes.alignments import router as alignments_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.health import router as health_router
+from app.api.routes.lemma_annotations import router as lemma_annotations_router
 from app.api.routes.projects import router as projects_router
 from app.api.routes.segmentations import router as segmentations_router
 from app.api.routes.text_versions import router as text_versions_router
@@ -55,6 +56,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(documents_router, prefix=API_V1_PREFIX)
     app.include_router(text_versions_router, prefix=API_V1_PREFIX)
     app.include_router(segmentations_router, prefix=API_V1_PREFIX)
+    app.include_router(lemma_annotations_router, prefix=API_V1_PREFIX)
     app.include_router(workspace_router, prefix=API_V1_PREFIX)
     app.include_router(alignments_router, prefix=API_V1_PREFIX)
 
