@@ -1,4 +1,4 @@
-# LinguaGraph — Testing Strategy (as built, active M2 branch)
+# LinguaGraph — Testing Strategy (as built through the M4 implementation candidate)
 
 This document describes the inherited M0/M1 testing architecture plus active
 M2 segmentation coverage and the rules for what counts as evidence. It is
@@ -46,6 +46,13 @@ to Alembic HEAD, and cleans it up. Tests cover:
 - alignment HTTP mutations;
 - segmentation schema, service, HTTP replacement/delete, stale-content,
   rollback, Unicode exact-text and workspace read-model behavior;
+- M4 lemma annotation lifecycle, eligibility, Unicode value contract,
+  retokenization dependency blocking, TextVersion cascade, Alignment
+  independence, workspace scoping and write-failure atomicity;
+- real-PostgreSQL lemma-versus-retokenization serialization on the
+  TextVersion root lock (two deterministic lock-ordering paths plus one
+  genuinely concurrent race asserting no silent annotation loss; this is
+  evidence for the accepted algorithm, not exhaustive interleaving proof);
 - disposable-database lifecycle;
 - migration safety.
 
@@ -72,7 +79,7 @@ Rules:
 - Playwright's backend uses the same disposable lifecycle and fail-closed
   cleanup path.
 
-Current Alembic head: `0004`.
+Current Alembic head: `0005`.
 
 ### 1.4 Frontend unit/component tests
 
@@ -125,9 +132,16 @@ silently reused.
 covers suggestion/manual review, Unicode tokens, split/merge/classification,
 save/reload, sentence dependency conflict, and explicit token deletion.
 
+`lemma-annotation.spec.ts` is the M4 lemma release path. It covers the saved
+word-like-token prerequisite, create/reload/edit/reload/delete with exact
+persisted values, astral/combining/non-ASCII Unicode identity, preserved
+sentence/token segmentation and Alignment state, and the dependency path
+(token replacement blocked while a lemma exists, then unblocked by explicit
+lemma deletion).
+
 ## 2. Canonical release-baseline workflow configuration
 
-`.github/workflows/ci.yml` is the canonical M3 release-baseline workflow
+`.github/workflows/ci.yml` is the canonical M4 release-baseline workflow
 configuration. Its semantic gates are:
 
 - Python 3.13;
@@ -137,7 +151,7 @@ configuration. Its semantic gates are:
 - PostgreSQL 18 service;
 - backend pytest with real PostgreSQL;
 - fail-closed skipped-test guard;
-- Alembic empty-database upgrade/current/check with `0004 (head)` assertion;
+- Alembic empty-database upgrade/current/check with `0005 (head)` assertion;
 - frontend lint;
 - frontend typecheck;
 - Vitest / React Testing Library;
@@ -146,6 +160,7 @@ configuration. Its semantic gates are:
 - Playwright Unicode release blocker.
 - Playwright M2 segmentation release path.
 - Playwright M3 token segmentation release path.
+- Playwright M4 lemma annotation release path.
 
 Workflow configuration by itself is not execution evidence.
 

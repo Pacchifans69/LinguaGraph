@@ -44,10 +44,10 @@ implementation code:
 M3 — Human-Reviewed Word/Token Segmentation Foundation — is complete.
 
 M4 — Human-Reviewed Lemma Annotation Foundation — has a Human-approved frozen
-execution contract. M4 implementation has **not** started and is **not yet
-authorized**. No implementation branch may be created until the docs-only
-freeze commit is independently verified and the Human separately authorizes
-bounded implementation.
+execution contract, and a bounded implementation candidate now exists on the
+Human-authorized implementation branch. The candidate is **not** Gate 2
+audited, **not** Human diff reviewed, and **not** merged: do not treat it as a
+completed milestone.
 
 M4 contract-freeze provenance:
 
@@ -56,9 +56,15 @@ M4 contract-freeze provenance:
 - approved pre-freeze durable tree:
   `51564978a2e92ce8de61997219b3d8c596a6fa9a`;
 - governing contract: `docs/development/M4_CONTRACT.md`;
-- planned implementation branch:
+- frozen implementation base / freeze commit:
+  `4e12a11e266367e0a368c6128f722a620ce47ed3`;
+- frozen base tree:
+  `f3b09f9d9934686a07bdbbe7944f22d2df76f6e2`;
+- implementation branch:
   `m4-human-reviewed-lemma-annotation-foundation`;
-- implementation authorization: NOT GRANTED.
+- implementation authorization: GRANTED by the Human for that branch only;
+- candidate status: local verification only — Gate 2, Human review, PR, merge
+  and branch cleanup have **not** happened.
 
 M3 durable provenance:
 
@@ -122,10 +128,17 @@ was deleted after an exact-SHA guard verified
 `origin/main@366ca893da187d5fa2239b3fd538853e3b57211a`. GitHub's refs API
 independently returns 404 for that branch.
 
-M4 is authorized only to the contract-freeze boundary. Until a separate Human
-authorization is given, do not create the M4 implementation branch and do not
-modify implementation, migration, test, dependency, runtime, or workflow
-files.
+M4 implementation is authorized only on the Human-created branch
+`m4-human-reviewed-lemma-annotation-foundation`, which derives from the frozen
+freeze commit `4e12a11e266367e0a368c6128f722a620ce47ed3`. Bounded
+implementation is present there as a candidate. The candidate's authority ends
+at local verification: Gate 2 integrity audit, Human diff review, PR, the Human
+merge decision, merge, Gate 3 and branch cleanup remain separate Human stages.
+
+Do not create a PR, merge, rebase onto an unapproved base, rewrite
+`0001`–`0004`, change package manifests/lockfiles, or upgrade the runtime
+baseline. Do not declare M4 Gate 2 PASS, approve an M4 External Infrastructure
+Exception, or claim M4 complete.
 
 All proof and diagnostic evidence remains retained. `G2-X01` remains
 `OPEN / EXTERNAL`.

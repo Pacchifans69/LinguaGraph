@@ -13,11 +13,15 @@ schema structure.
 
 M3 — Human-Reviewed Word/Token Segmentation Foundation — is complete.
 
-M4 — Human-Reviewed Lemma Annotation Foundation — now has a Human-approved
-frozen execution contract in `docs/development/M4_CONTRACT.md`. M4
-implementation has not started and is not yet authorized; no M4 implementation
-branch exists or may be created until the docs-only freeze is independently
-verified and the Human separately authorizes bounded implementation.
+M4 — Human-Reviewed Lemma Annotation Foundation — has a Human-approved frozen
+execution contract in `docs/development/M4_CONTRACT.md`, and a bounded
+implementation candidate now exists on the Human-authorized branch
+`m4-human-reviewed-lemma-annotation-foundation`, which derives from the frozen
+freeze commit `4e12a11e266367e0a368c6128f722a620ce47ed3` (tree
+`f3b09f9d9934686a07bdbbe7944f22d2df76f6e2`).
+
+**M4 implementation candidate exists. Gate 2 has not been run, Human diff
+review has not been run, and M4 is not merged or complete.**
 
 M3 candidate `d4254c1239e649b17dc4ae6d6f995e52bd4635db` (tree
 `bf59e847b8874c90b76032e92fb006343b4662d6`) was merged by rebase through
@@ -370,18 +374,29 @@ was deleted after the guard verified
 returns 404 for the ref. All proof and diagnostic evidence remains retained;
 `G2-X01` remains `OPEN / EXTERNAL`.
 
-## M4 contract-freeze boundary
+## M4 implementation candidate
 
 The Human approved and froze **M4 — Human-Reviewed Lemma Annotation
 Foundation** against exact pre-freeze base
 `3cada0d2dcdcf349152aacc53992b15190271a75` / tree
-`51564978a2e92ce8de61997219b3d8c596a6fa9a`.
+`51564978a2e92ce8de61997219b3d8c596a6fa9a`, then separately authorized and
+created the implementation branch from the frozen commit
+`4e12a11e266367e0a368c6128f722a620ce47ed3`.
 
-The freeze is normative documentation only. Current application code,
-Alembic `0004`, dependencies, tests, workflow, and runtime remain the completed
-M3 as-built state.
+The candidate adds one sparse occurrence-level lemma annotation bound directly
+to a saved token `Segment.id` (Alembic `0005`, ADR-012): no Lexeme, no generic
+annotation framework, Alignment-independent, retokenization fail-closed while
+dependents exist, and no automatic re-anchoring.
 
-M4 implementation is **NOT STARTED / NOT AUTHORIZED**. The next safe action
-after independent freeze-integrity verification is a bounded Agent prompt and
-a separate Human decision on creating
-`m4-human-reviewed-lemma-annotation-foundation`.
+Status boundaries that must not be collapsed:
+
+```text
+M4 implementation candidate exists
+≠ Gate 2 passed
+≠ Human diff review passed
+≠ M4 merged / complete
+```
+
+`pyproject.toml`, `uv.lock`, `package.json`, `package-lock.json` and the
+Python 3.13 / Node 24 / PostgreSQL 18 baseline are unchanged. `G2-X01` remains
+`OPEN / EXTERNAL`, and no M4 External Infrastructure Exception exists.

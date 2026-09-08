@@ -1,4 +1,4 @@
-# LinguaGraph — Architecture (as built through active M3 implementation)
+# LinguaGraph — Architecture (as built through the M4 implementation candidate)
 
 This document describes the architecture implemented through the active M3
 branch. It is a description, not a new authority: the accepted ADRs
@@ -99,10 +99,12 @@ HTTP route (parse/validate HTTP, map responses)
 ```
 
 - **Routes** (`app/api/routes/`): health, projects, documents,
-  text_versions, workspace, alignments and sentence segmentations. Routes
+  text_versions, workspace, alignments, sentence/token segmentations and
+  token-segment lemma annotations. Routes
   never commit/rollback.
 - **Services** (`app/services/`): `ProjectService`, `DocumentService`,
-  `TextVersionService`, `AlignmentService`, segmentation service and
+  `TextVersionService`, `AlignmentService`, segmentation service, lemma
+  annotation service and
   `WorkspaceService`. Write
   services own exactly one `write_transaction`; read services own one
   `read_transaction`; the Session is transaction-clean between public
@@ -126,11 +128,13 @@ HTTP route (parse/validate HTTP, map responses)
 
 ### 2.3 Database (PostgreSQL 18, ADR-004)
 
-Eight domain tables, all language-neutral: `projects`,
+Nine domain tables, all language-neutral: `projects`,
 `parallel_documents`, `text_versions`, `spans`, `alignment_groups`,
-`alignment_members`, `segmentation_layers`, `segments`. Schema is
-managed exclusively by Alembic (revision `0004` is the active M3 head;
-`0001` is the no-op foundation and `0002` remains unchanged). Constraints
+`alignment_members`, `segmentation_layers`, `segments`,
+`token_lemma_annotations`. Schema is
+managed exclusively by Alembic (revision `0005` is the M4 implementation
+candidate head;
+`0001` is the no-op foundation and `0002`–`0004` remain unchanged). Constraints
 and indexes live in migrations; cross-table and complete-partition invariants
 are service responsibilities. See `docs/api/api-contract.md` for the offset
 contract and `docs/development/CURRENT_STATE.md` for the schema summary.
@@ -161,6 +165,18 @@ contract and `docs/development/CURRENT_STATE.md` for the schema summary.
   boundary, completely partitions canonical text, and carries required
   Human-reviewed `is_word_like` classification. Ordinary sentence mutation is
   blocked while the token dependent exists; token deletion remains explicit.
+- **Token-occurrence lemma annotation (ADR-012)**: `TokenLemmaAnnotation` is a
+  sparse occurrence-level record bound directly to one saved token
+  `Segment.id`, with `UNIQUE(token_segment_id)` and an `ON DELETE CASCADE` FK.
+  It stores no `text_version_id`, layer id, language tag, coordinates,
+  `exact_text`, `is_word_like` or sentence basis id — those stay owned by the
+  token hierarchy. There is no Lexeme, no lemma layer and no generic
+  annotation/EAV framework. Lemma mutation and token replacement/deletion
+  serialize on the same `TextVersion` `SELECT ... FOR UPDATE` root lock; while
+  a lemma dependent exists, ordinary token replacement/deletion fails with
+  `409 SEGMENTATION_HAS_DEPENDENTS` and M4 never re-anchors annotations.
+  `force=true` TextVersion destruction removes the whole
+  TextVersion → layer → segment → lemma chain atomically.
 - **Text immutability (ADR-005 / ADR-010)**: annotated `TextVersion.content` is
   immutable; deletion of an annotated version requires the explicit
   `DELETE ?force=true` destructive-reset flow, which revalidates affected
