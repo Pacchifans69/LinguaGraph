@@ -11,81 +11,28 @@ schema structure.
 
 ## Current milestone
 
-**M3 — Human-Reviewed Word/Token Segmentation Foundation:
-CONTRACT FROZEN / IMPLEMENTATION NOT AUTHORIZED**
+M3 — Human-Reviewed Word/Token Segmentation Foundation — is complete.
 
-M3 contract v1 is frozen against exact pre-freeze durable
-`main@f0d205fea996a5027d469255987c63b7ade17b51` and tree
-`ae01d94f3e9d3e75bcff39dc4ba1b9795da231a6`. The planned bounded implementation branch is
-`m3-word-token-segmentation-foundation`, but branch creation and
-implementation require separate explicit Human authorization after the
-docs-only freeze commit is verified.
-
-The current completed implementation milestone remains:
-
-**M2 — Linguistic Segmentation Foundation:
-COMPLETE / MERGED / CLOSED**
-
-M2 delivers a persistent, Human-reviewed sentence-segmentation layer with
-Unicode code-point coordinates, complete-partition and stale-content guards,
-atomic replacement, Alembic `0003`, and a Segmentation panel outside the
-canonical text root.
-
-Durable M2 provenance:
-
-- frozen implementation base:
-  `59e39ac436d8b1e3b4a29992b80fe72f3be2b13f`;
-- final reviewed/proven candidate:
-  `7cf756694e429abc50bf604ab2757fb3e44959c6`;
-- candidate tree:
-  `cbdd9e77407a6bd853a4856ca7a927da679d3ed3`;
-- PR #11 merged by rebase;
-- durable implementation `main` tip immediately after merge:
-  `8972609a86d15d411917aafe6cf02c4577b7176f`;
-- durable implementation tree:
-  `cbdd9e77407a6bd853a4856ca7a927da679d3ed3`;
-- candidate-to-main tree identity:
-  **PASS / EXACT**.
-
-M0.1 through M0.7 and M1 remain complete, merged, and closed. Historical
-implementation-branch cleanup and retained proof boundaries remain recorded in
-`docs/development/CURRENT_STATE.md`.
+Candidate `d4254c1239e649b17dc4ae6d6f995e52bd4635db` (tree
+`bf59e847b8874c90b76032e92fb006343b4662d6`) was merged by rebase through
+PR #12. Resulting `main` is
+`fc607b597bee35aff31a06a3945fa7a256f6b5c8` with the same application
+tree. No later checkpoint is authorized.
 
 ## Evidence status
 
-M2 Gate 2 result:
+M3 Gate 2 passed under its approved External Infrastructure Exception.
+Independent hosted Linux proof is retained in
+`Pacchifans69/linguagraph-m3-proof@2e95d307374bc279f42d1048caf988d2b730169c`;
+CircleCI pipeline #5 passed the complete required gates.
 
-**PASS under the approved M2 External Infrastructure Exception**
+GitHub Actions runs for candidate push, PR, and merged main failed before any
+step began. They are provider diagnostics, not application failures.
+`G2-X01` remains `OPEN / EXTERNAL`.
 
-The exception waived only successful execution specifically on a
-GitHub-hosted runner.
-
-- exact candidate/tree:
-  `7cf756694e429abc50bf604ab2757fb3e44959c6` /
-  `cbdd9e77407a6bd853a4856ca7a927da679d3ed3`;
-- independent CircleCI proof:
-  **PASS** on pipeline #6;
-- executable proof config:
-  `Pacchifans69/linguagraph-m2-proof@bf1be70ad3115f4474fe432eef4db2c05394e128`;
-- Python 3.13, Node 24, PostgreSQL 18, locked dependency installation,
-  Alembic empty → `0003`, real-PostgreSQL pytest with zero skips, frontend
-  lint/typecheck/Vitest/build, Playwright golden/Unicode/M2 segmentation,
-  cleanup and tracked-tree integrity:
-  PASS;
-- bounded Static Human Diff Review:
-  PASS;
-- Human Runtime Acceptance in Edge and Chrome at 1280 × 720 and 1440 × 900:
-  PASS;
-- Gate 3 candidate-to-rebase-main tree identity:
-  PASS / EXACT.
-
-GitHub Actions exact-candidate runs #53 and #54 and post-merge `main` run #55
-all failed before any workflow step began. The repository does not claim a
-GitHub Actions PASS.
-
-`G2-X01` remains **OPEN / EXTERNAL**. Historical M0.7/M1 proof was not reused
-as M2 semantic evidence. All proof repositories, provider diagnostics, and
-retained artifacts remain preserved.
+Static Human Diff Review and Human Runtime Acceptance passed in Edge and Chrome
+at 1280×720 and 1440×900. A non-blocking UX comprehension note remains for
+Word-like classification versus whole-layer token deletion.
 
 ## Authoritative documents
 
@@ -382,30 +329,19 @@ These remain accepted at M1 durable closure:
   native desktop packaging, mobile/browser extensions and document-reader
   subsystems.
 
-## Active M3 implementation boundary
+## Completed M3 implementation boundary
 
-M3 bounded implementation is active on
-`m3-word-token-segmentation-foundation`, created from the verified docs-only
-freeze `fa861409947705f658209e53b8c507b535c5233a`. It adds one exhaustive
-Human-reviewed token layer bound to an exact saved sentence layer, Boolean
-word-like classification, Alembic `0004`, and no new dependency. Alignment,
-canonical DOM, connector routing/HRA-F09, token-to-tray behavior, and lexical
-annotation remain unchanged or out of scope. Gate 2, Human reviews, PR, and
-merge remain separately authorized.
+M3 delivered the bounded human-reviewed word/token segmentation foundation.
+Contract, implementation, proof, static review, runtime acceptance, PR, and
+rebase merge are complete. The implementation branch remains retained pending
+separately authorized exact-SHA cleanup.
 
-## Post-M2 development boundary
+## Post-M3 development boundary
 
-M2 is complete, merged, and durably recorded. M3 now owns word/token segmentation;
-linguistic annotation, candidate/automatic alignment, NLP/LLM providers,
-direct segment-to-tray integration, and connector-routing redesign remain
-outside the completed scope.
+No work beyond M3 is authorized. Any next checkpoint requires a new bounded
+contract and explicit Human approval.
 
-M3 repository-reality reconstruction, bounded contract review, and Human
-freeze are complete. The docs-only freeze does not authorize branch creation
-or implementation. The next step requires separate explicit Human
-authorization tied to the exact freeze commit.
-
-The historical `m2-linguistic-segmentation-foundation` branch was deleted
-after an exact-SHA guard verified the reviewed candidate and durable closure
-`main`. GitHub independently returns 404 for the branch. Retained M0.7/M1/M2
-proof and diagnostic evidence remains preserved while `G2-X01` is open.
+The M3 implementation branch remains retained at
+`d4254c1239e649b17dc4ae6d6f995e52bd4635db` pending separately authorized
+exact-SHA cleanup. All proof and diagnostic evidence remains retained;
+`G2-X01` remains `OPEN / EXTERNAL`.

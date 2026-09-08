@@ -9,78 +9,27 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ---
 
-## 0. M3 contract freeze
+## 0. M3 durable status
 
-Active checkpoint:
+M3 — Human-Reviewed Word/Token Segmentation Foundation — is complete.
 
-**M3 — Human-Reviewed Word/Token Segmentation Foundation:
-CONTRACT FROZEN / IMPLEMENTATION NOT AUTHORIZED**
-
-Human-approved contract:
-
-`docs/development/M3_CONTRACT.md`
-
-Approved pre-freeze durable base:
-
-`f0d205fea996a5027d469255987c63b7ade17b51`
-
-Approved pre-freeze durable tree:
-
-`ae01d94f3e9d3e75bcff39dc4ba1b9795da231a6`
-
-Planned implementation branch:
-
-`m3-word-token-segmentation-foundation`
-
-The frozen M3 boundary introduces one future `token` granularity refined by
-the exact saved sentence layer, with a complete canonical-text partition and
-Human-reviewed `is_word_like` classification. It excludes lexical
-annotation, token-to-tray behavior, automatic alignment, NLP/LLM providers,
-dependency/runtime changes, connector-routing redesign, and HRA-F09
-remediation.
-
-This docs-only freeze does not authorize branch creation or implementation.
-The next authority boundary is verification of the exact freeze commit,
-followed by separate explicit Human authorization for the bounded
-implementation branch.
+The frozen contract, bounded implementation, exact-candidate hosted proof,
+Static Human Diff Review, Human Runtime Acceptance, PR #12, and rebase merge
+have completed. No checkpoint after M3 is authorized.
 
 ---
 
 ## 1. Repository checkpoint
 
-Current completed implementation milestone:
+Current completed checkpoint: **M3 — Human-Reviewed Word/Token Segmentation
+Foundation**.
 
-**M2 — Linguistic Segmentation Foundation:
-COMPLETE / MERGED / CLOSED**
+Durable starting state:
 
-M2 Gate 1, frozen contract execution, Gate 2 under the approved checkpoint
-exception, bounded Static Human Diff Review, Human Runtime Acceptance, PR #11
-rebase merge, Gate 3 exact tree identity, and durable-state closure are
-complete.
-
-Durable implementation `main` immediately after merge:
-
-`8972609a86d15d411917aafe6cf02c4577b7176f`
-
-Durable implementation tree:
-
-`cbdd9e77407a6bd853a4856ca7a927da679d3ed3`
-
-The reviewed candidate has the same exact tree. The historical implementation
-branch was deleted after durable closure under an exact-SHA guard; GitHub
-independently returns 404 for the branch.
-
-Frozen M2 outcome:
-
-- persistent sentence-only `SegmentationLayer` / `Segment` domain;
-- canonical Unicode code-point coordinates and backend-derived exact text;
-- complete partitions, stale-content guard and atomic replacement;
-- Human-reviewed manual/`Intl.Segmenter` suggestion workflow;
-- Alembic `0003`;
-- Segmentation controls outside the canonical content root;
-- no word/token segmentation, direct segment-to-tray behavior, linguistic
-  annotation, candidate/automatic alignment, NLP/LLM provider, or connector
-  routing redesign.
+- `main`: `fc607b597bee35aff31a06a3945fa7a256f6b5c8`;
+- tree: `bf59e847b8874c90b76032e92fb006343b4662d6`;
+- reviewed candidate: `d4254c1239e649b17dc4ae6d6f995e52bd4635db`;
+- PR #12: merged by rebase.
 
 ### Checkpoint ledger
 
@@ -95,9 +44,10 @@ Frozen M2 outcome:
 | M0.7 Hardening | #9 | `580e27cbea09e50f40782a92da426e7332e8a54d` | rebase → `697b019dc2820c67dacbc0b58a718e198ab655be` |
 | M1 Workbench Interaction & UI Foundation | #10 | `bdd32cbaed63966c346caaf44f1fd3a0197750a7` | rebase → `3a3361aebdb7c9c8d3a1b850c5b30dc9f5a5b6ea` |
 | M2 Linguistic Segmentation Foundation | #11 | `7cf756694e429abc50bf604ab2757fb3e44959c6` | rebase → `8972609a86d15d411917aafe6cf02c4577b7176f` |
+| M3 Word/Token Segmentation Foundation | #12 | `d4254c1239e649b17dc4ae6d6f995e52bd4635db` | rebase → `fc607b597bee35aff31a06a3945fa7a256f6b5c8` |
 
 M0.5 and M0.6 merge commits were verified to contain the exact reviewed file
-trees. M0.7, M1, and M2 used repository-permitted rebase merge; their Gate 3
+trees. M0.7, M1, M2, and M3 used repository-permitted rebase merge; their Gate 3
 bridges are exact candidate-to-durable-main tree identities.
 
 ---
@@ -723,21 +673,58 @@ proof repository/commit, CircleCI pipeline/artifacts, M0.7/M1 proof
 repositories, GitHub Actions diagnostics, runner probe, and retained support
 evidence remain protected and were not modified by branch cleanup.
 
-### 11.8 M3 bounded implementation state
+## 12. M3 durable closure
 
-M3 repository-reality reconstruction, Gate 1, bounded contract review, and
-Human freeze are complete against exact pre-freeze durable
-`main@f0d205fea996a5027d469255987c63b7ade17b51` and tree
-`ae01d94f3e9d3e75bcff39dc4ba1b9795da231a6`.
+### 12.1 Final status
 
-The docs-only M3 contract-freeze commit is
-`fa861409947705f658209e53b8c507b535c5233a` with tree
-`2e2b732bcd9e90b7430ee4a74bb7a98149899b06`. The Human separately authorized
-`m3-word-token-segmentation-foundation` from that exact commit and bounded M3
-implementation. The active branch adds ADR-011, Alembic `0004`, exact
-sentence-basis token persistence/API behavior, Human-review UI, and required
-tests. Gate 2, Static Human Diff Review, HRA, PR, and merge remain pending and
-separately governed.
+M3 is complete. Its bounded contract, implementation, proof, reviews, PR, and
+rebase merge are durably recorded. No later checkpoint is authorized.
 
-M2 has no remaining implementation-branch cleanup action. Proof and diagnostic
-evidence remains retained while `G2-X01` is open.
+### 12.2 Provenance
+
+- pre-contract main: `f0d205fea996a5027d469255987c63b7ade17b51`;
+- contract-freeze commit: `fa861409947705f658209e53b8c507b535c5233a`;
+- implementation branch: `m3-word-token-segmentation-foundation`;
+- reviewed candidate: `d4254c1239e649b17dc4ae6d6f995e52bd4635db`;
+- candidate tree: `bf59e847b8874c90b76032e92fb006343b4662d6`;
+- PR: `#12`; merge method: rebase;
+- merged main: `fc607b597bee35aff31a06a3945fa7a256f6b5c8`;
+- merged main tree: `bf59e847b8874c90b76032e92fb006343b4662d6`.
+
+Candidate and merged-main trees are identical.
+
+### 12.3 Gate 2 and retained evidence
+
+M3 Gate 2 passed under the approved External Infrastructure Exception, which
+waived only successful execution on a GitHub-hosted runner.
+
+Accepted proof:
+
+- repository: `Pacchifans69/linguagraph-m3-proof`;
+- commit: `2e95d307374bc279f42d1048caf988d2b730169c`;
+- tree: `bef4156bd68b48b3d28156d22d2a3c8567de05c2`;
+- CircleCI pipeline: `#5`; result: `SUCCESS`.
+
+Earlier proof attempts and diagnostic evidence remain retained. GitHub Actions
+runs for candidate push (#72), PR (#73), and post-merge main (#74) failed
+before any step started; no application command executed. `G2-X01` remains
+`OPEN / EXTERNAL`.
+
+### 12.4 Human review
+
+Static Human Diff Review passed for
+`d4254c1239e649b17dc4ae6d6f995e52bd4635db`.
+
+Human Runtime Acceptance passed in Edge and Chrome at 1280×720 and 1440×900.
+Reported persistence/deletion observations matched the frozen semantics:
+Word-like is classification metadata over an exhaustive token partition, and
+Delete tokens removes the complete token layer. Retain a non-blocking UX
+comprehension note. HRA-F09 routing is unchanged.
+
+### 12.5 Cleanup boundary
+
+The implementation branch remains retained at the reviewed candidate. Deletion
+requires separate Human approval with exact-SHA and required-main guards.
+
+All proof repositories, successful artifacts, failed diagnostic pipelines, and
+GitHub Actions provider evidence must remain retained.
