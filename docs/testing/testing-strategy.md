@@ -1,9 +1,9 @@
-# LinguaGraph — Testing Strategy (as built through the M4 implementation candidate)
+# LinguaGraph — Testing Strategy (as built through M4)
 
-This document describes the inherited M0/M1 testing architecture plus active
-M2 segmentation coverage and the rules for what counts as evidence. It is
-descriptive, not a new authority: the accepted pre-implementation report and
-frozen milestone contracts remain authoritative.
+This document describes the inherited M0/M1 testing architecture, M2/M3
+segmentation coverage, M4 lemma-annotation coverage, and the rules for what
+counts as evidence. It is descriptive, not a new authority: the accepted
+pre-implementation report and frozen milestone contracts remain authoritative.
 
 ## 1. Test levels
 

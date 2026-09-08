@@ -1,8 +1,8 @@
-# LinguaGraph — Architecture (as built through the M4 implementation candidate)
+# LinguaGraph — Architecture (as built through M4)
 
-This document describes the architecture implemented through the active M3
-branch. It is a description, not a new authority: the accepted ADRs
-(`docs/adr/ADR-001…ADR-010`) and the authoritative
+This document describes the architecture implemented through the completed M4
+boundary. It is a description, not a new authority: the accepted ADRs
+(`docs/adr/ADR-001…ADR-012`) and the authoritative
 pre-implementation documents
 (`docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md`,
 `M0_PREIMPLEMENTATION_REPORT.md`) remain authoritative. Where this document

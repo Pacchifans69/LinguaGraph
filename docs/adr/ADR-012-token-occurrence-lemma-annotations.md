@@ -2,8 +2,7 @@
 
 ## Status
 
-Accepted (implemented as the M4 implementation candidate; not yet Gate 2
-audited, Human diff reviewed, or merged)
+Accepted (frozen for M4)
 
 ## Context
 
