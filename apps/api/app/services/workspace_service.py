@@ -36,6 +36,7 @@ from app.db.models import (
     SegmentationLayer,
     Span,
     TextVersion,
+    TokenLemmaAnnotation,
 )
 from app.db.session import read_transaction
 
@@ -57,6 +58,7 @@ class WorkspaceSnapshot:
     alignment_members: list[AlignmentMember] = field(default_factory=list)
     segmentation_layers: list[SegmentationLayer] = field(default_factory=list)
     segments: list[Segment] = field(default_factory=list)
+    token_lemma_annotations: list[TokenLemmaAnnotation] = field(default_factory=list)
 
 
 def get_workspace_snapshot(db: Session, document_id: uuid.UUID) -> WorkspaceSnapshot:
@@ -152,6 +154,32 @@ def get_workspace_snapshot(db: Session, document_id: uuid.UUID) -> WorkspaceSnap
             ).all()
         )
 
+        # M4 lemma annotations are scoped through the authoritative ownership
+        # chain (annotation -> Segment -> SegmentationLayer -> TextVersion ->
+        # document); the annotation itself stores no redundant context.
+        token_lemma_annotations = list(
+            db.scalars(
+                select(TokenLemmaAnnotation)
+                .join(
+                    Segment,
+                    TokenLemmaAnnotation.token_segment_id == Segment.id,
+                )
+                .join(
+                    SegmentationLayer,
+                    Segment.segmentation_layer_id == SegmentationLayer.id,
+                )
+                .join(
+                    TextVersion,
+                    SegmentationLayer.text_version_id == TextVersion.id,
+                )
+                .where(TextVersion.document_id == document_id)
+                .order_by(
+                    TokenLemmaAnnotation.created_at,
+                    TokenLemmaAnnotation.id,
+                )
+            ).all()
+        )
+
         return WorkspaceSnapshot(
             document=document,
             text_versions=text_versions,
@@ -160,4 +188,5 @@ def get_workspace_snapshot(db: Session, document_id: uuid.UUID) -> WorkspaceSnap
             alignment_members=alignment_members,
             segmentation_layers=segmentation_layers,
             segments=segments,
+            token_lemma_annotations=token_lemma_annotations,
         )

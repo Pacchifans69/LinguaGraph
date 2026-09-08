@@ -24,6 +24,7 @@ WORKSPACE_KEYS = {
     "spans",
     "alignment_groups",
     "alignment_members",
+    "token_lemma_annotations",
 }
 
 
