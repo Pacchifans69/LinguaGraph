@@ -34,6 +34,7 @@ ALEMBIC_INI = API_ROOT / "alembic.ini"
 # Domain tables in FK-safe truncation order (CASCADE makes order irrelevant,
 # but listing them documents the graph).
 DOMAIN_TABLES = (
+    "token_lemma_annotations",
     "segments",
     "segmentation_layers",
     "alignment_members",
