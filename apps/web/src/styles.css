@@ -1282,3 +1282,105 @@ select:focus-visible {
 .token-list {
   max-height: 20rem;
 }
+
+/* M4 lemma annotation controls also remain outside [data-text-content-root]. */
+.lemma-annotation-panel {
+  border-top-style: dashed;
+  background: #f8fdf9;
+}
+
+.lemma-list {
+  max-height: 22rem;
+}
+
+.lemma-row {
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border);
+}
+
+.lemma-copy {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--text);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.lemma-range {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.lemma-token {
+  font-family: var(--font-mono);
+}
+
+.lemma-current {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+}
+
+.lemma-saved-label {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.lemma-saved-value {
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.lemma-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.lemma-row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.lemma-row-actions label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.lemma-row-actions input {
+  width: 9rem;
+  min-height: 1.82rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+
+.lemma-row-error {
+  margin-top: var(--space-1);
+}
+
+.lemma-hint,
+.lemma-dependency-note {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.lemma-dependency-note {
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fffdf5;
+}

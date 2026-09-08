@@ -14,6 +14,7 @@ import type {
   LinguisticSegment,
   SegmentationLayer,
   TextVersion,
+  TokenLemmaAnnotation,
   WorkspaceSnapshot,
   WorkspaceSpan,
 } from './api';
@@ -42,6 +43,11 @@ export interface NormalizedWorkspace {
   >;
   segments: LinguisticSegment[];
   segmentsByLayer: Record<string, LinguisticSegment[]>;
+  /** M4: sparse lemma annotations in deterministic server order. */
+  lemmaAnnotations: TokenLemmaAnnotation[];
+  lemmaAnnotationsById: Record<string, TokenLemmaAnnotation>;
+  /** M4: the authoritative annotation lookup for one saved token Segment.id. */
+  lemmaAnnotationByTokenSegmentId: Record<string, TokenLemmaAnnotation>;
 }
 
 function indexById<T extends { id: string }>(items: T[]): Record<string, T> {
@@ -90,6 +96,13 @@ export function normalizeWorkspace(snapshot: WorkspaceSnapshot): NormalizedWorks
     layerSegments.sort((left, right) => left.ordinal - right.ordinal);
   }
 
+  const lemmaAnnotations = snapshot.token_lemma_annotations ?? [];
+  const lemmaAnnotationsById = indexById(lemmaAnnotations);
+  const lemmaAnnotationByTokenSegmentId: Record<string, TokenLemmaAnnotation> = {};
+  for (const annotation of lemmaAnnotations) {
+    lemmaAnnotationByTokenSegmentId[annotation.token_segment_id] = annotation;
+  }
+
   return {
     document: snapshot.document,
     textVersions,
@@ -108,5 +121,8 @@ export function normalizeWorkspace(snapshot: WorkspaceSnapshot): NormalizedWorks
     segmentationLayersByVersionAndGranularity,
     segments,
     segmentsByLayer,
+    lemmaAnnotations,
+    lemmaAnnotationsById,
+    lemmaAnnotationByTokenSegmentId,
   };
 }

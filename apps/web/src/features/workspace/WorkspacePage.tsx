@@ -36,6 +36,7 @@ import { Toolbar } from '../../shared/ui/Toolbar';
 import { useWorkspaceKeyboard } from './useWorkspaceKeyboard';
 import { SegmentationPanel } from '../segmentation/SegmentationPanel';
 import { TokenSegmentationPanel } from '../segmentation/TokenSegmentationPanel';
+import { LemmaAnnotationPanel } from '../lemma/LemmaAnnotationPanel';
 
 interface PendingForceDelete {
   versionId: string;
@@ -69,6 +70,7 @@ function WorkspaceBody({
     layersByVersion: ReturnType<typeof normalizeWorkspace>['segmentationLayersByVersion'];
     layersByVersionAndGranularity: ReturnType<typeof normalizeWorkspace>['segmentationLayersByVersionAndGranularity'];
     segmentsByLayer: ReturnType<typeof normalizeWorkspace>['segmentsByLayer'];
+    lemmaAnnotationByTokenSegmentId: ReturnType<typeof normalizeWorkspace>['lemmaAnnotationByTokenSegmentId'];
   };
 }) {
   const {
@@ -278,6 +280,19 @@ function WorkspaceBody({
                         sentenceSegments={layer ? segmentation.segmentsByLayer[layer.id] ?? [] : []}
                         savedLayer={tokenLayer}
                         savedSegments={tokenLayer ? segmentation.segmentsByLayer[tokenLayer.id] ?? [] : []}
+                      />
+                      <LemmaAnnotationPanel
+                        documentId={documentId}
+                        version={version}
+                        tokenLayer={tokenLayer}
+                        tokenSegments={
+                          tokenLayer
+                            ? segmentation.segmentsByLayer[tokenLayer.id] ?? []
+                            : []
+                        }
+                        annotationsByTokenSegmentId={
+                          segmentation.lemmaAnnotationByTokenSegmentId
+                        }
                       />
                     </>
                   );
@@ -506,6 +521,8 @@ function DocumentWorkspacePage({ documentId }: { documentId: string }) {
             layersByVersionAndGranularity:
               normalized.segmentationLayersByVersionAndGranularity,
             segmentsByLayer: normalized.segmentsByLayer,
+            lemmaAnnotationByTokenSegmentId:
+              normalized.lemmaAnnotationByTokenSegmentId,
           }}
         />
       </section>
