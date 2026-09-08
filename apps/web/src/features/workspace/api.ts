@@ -74,6 +74,25 @@ export interface LinguisticSegment {
   created_at: string;
 }
 
+/**
+ * M4: one sparse Human-reviewed lemma annotation bound to an exact saved
+ * token `Segment.id`. It carries no redundant token context — coordinates,
+ * `exact_text`, `is_word_like` and the owning layer stay owned by the token
+ * hierarchy. The workspace snapshot is the only read authority.
+ */
+export interface TokenLemmaAnnotation {
+  id: string;
+  token_segment_id: string;
+  lemma: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LemmaAnnotationPutInput {
+  tokenSegmentId: string;
+  lemma: string;
+}
+
 export interface SegmentCoordinates {
   start: number;
   end: number;
@@ -116,6 +135,7 @@ export interface WorkspaceSnapshot {
   alignment_members: AlignmentMember[];
   segmentation_layers?: SegmentationLayer[];
   segments?: LinguisticSegment[];
+  token_lemma_annotations?: TokenLemmaAnnotation[];
 }
 
 export interface TextVersionCreateInput {
@@ -133,8 +153,16 @@ export const workspaceKeys = {
 const segmentationMutationKey = (documentId: string) =>
   ['segmentation-mutation', documentId] as const;
 
+const lemmaMutationKey = (documentId: string) =>
+  ['lemma-mutation', documentId] as const;
+
 export function useSegmentationMutationPending(documentId: string): boolean {
   return useIsMutating({ mutationKey: segmentationMutationKey(documentId) }) > 0;
+}
+
+/** True while ANY lemma annotation mutation of this document is in flight. */
+export function useLemmaMutationPending(documentId: string): boolean {
+  return useIsMutating({ mutationKey: lemmaMutationKey(documentId) }) > 0;
 }
 
 export function useWorkspace(documentId: string) {
@@ -265,6 +293,38 @@ export function useDeleteTokenSegmentation(documentId: string) {
     mutationKey: segmentationMutationKey(documentId),
     mutationFn: (textVersionId: string) =>
       apiClient.del(`/api/v1/text-versions/${textVersionId}/segmentations/token`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
+    },
+  });
+}
+
+/**
+ * M4 lemma mutation hooks. The server response is never adopted as local
+ * authority: every success invalidates the authoritative workspace snapshot,
+ * which is the only source the panels read.
+ */
+export function usePutTokenLemma(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: lemmaMutationKey(documentId),
+    mutationFn: ({ tokenSegmentId, lemma }: LemmaAnnotationPutInput) =>
+      apiClient.put<TokenLemmaAnnotation>(
+        `/api/v1/token-segments/${tokenSegmentId}/lemma`,
+        { lemma },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
+    },
+  });
+}
+
+export function useDeleteTokenLemma(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: lemmaMutationKey(documentId),
+    mutationFn: (tokenSegmentId: string) =>
+      apiClient.del(`/api/v1/token-segments/${tokenSegmentId}/lemma`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
     },
