@@ -25,6 +25,7 @@ WORKSPACE_KEYS = {
     "alignment_groups",
     "alignment_members",
     "token_lemma_annotations",
+    "token_pos_annotations",
 }
 
 
