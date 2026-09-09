@@ -37,6 +37,7 @@ import { useWorkspaceKeyboard } from './useWorkspaceKeyboard';
 import { SegmentationPanel } from '../segmentation/SegmentationPanel';
 import { TokenSegmentationPanel } from '../segmentation/TokenSegmentationPanel';
 import { LemmaAnnotationPanel } from '../lemma/LemmaAnnotationPanel';
+import { PosAnnotationPanel } from '../pos/PosAnnotationPanel';
 
 interface PendingForceDelete {
   versionId: string;
@@ -71,6 +72,7 @@ function WorkspaceBody({
     layersByVersionAndGranularity: ReturnType<typeof normalizeWorkspace>['segmentationLayersByVersionAndGranularity'];
     segmentsByLayer: ReturnType<typeof normalizeWorkspace>['segmentsByLayer'];
     lemmaAnnotationByTokenSegmentId: ReturnType<typeof normalizeWorkspace>['lemmaAnnotationByTokenSegmentId'];
+    posAnnotationByTokenSegmentId: ReturnType<typeof normalizeWorkspace>['posAnnotationByTokenSegmentId'];
   };
 }) {
   const {
@@ -292,6 +294,26 @@ function WorkspaceBody({
                         }
                         annotationsByTokenSegmentId={
                           segmentation.lemmaAnnotationByTokenSegmentId
+                        }
+                      />
+                      <PosAnnotationPanel
+                        documentId={documentId}
+                        version={version}
+                        tokenLayer={tokenLayer}
+                        tokenSegments={
+                          tokenLayer
+                            ? segmentation.segmentsByLayer[tokenLayer.id] ?? []
+                            : []
+                        }
+                        posAnnotationsByTokenSegmentId={
+                          segmentation.posAnnotationByTokenSegmentId
+                        }
+                        lemmaTokenSegmentIds={
+                          new Set(
+                            Object.keys(
+                              segmentation.lemmaAnnotationByTokenSegmentId,
+                            ),
+                          )
                         }
                       />
                     </>
@@ -523,6 +545,8 @@ function DocumentWorkspacePage({ documentId }: { documentId: string }) {
             segmentsByLayer: normalized.segmentsByLayer,
             lemmaAnnotationByTokenSegmentId:
               normalized.lemmaAnnotationByTokenSegmentId,
+            posAnnotationByTokenSegmentId:
+              normalized.posAnnotationByTokenSegmentId,
           }}
         />
       </section>

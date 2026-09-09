@@ -258,4 +258,79 @@ describe('normalizeWorkspace', () => {
     expect(normalized.lemmaAnnotationsById).toEqual({});
     expect(normalized.lemmaAnnotationByTokenSegmentId).toEqual({});
   });
+
+  it('indexes M5 POS annotations by id and by token segment id', () => {
+    const normalized = normalizeWorkspace(
+      snapshot({
+        token_pos_annotations: [
+          {
+            id: 'pos-1',
+            token_segment_id: 'token-1',
+            pos_tag: 'NOUN',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+          },
+          {
+            id: 'pos-2',
+            token_segment_id: 'token-2',
+            pos_tag: 'VERB',
+            created_at: '2026-01-01T00:00:01Z',
+            updated_at: '2026-01-01T00:00:01Z',
+          },
+        ],
+      }),
+    );
+    expect(normalized.posAnnotations.map((item) => item.id)).toEqual([
+      'pos-1',
+      'pos-2',
+    ]);
+    expect(normalized.posAnnotationsById['pos-2'].pos_tag).toBe('VERB');
+    expect(normalized.posAnnotationByTokenSegmentId['token-1'].pos_tag).toBe(
+      'NOUN',
+    );
+    expect(
+      normalized.posAnnotationByTokenSegmentId['token-missing'],
+    ).toBeUndefined();
+  });
+
+  it('normalizes a snapshot without M5 annotations to empty POS maps', () => {
+    const normalized = normalizeWorkspace(snapshot());
+    expect(normalized.posAnnotations).toEqual([]);
+    expect(normalized.posAnnotationsById).toEqual({});
+    expect(normalized.posAnnotationByTokenSegmentId).toEqual({});
+  });
+
+  it('keeps lemma and POS authorities separate for the same token id', () => {
+    const normalized = normalizeWorkspace(
+      snapshot({
+        token_lemma_annotations: [
+          {
+            id: 'lemma-1',
+            token_segment_id: 'token-1',
+            lemma: 'house',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+        token_pos_annotations: [
+          {
+            id: 'pos-1',
+            token_segment_id: 'token-1',
+            pos_tag: 'NOUN',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+          },
+        ],
+      }),
+    );
+    // Sibling annotations for one saved token remain two independent records.
+    expect(normalized.lemmaAnnotationByTokenSegmentId['token-1'].lemma).toBe(
+      'house',
+    );
+    expect(normalized.posAnnotationByTokenSegmentId['token-1'].pos_tag).toBe(
+      'NOUN',
+    );
+    expect(normalized.lemmaAnnotations).toHaveLength(1);
+    expect(normalized.posAnnotations).toHaveLength(1);
+  });
 });

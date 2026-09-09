@@ -94,6 +94,38 @@ describe('TokenSegmentationPanel', () => {
     expect(alert).toHaveTextContent('token segmentation basis is not the current sentence layer');
   });
 
+  it('renders the stable multi-dependent conflict for lemma + POS dependents', async () => {
+    // M5: the token layer cannot be replaced while ANY occurrence annotation
+    // (lemma and/or coarse POS) depends on it. The panel presents the stable
+    // envelope and the cleanup instruction returned by the API.
+    installFetchMock([
+      [
+        '/segmentations/token',
+        async () =>
+          json(409, {
+            code: 'SEGMENTATION_HAS_DEPENDENTS',
+            message:
+              'delete the dependent occurrence annotations before changing token segmentation',
+            details: {
+              text_version_id: 'tv-1',
+              token_layer_id: 'token-1',
+              dependency_types: ['lemma_annotations', 'pos_annotations'],
+            },
+          }),
+      ],
+    ]);
+    renderWithProviders(<TokenSegmentationPanel documentId="doc-1" version={version} sentenceLayer={sentenceLayer} sentenceSegments={sentenceSegments} savedSegments={[]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start manual' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save tokens' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveAttribute('data-error-code', 'SEGMENTATION_HAS_DEPENDENTS');
+    expect(alert).toHaveTextContent(
+      'delete the dependent occurrence annotations before changing token segmentation',
+    );
+  });
+
   it('disables sentence and token controls while any segmentation mutation is pending', async () => {
     let release!: () => void;
     installFetchMock([
