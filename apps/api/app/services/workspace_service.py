@@ -37,6 +37,7 @@ from app.db.models import (
     Span,
     TextVersion,
     TokenLemmaAnnotation,
+    TokenPosAnnotation,
 )
 from app.db.session import read_transaction
 
@@ -59,6 +60,7 @@ class WorkspaceSnapshot:
     segmentation_layers: list[SegmentationLayer] = field(default_factory=list)
     segments: list[Segment] = field(default_factory=list)
     token_lemma_annotations: list[TokenLemmaAnnotation] = field(default_factory=list)
+    token_pos_annotations: list[TokenPosAnnotation] = field(default_factory=list)
 
 
 def get_workspace_snapshot(db: Session, document_id: uuid.UUID) -> WorkspaceSnapshot:
@@ -180,6 +182,33 @@ def get_workspace_snapshot(db: Session, document_id: uuid.UUID) -> WorkspaceSnap
             ).all()
         )
 
+        # M5 POS annotations are scoped through the same authoritative
+        # ownership chain (annotation -> Segment -> SegmentationLayer ->
+        # TextVersion -> document); the annotation itself stores no redundant
+        # document/version context and no lemma reference.
+        token_pos_annotations = list(
+            db.scalars(
+                select(TokenPosAnnotation)
+                .join(
+                    Segment,
+                    TokenPosAnnotation.token_segment_id == Segment.id,
+                )
+                .join(
+                    SegmentationLayer,
+                    Segment.segmentation_layer_id == SegmentationLayer.id,
+                )
+                .join(
+                    TextVersion,
+                    SegmentationLayer.text_version_id == TextVersion.id,
+                )
+                .where(TextVersion.document_id == document_id)
+                .order_by(
+                    TokenPosAnnotation.created_at,
+                    TokenPosAnnotation.id,
+                )
+            ).all()
+        )
+
         return WorkspaceSnapshot(
             document=document,
             text_versions=text_versions,
@@ -189,4 +218,5 @@ def get_workspace_snapshot(db: Session, document_id: uuid.UUID) -> WorkspaceSnap
             segmentation_layers=segmentation_layers,
             segments=segments,
             token_lemma_annotations=token_lemma_annotations,
+            token_pos_annotations=token_pos_annotations,
         )

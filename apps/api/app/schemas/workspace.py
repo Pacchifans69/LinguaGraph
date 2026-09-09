@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.schemas.document import DocumentResponse
 from app.schemas.lemma_annotation import TokenLemmaAnnotationResponse
+from app.schemas.pos_annotation import TokenPosAnnotationResponse
 from app.schemas.segmentation import SegmentResponse, SegmentationLayerResponse
 from app.schemas.text_version import TextVersionResponse
 
@@ -75,3 +76,4 @@ class WorkspaceResponse(BaseModel):
     segmentation_layers: list[SegmentationLayerResponse]
     segments: list[SegmentResponse]
     token_lemma_annotations: list[TokenLemmaAnnotationResponse]
+    token_pos_annotations: list[TokenPosAnnotationResponse]
