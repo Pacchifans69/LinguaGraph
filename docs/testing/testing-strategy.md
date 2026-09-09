@@ -1,8 +1,8 @@
-# LinguaGraph — Testing Strategy (as built through M4)
+# LinguaGraph — Testing Strategy (as built through M5)
 
 This document describes the inherited M0/M1 testing architecture, M2/M3
-segmentation coverage, M4 lemma-annotation coverage, and the rules for what
-counts as evidence. It is descriptive, not a new authority: the accepted
+segmentation coverage, M4 lemma-annotation coverage, M5 coarse-POS coverage,
+and the rules for what counts as evidence. It is descriptive, not a new authority: the accepted
 pre-implementation report and frozen milestone contracts remain authoritative.
 
 ## 1. Test levels
@@ -53,6 +53,15 @@ to Alembic HEAD, and cleans it up. Tests cover:
   TextVersion root lock (two deterministic lock-ordering paths plus one
   genuinely concurrent race asserting no silent annotation loss; this is
   evidence for the accepted algorithm, not exhaustive interleaving proof);
+- M5 coarse POS annotation lifecycle, eligibility, closed fifteen-value
+  vocabulary, retokenization dependency blocking with the complete
+  `dependency_types` payload, sibling lemma independence, TextVersion cascade,
+  Alignment independence, workspace scoping and write-failure atomicity;
+- real-PostgreSQL POS serialization on the shared TextVersion root lock
+  (POS versus token replacement/deletion, lemma PUT versus POS PUT on one
+  saved token, and concurrent POS writes to one token asserting no leaked
+  unique/integrity failure and no silent annotation loss; again evidence for
+  the accepted algorithm, not exhaustive interleaving proof);
 - disposable-database lifecycle;
 - migration safety.
 
@@ -79,7 +88,7 @@ Rules:
 - Playwright's backend uses the same disposable lifecycle and fail-closed
   cleanup path.
 
-Current Alembic head: `0005`.
+Current Alembic head: `0006`.
 
 ### 1.4 Frontend unit/component tests
 
@@ -139,9 +148,18 @@ sentence/token segmentation and Alignment state, and the dependency path
 (token replacement blocked while a lemma exists, then unblocked by explicit
 lemma deletion).
 
+`pos-annotation.spec.ts` is the M5 coarse-POS release path. It covers the saved
+word-like-token prerequisite, the exact fifteen-value controlled selector,
+create/reload/edit/reload/delete with exact persisted values, preserved sibling
+lemma plus sentence/token segmentation and Alignment state, the multi-dependent
+dependency path (lemma + POS blocking token replacement with both
+`dependency_types`, still blocked after deleting one sibling, unblocked only
+after deleting the last one, in both sibling-deletion orders), and
+astral/combining/non-ASCII Unicode identity under the same closed vocabulary.
+
 ## 2. Canonical release-baseline workflow configuration
 
-`.github/workflows/ci.yml` is the canonical M4 release-baseline workflow
+`.github/workflows/ci.yml` is the canonical M5 release-baseline workflow
 configuration. Its semantic gates are:
 
 - Python 3.13;
@@ -151,7 +169,7 @@ configuration. Its semantic gates are:
 - PostgreSQL 18 service;
 - backend pytest with real PostgreSQL;
 - fail-closed skipped-test guard;
-- Alembic empty-database upgrade/current/check with `0005 (head)` assertion;
+- Alembic empty-database upgrade/current/check with `0006 (head)` assertion;
 - frontend lint;
 - frontend typecheck;
 - Vitest / React Testing Library;
@@ -161,6 +179,7 @@ configuration. Its semantic gates are:
 - Playwright M2 segmentation release path.
 - Playwright M3 token segmentation release path.
 - Playwright M4 lemma annotation release path.
+- Playwright M5 coarse POS annotation release path.
 
 Workflow configuration by itself is not execution evidence.
 

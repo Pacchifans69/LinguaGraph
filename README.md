@@ -11,6 +11,20 @@ schema structure.
 
 ## Current milestone
 
+M5 — Human-Reviewed POS Annotation Foundation — has a Human-approved frozen
+execution contract in `docs/development/M5_CONTRACT.md`. Bounded M5
+implementation was performed on
+`m5-human-reviewed-pos-annotation-foundation`, based exactly on the frozen
+implementation base
+`11176df91dd9dc3d1169e4bef41808b0abfa8656` (tree
+`03b1d0746bb89c5e57fe27e63e417ea274447287`).
+
+M5 is at **bounded implementation complete / candidate awaiting Human
+Static Diff Review, Gate 2, and Human Runtime Acceptance**. It is not merged,
+no PR was opened, and `G2-X01` remains `OPEN / EXTERNAL`.
+
+### Completed previous milestone
+
 M4 — Human-Reviewed Lemma Annotation Foundation — is implemented, Human
 reviewed, merged by rebase through PR #13, and durably recorded through the
 post-merge closeout.
@@ -99,8 +113,7 @@ Read these when reconstructing project state:
   specification and Definition of Done;
 - `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` — accepted
   pre-implementation engineering report;
-- `docs/adr/` — accepted as-built architecture decisions through ADR-012; M5
-  requires a bounded ADR-013 during implementation;
+- `docs/adr/` — accepted as-built architecture decisions through ADR-013;
 - `docs/development/CURRENT_STATE.md` — durable engineering handoff;
 - `docs/development/M1_CONTRACT.md` — completed frozen M1 contract;
 - `docs/development/M2_CONTRACT.md` — completed frozen M2 execution contract;
@@ -246,14 +259,16 @@ uv run alembic check
 The current **as-built** schema head is:
 
 ```text
-0005 (head)
+0006 (head)
 ```
 
 M2 adds `0003` for sentence segmentation; M3 adds `0004` for exact-basis token
 segmentation; M4 adds additive `0005_human_reviewed_lemma_annotations.py` for
-the sparse occurrence-level `token_lemma_annotations` table.
+the sparse occurrence-level `token_lemma_annotations` table; M5 adds additive
+`0006_human_reviewed_pos_annotations.py` for the sparse occurrence-level
+`token_pos_annotations` table.
 
-`0001` through `0004` remain unchanged by M4.
+`0001` through `0005` remain unchanged by M5.
 
 ## Verification
 
@@ -455,3 +470,45 @@ Proof repositories, CircleCI records/artifacts, GitHub Actions diagnostics,
 PR #13, and candidate commit history remain retained.
 
 No later checkpoint is authorized by this closeout.
+
+## M5 implementation boundary
+
+M5 delivers the bounded Human-reviewed coarse-POS foundation defined by
+`docs/development/M5_CONTRACT.md` and ADR-013.
+
+```text
+frozen implementation base
+11176df91dd9dc3d1169e4bef41808b0abfa8656
+
+frozen base tree
+03b1d0746bb89c5e57fe27e63e417ea274447287
+
+implementation branch
+m5-human-reviewed-pos-annotation-foundation
+```
+
+Delivered additively:
+
+- Alembic `0006_human_reviewed_pos_annotations.py` and the sparse
+  `token_pos_annotations` table (`UNIQUE(token_segment_id)`, named
+  `ON DELETE CASCADE` token FK, named fifteen-value CHECK constraint);
+- `PUT`/`DELETE /api/v1/token-segments/{token_segment_id}/pos` with
+  create/update/logical-no-op (`updated_at` preserved) and explicit delete;
+- the closed, case-sensitive fifteen-value coarse-POS vocabulary
+  (`PUNCT`/`SYM` excluded; no complete-UD-conformance claim);
+- `INVALID_POS_TARGET` / `INVALID_POS_VALUE` (422) with `VALIDATION_ERROR`
+  retained for non-string values and extra request fields;
+- lemma/POS sibling independence in both directions;
+- multi-dependent retokenization blocking with the complete canonical
+  `dependency_types` set and the single-member legacy scalar;
+- the shared `TextVersion` root lock for POS, lemma and token mutation;
+- workspace `token_pos_annotations` read authority with deterministic
+  ordering;
+- frontend `posAnnotations` / `posAnnotationsById` /
+  `posAnnotationByTokenSegmentId` normalization and the bounded
+  `PosAnnotationPanel` outside `[data-text-root]` with an exact fifteen-value
+  controlled selector;
+- backend, frontend and Playwright M5 coverage.
+
+M5 is **not merged**, no PR was opened, and no Gate 2 exception decision has
+been made.

@@ -45,6 +45,27 @@ implementation code:
 
 ## Current phase
 
+M5 — Human-Reviewed POS Annotation Foundation — is at **bounded implementation
+complete on the authorized branch; candidate awaiting Human Static Diff Review,
+Gate 2 and Human Runtime Acceptance**. It is not merged, no PR was opened, and
+no Gate 2 exception decision was made.
+
+M5 implementation provenance:
+
+- approved pre-freeze durable base:
+  `68fedc4c8cba80201333e6550231b805e0f0853c`;
+- approved pre-freeze durable tree:
+  `3bea6efd9662fe746328d2a7814fa65e1efb917f`;
+- frozen implementation base:
+  `11176df91dd9dc3d1169e4bef41808b0abfa8656`;
+- frozen base tree:
+  `03b1d0746bb89c5e57fe27e63e417ea274447287`;
+- implementation branch:
+  `m5-human-reviewed-pos-annotation-foundation`;
+- governing contract: `docs/development/M5_CONTRACT.md`;
+- decision record:
+  `docs/adr/ADR-013-token-occurrence-coarse-pos-annotations.md`.
+
 M4 — Human-Reviewed Lemma Annotation Foundation — is
 **COMPLETE / MERGED / CLOSED**.
 
@@ -53,23 +74,15 @@ Human Runtime Acceptance, PR #13, Human Merge Decision, rebase merge, Gate 3
 exact-tree verification, durable-state closure, and exact-guarded
 implementation-branch cleanup have all completed.
 
-M5 — Human-Reviewed POS Annotation Foundation — now has a Human-approved
-frozen execution contract in `docs/development/M5_CONTRACT.md`.
+M5 — Human-Reviewed POS Annotation Foundation — has a Human-approved frozen
+execution contract in `docs/development/M5_CONTRACT.md` and completed bounded
+implementation on `m5-human-reviewed-pos-annotation-foundation`, based exactly
+on the frozen implementation base
+`11176df91dd9dc3d1169e4bef41808b0abfa8656`.
 
-**M5 implementation is NOT STARTED / NOT AUTHORIZED.** No M5 implementation
-branch may be created until the docs-only freeze commit is independently
-verified and the Human separately authorizes bounded implementation.
-
-M5 contract-freeze coordinates:
-
-- approved pre-freeze durable base:
-  `68fedc4c8cba80201333e6550231b805e0f0853c`;
-- approved pre-freeze durable tree:
-  `3bea6efd9662fe746328d2a7814fa65e1efb917f`;
-- governing contract: `docs/development/M5_CONTRACT.md`;
-- planned implementation branch:
-  `m5-human-reviewed-pos-annotation-foundation`;
-- implementation authorization: **NOT GRANTED**.
+The exact candidate SHA/tree, verification results and residual risks are
+recorded in the bounded-implementation report and in Git history. M5 remains
+unmerged with no PR and no Gate 2 decision.
 
 M4 durable implementation provenance:
 
@@ -171,10 +184,10 @@ All proof repositories, successful CircleCI evidence, GitHub Actions
 diagnostics, PR history, and reviewed candidate history remain retained.
 `G2-X01` remains `OPEN / EXTERNAL`.
 
-M5 — Human-Reviewed POS Annotation Foundation — is now the active frozen
-normative checkpoint. It is authorized only to the contract-freeze boundary. Until a separate Human authorization is
-given, do not create the M5 implementation branch and do not modify
-implementation, migration, test, dependency, runtime, ADR, or workflow files.
+M5 — Human-Reviewed POS Annotation Foundation — is the active frozen normative
+checkpoint. Bounded implementation has been performed on the authorized branch
+only. Do not merge, open a PR, delete the implementation branch, or make any
+Gate 2 exception decision without a separate explicit Human authorization.
 
 ## Scope discipline
 

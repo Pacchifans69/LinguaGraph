@@ -11,12 +11,23 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ## 0. Current durable status
 
-M4 — Human-Reviewed Lemma Annotation Foundation — has completed bounded
+M5 — Human-Reviewed POS Annotation Foundation — has completed bounded
+implementation on the authorized branch
+`m5-human-reviewed-pos-annotation-foundation`, based exactly on frozen
+implementation base `11176df91dd9dc3d1169e4bef41808b0abfa8656` (tree
+`03b1d0746bb89c5e57fe27e63e417ea274447287`).
+
+M5 is **bounded implementation complete / candidate awaiting Human Static Diff
+Review, Gate 2 and Human Runtime Acceptance**. It is not merged, no PR was
+opened, no implementation-branch cleanup was performed, and `G2-X01` remains
+`OPEN / EXTERNAL`.
+
+M4 — Human-Reviewed Lemma Annotation Foundation — previously completed bounded
 implementation, exact-candidate Gate 2, Static Human Diff Review, Human Runtime
 Acceptance, PR #13, explicit Human Merge Decision, rebase merge, Gate 3 exact
-candidate-to-main tree verification, and this docs-only durable-state closure.
+candidate-to-main tree verification, and its docs-only durable-state closure.
 
-The exact-guarded implementation-branch cleanup has completed. M4 is now
+The exact-guarded M4 implementation-branch cleanup has completed. M4 is
 **COMPLETE / MERGED / CLOSED**.
 
 M4 durable implementation coordinates:
@@ -374,7 +385,7 @@ Recorded observations:
 
 ## 7. Current architecture and schema baseline
 
-Accepted ADRs: **ADR-001 through ADR-012**, frozen until a later governed
+Accepted ADRs: **ADR-001 through ADR-013**, frozen until a later governed
 decision changes them.
 
 Runtime baseline:
@@ -384,7 +395,7 @@ Runtime baseline:
 | Python | 3.13 |
 | Node.js | 24 |
 | PostgreSQL | 18 |
-| Alembic HEAD | `0005` |
+| Alembic HEAD | `0006` |
 
 Current language-neutral persistent entities include:
 
@@ -398,6 +409,7 @@ AlignmentMember
 SegmentationLayer
 Segment
 TokenLemmaAnnotation
+TokenPosAnnotation
 ```
 
 Core invariants remain:
@@ -423,6 +435,16 @@ token occurrence, directly keyed to persisted token `Segment.id`. Lemma state
 remains independent of Alignment. Retokenization fails closed while lemma
 dependents exist, and lemma/token mutations use the frozen TextVersion-root
 serialization order.
+
+M5 adds one sparse optional Human-reviewed coarse POS annotation per eligible
+saved word-like token occurrence, keyed to the same persisted token
+`Segment.id`. Lemma and POS are independent siblings (neither owns, requires,
+derives, mutates or deletes the other). The closed fifteen-value coarse
+vocabulary excludes `PUNCT`/`SYM` and claims no complete Universal Dependencies
+conformance. POS state remains independent of Alignment; token replacement or
+deletion is blocked while a lemma and/or POS dependent exists, reporting the
+complete `dependency_types` set; POS, lemma and token mutations share the
+TextVersion-root serialization order.
 
 The M4 as-built boundary deliberately does **not** include Lexeme/shared
 vocabulary identity, POS/morphology/syntax, generic EAV annotations,
@@ -462,12 +484,12 @@ Canonical GitHub Actions workflow:
 The workflow remains canonical despite the current provider/pre-step execution
 blockage.
 
-The current executable verification baseline is M4 / Alembic `0005` and
+The current executable verification baseline is M5 / Alembic `0006` and
 includes:
 
 ```text
 full real-PostgreSQL pytest + zero-skip guard
-Alembic empty → 0005 / current / check
+Alembic empty → 0006 / current / check
 npm ci
 lint
 typecheck
@@ -478,6 +500,7 @@ Playwright Unicode
 Playwright M2 sentence segmentation
 Playwright M3 token segmentation
 Playwright M4 lemma annotation
+Playwright M5 POS annotation
 cleanup / dependency-hash / final tree integrity
 ```
 
@@ -1088,4 +1111,60 @@ PR history, and reviewed candidate history remain retained. `G2-X01` remains
 
 M4 is **COMPLETE / MERGED / CLOSED**.
 
-No M5 or later checkpoint work is authorized by this cleanup record.
+## 14. M5 bounded implementation record
+
+### 14.1 Status
+
+**M5 — Human-Reviewed POS Annotation Foundation: bounded implementation
+complete on the authorized branch; candidate awaiting Human Static Diff Review,
+Gate 2 and Human Runtime Acceptance.**
+
+M5 is not merged, no PR was opened, and no Gate 2 exception decision was made.
+
+### 14.2 Provenance
+
+- approved pre-freeze durable base:
+  `68fedc4c8cba80201333e6550231b805e0f0853c`;
+- approved pre-freeze tree:
+  `3bea6efd9662fe746328d2a7814fa65e1efb917f`;
+- docs-only contract-freeze / frozen implementation base:
+  `11176df91dd9dc3d1169e4bef41808b0abfa8656`;
+- frozen base tree:
+  `03b1d0746bb89c5e57fe27e63e417ea274447287`;
+- implementation branch:
+  `m5-human-reviewed-pos-annotation-foundation`;
+- governing contract: `docs/development/M5_CONTRACT.md`;
+- decision record: `docs/adr/ADR-013-token-occurrence-coarse-pos-annotations.md`;
+- exact candidate SHA/tree: recorded in the bounded-implementation report and
+  commit history.
+
+### 14.3 Delivered as-built outcome
+
+M5 durably establishes, on the authorized branch:
+
+- additive Alembic `0006_human_reviewed_pos_annotations.py`; revisions
+  `0001`–`0005` remain byte-for-byte unchanged (SHA-256 guarded by test);
+- sparse `token_pos_annotations` with `UNIQUE(token_segment_id)`, named
+  `ON DELETE CASCADE` token FK and the named fifteen-value CHECK constraint
+  agreeing between ORM metadata and migration;
+- `PUT`/`DELETE /api/v1/token-segments/{token_segment_id}/pos`, with logical
+  no-op preserving `updated_at` and explicit delete preserving the sibling
+  lemma;
+- the closed case-sensitive fifteen-value coarse vocabulary, with
+  `INVALID_POS_VALUE` for unknown strings and `VALIDATION_ERROR` retained for
+  non-string values and extra fields;
+- `INVALID_POS_TARGET` eligibility over persisted
+  `granularity = token` + `is_word_like = TRUE` targets only;
+- multi-dependent retokenization blocking with canonical
+  `dependency_types` (`lemma_annotations`, `pos_annotations`) and the
+  single-member legacy scalar;
+- shared TextVersion-root serialization for POS, lemma and token mutation;
+- workspace `token_pos_annotations` read authority with deterministic ordering;
+- frontend POS normalization maps and the bounded `PosAnnotationPanel` outside
+  the canonical text root with an exact fifteen-value controlled selector;
+- backend, frontend and Playwright M5 verification coverage;
+- no dependency, lockfile or runtime-baseline change; no Alignment or
+  `text_version_service.py` change.
+
+`G2-X01` remains `OPEN / EXTERNAL`. The M4 External Infrastructure Exception
+does not carry forward to M5.
