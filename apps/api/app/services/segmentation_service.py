@@ -14,13 +14,27 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.errors import DomainError
-from app.db.models import Segment, SegmentationLayer, TextVersion, TokenLemmaAnnotation
+from app.db.models import (
+    Segment,
+    SegmentationLayer,
+    TextVersion,
+    TokenLemmaAnnotation,
+    TokenPosAnnotation,
+)
 from app.db.session import write_transaction
 from app.text.bcp47 import validate_language_tag
 
 SENTENCE_GRANULARITY = "sentence"
 TOKEN_GRANULARITY = "token"
 ALLOWED_ORIGINS = frozenset({"manual", "intl_segmenter"})
+
+# Canonical order of the complete token-occurrence annotation dependency set
+# (frozen M5 contract section 12.2). Both the detail payload and the detection
+# helper below emit dependencies in exactly this order.
+TOKEN_ANNOTATION_DEPENDENCY_ORDER: tuple[str, ...] = (
+    "lemma_annotations",
+    "pos_annotations",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,19 +77,19 @@ def _token_dependent(db: Session, sentence_layer_id: uuid.UUID) -> SegmentationL
     )
 
 
-def _token_layer_has_lemma_dependents(
-    db: Session, token_layer_id: uuid.UUID
+def _token_layer_has_dependents(
+    db: Session, token_layer_id: uuid.UUID, model, column
 ) -> bool:
-    """True when any token of this layer owns a saved M4 lemma annotation.
+    """True when any token of this layer owns a saved occurrence annotation.
 
     Checked while the TextVersion-root mutation lock is held, so a concurrent
-    lemma write cannot slip between the check and the layer mutation.
+    annotation write cannot slip between the check and the layer mutation.
     """
 
     return (
         db.scalars(
-            select(TokenLemmaAnnotation.id)
-            .join(Segment, TokenLemmaAnnotation.token_segment_id == Segment.id)
+            select(model.id)
+            .join(Segment, column == Segment.id)
             .where(Segment.segmentation_layer_id == token_layer_id)
             .limit(1)
         ).first()
@@ -83,23 +97,54 @@ def _token_layer_has_lemma_dependents(
     )
 
 
-def _lemma_dependent_error(
-    text_version_id: uuid.UUID, token_layer_id: uuid.UUID
-) -> DomainError:
-    """Fail-closed token mutation while M4 lemma dependents exist.
+def token_layer_annotation_dependencies(
+    db: Session, token_layer_id: uuid.UUID
+) -> list[str]:
+    """The complete authoritative set of occurrence-annotation dependents.
 
-    M4 never re-anchors, copies, splits or recovers lemma annotations across
-    retokenization; the Human must delete the dependent lemmas explicitly.
+    Returns the dependency types actually present in the canonical frozen
+    order ``lemma_annotations``, ``pos_annotations``. An empty list means the
+    token layer has no occurrence-annotation dependents and ordinary
+    retokenization/deletion is permitted.
     """
 
+    detected = {
+        "lemma_annotations": _token_layer_has_dependents(
+            db, token_layer_id, TokenLemmaAnnotation, TokenLemmaAnnotation.token_segment_id
+        ),
+        "pos_annotations": _token_layer_has_dependents(
+            db, token_layer_id, TokenPosAnnotation, TokenPosAnnotation.token_segment_id
+        ),
+    }
+    return [name for name in TOKEN_ANNOTATION_DEPENDENCY_ORDER if detected[name]]
+
+
+def _annotation_dependent_error(
+    text_version_id: uuid.UUID,
+    token_layer_id: uuid.UUID,
+    dependency_types: list[str],
+) -> DomainError:
+    """Fail-closed token mutation while occurrence-annotation dependents exist.
+
+    M4/M5 never re-anchor, copy, split or recover lemma/POS annotations across
+    retokenization; the Human must delete every dependent annotation
+    explicitly. ``dependency_types`` is the complete set in canonical order;
+    the legacy scalar ``dependency_type`` is emitted only when that set has
+    exactly one member, so a multi-dependent conflict never implies a primary
+    dependency.
+    """
+
+    details: dict[str, object] = {
+        "text_version_id": str(text_version_id),
+        "token_layer_id": str(token_layer_id),
+        "dependency_types": list(dependency_types),
+    }
+    if len(dependency_types) == 1:
+        details["dependency_type"] = dependency_types[0]
     return DomainError(
         "SEGMENTATION_HAS_DEPENDENTS",
-        "delete the dependent lemma annotations before changing token segmentation",
-        {
-            "text_version_id": str(text_version_id),
-            "token_layer_id": str(token_layer_id),
-            "dependency_type": "lemma_annotations",
-        },
+        "delete the dependent occurrence annotations before changing token segmentation",
+        details,
     )
 
 
@@ -476,8 +521,11 @@ def replace_token_segmentation(
             )
         )
         if existing is not None:
-            if _token_layer_has_lemma_dependents(db, existing.id):
-                raise _lemma_dependent_error(text_version_id, existing.id)
+            dependents = token_layer_annotation_dependencies(db, existing.id)
+            if dependents:
+                raise _annotation_dependent_error(
+                    text_version_id, existing.id, dependents
+                )
             db.delete(existing)
             db.flush()
         layer = SegmentationLayer(
@@ -510,8 +558,9 @@ def replace_token_segmentation(
 def delete_token_segmentation(db: Session, text_version_id: uuid.UUID) -> None:
     """Delete only the token layer, preserving sentence and Alignment state.
 
-    Uses the same TextVersion-root mutation lock as replacement and lemma
-    mutation before inspecting M4 lemma dependents and mutating the layer.
+    Uses the same TextVersion-root mutation lock as replacement, lemma mutation
+    and POS mutation before inspecting occurrence-annotation dependents and
+    mutating the layer.
     """
 
     with write_transaction(db):
@@ -536,6 +585,7 @@ def delete_token_segmentation(db: Session, text_version_id: uuid.UUID) -> None:
                 "token segmentation layer not found",
                 {"text_version_id": str(text_version_id), "granularity": TOKEN_GRANULARITY},
             )
-        if _token_layer_has_lemma_dependents(db, layer.id):
-            raise _lemma_dependent_error(text_version_id, layer.id)
+        dependents = token_layer_annotation_dependencies(db, layer.id)
+        if dependents:
+            raise _annotation_dependent_error(text_version_id, layer.id, dependents)
         db.delete(layer)
