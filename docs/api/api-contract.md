@@ -26,6 +26,7 @@ HTTP status mapping:
 | `VALIDATION_ERROR`, `SPAN_OUT_OF_RANGE`, `CROSS_DOCUMENT_ALIGNMENT`, `INSUFFICIENT_ALIGNMENT_MEMBERS` | 422 |
 | `UNSUPPORTED_SEGMENTATION_GRANULARITY`, `INVALID_SEGMENTATION_LOCALE`, `SEGMENT_OUT_OF_RANGE`, `INVALID_SEGMENTATION_PARTITION`, `INVALID_SEGMENTATION_ORIGIN`, `INVALID_TOKEN_CLASSIFICATION`, `TOKEN_CROSSES_SENTENCE_BOUNDARY` | 422 |
 | `INVALID_LEMMA_TARGET`, `INVALID_LEMMA_VALUE` | 422 |
+| `INVALID_POS_TARGET`, `INVALID_POS_VALUE` | 422 |
 | `INVALID_UTF8`, `INVALID_NULL_CHARACTER`, `INVALID_SURROGATE`, `INVALID_SELECTION_BOUNDARY` | 422 |
 | `NOT_FOUND` | 404 |
 | `CONFLICT`, `TEXT_HAS_ANNOTATIONS`, `DUPLICATE_ALIGNMENT_MEMBER`, `STALE_SEGMENTATION_CONTENT`, `STALE_SEGMENTATION_BASIS`, `SEGMENTATION_HAS_DEPENDENTS` | 409 |
@@ -260,8 +261,12 @@ layer depends on it. Stale basis returns `409 STALE_SEGMENTATION_BASIS`;
 cross-sentence tokens and non-Boolean classification use stable 422 errors.
 
 Token segmentation PUT/DELETE also returns `409 SEGMENTATION_HAS_DEPENDENTS`
-while any token of the layer carries an M4 lemma annotation
-(`dependency_type: "lemma_annotations"`). Delete the dependent lemmas first.
+while any token of the layer carries an M4 lemma and/or M5 coarse POS
+annotation. For that token-layer case the details carry
+`text_version_id`, `token_layer_id` and the complete
+`dependency_types` set in canonical order (`lemma_annotations`,
+`pos_annotations`); the legacy scalar `dependency_type` appears only when the
+set has exactly one member. Delete the dependent occurrence annotations first.
 
 ## 9. Token-segment lemma annotation (M4 / ADR-012)
 
@@ -303,6 +308,56 @@ DELETE returns `204`; a missing token or missing annotation returns
 segmentation or Alignment state. Lemma and token mutations serialize on the
 same `TextVersion` root lock (ADR-012).
 
+## 9a. Token-segment coarse POS annotation (M5 / ADR-013)
+
+| Method | Path | Purpose |
+|---|---|---|
+| PUT | `/api/v1/token-segments/{token_segment_id}/pos` | Create, update or logically no-op one token occurrence's coarse POS |
+| DELETE | `/api/v1/token-segments/{token_segment_id}/pos` | Explicitly delete one token occurrence's coarse POS |
+
+There is no standalone POS GET: the workspace snapshot is the read authority.
+
+PUT body carries exactly one field; any competing target authority
+(`text_version_id`, token layer id, coordinates, `exact_text`, `is_word_like`,
+`content_hash`, language tag, lemma) is rejected as `422 VALIDATION_ERROR`.
+
+```json
+{ "pos_tag": "NOUN" }
+```
+
+`pos_tag` is typed as a plain `str` (`extra="forbid"`), deliberately not a
+`Literal`/enum: membership in the frozen vocabulary is a domain rule, so an
+unknown or malformed **string** answers `422 INVALID_POS_VALUE` while a
+**non-string** value or an extra field stays `422 VALIDATION_ERROR`.
+
+The backend resolves the target from `token_segment_id` and answers `200` for
+create, update and logical no-op (a no-op does not advance `updated_at`):
+
+```json
+{ "id": "…", "token_segment_id": "…", "pos_tag": "NOUN", "created_at": "…", "updated_at": "…" }
+```
+
+Eligibility: the `Segment` must exist, its owning layer must have
+`granularity = token`, and `is_word_like` must be `TRUE`. A structurally
+existing but ineligible target (sentence segment, whitespace/punctuation token)
+returns `422 INVALID_POS_TARGET`; a missing or replaced token returns
+`404 NOT_FOUND`.
+
+Value contract (backend-authoritative): exactly the fifteen frozen
+case-sensitive values `ADJ`, `ADP`, `ADV`, `AUX`, `CCONJ`, `DET`, `INTJ`,
+`NOUN`, `NUM`, `PART`, `PRON`, `PROPN`, `SCONJ`, `VERB`, `X`. The service never
+trims, upper/lowercases, case-folds, alias-maps, language-maps or converts
+XPOS, so `NOUN` is valid while `noun`, ` NOUN`, `NOUN `, `PUNCT`, `SYM`, `NN`
+and `CUSTOM` return `422 INVALID_POS_VALUE`. `PUNCT`/`SYM` are excluded because
+M5 annotates only Human-reviewed word-like tokens and makes no complete
+Universal Dependencies conformance claim.
+
+DELETE returns `204`; a missing token or missing annotation returns
+`404 NOT_FOUND`. Deleting POS never deletes the sibling lemma, the token, the
+sentence segmentation or Alignment state. Lemma and POS are independent
+siblings: either may exist alone and both may coexist. POS and token mutations
+serialize on the same `TextVersion` root lock (ADR-013).
+
 ## 10. Workspace read model
 
 `GET /api/v1/documents/{document_id}/workspace` → 200 document-level
@@ -317,7 +372,8 @@ snapshot (no pagination in M0):
   "alignment_members": [ { "id", "alignment_group_id", "span_id", "created_at" } ],
   "segmentation_layers": [ { "id", "text_version_id", "granularity", "basis_layer_id", "requested_locale", "resolved_locale", "origin", "content_hash", "created_at", "updated_at" } ],
   "segments": [ { "id", "segmentation_layer_id", "ordinal", "start_offset", "end_offset", "exact_text", "is_word_like", "created_at" } ],
-  "token_lemma_annotations": [ { "id", "token_segment_id", "lemma", "created_at", "updated_at" } ]
+  "token_lemma_annotations": [ { "id", "token_segment_id", "lemma", "created_at", "updated_at" } ],
+  "token_pos_annotations": [ { "id", "token_segment_id", "pos_tag", "created_at", "updated_at" } ]
 }
 ```
 
@@ -325,13 +381,13 @@ Deterministic TextVersion ordering `(sort_order, created_at, id)`; the
 snapshot is fully materialized inside one owned read transaction (no lazy
 loading after service return). The frontend normalizes the flat arrays into
 lookup maps; the workspace snapshot is the authoritative persisted read
-model for alignment rendering and saved segmentation/lemma state.
+model for alignment rendering and saved segmentation/lemma/POS state.
 
-`token_lemma_annotations` is scoped through
-`TokenLemmaAnnotation → Segment → SegmentationLayer → TextVersion → document`
-and ordered deterministically by `(created_at, id)`. The annotation stores no
-token context; the frontend must not depend on the collection's incidental
-order.
+`token_lemma_annotations` and `token_pos_annotations` are each scoped through
+`Annotation → Segment → SegmentationLayer → TextVersion → document` and
+ordered deterministically by `(created_at, id)`. Neither annotation stores
+token context or references the other; the frontend must not depend on a
+collection's incidental order.
 
 ## 11. Unicode code-point offset semantics (summary)
 
@@ -349,7 +405,9 @@ order.
 { "code": "SPAN_OUT_OF_RANGE", "message": "span [0,999) exceeds canonical content length 26", "details": { "text_version_id": "…", "start": 0, "end": 999 } }
 { "code": "STALE_SEGMENTATION_CONTENT", "message": "TextVersion content changed before segmentation could be saved", "details": { "text_version_id": "…", "submitted_content_hash": "…", "current_content_hash": "…" } }
 { "code": "TEXT_HAS_ANNOTATIONS", "message": "annotated text versions require force=true for destructive reset", "details": { "text_version_id": "…" } }
-{ "code": "SEGMENTATION_HAS_DEPENDENTS", "message": "delete the dependent lemma annotations before changing token segmentation", "details": { "text_version_id": "…", "token_layer_id": "…", "dependency_type": "lemma_annotations" } }
+{ "code": "SEGMENTATION_HAS_DEPENDENTS", "message": "delete the dependent occurrence annotations before changing token segmentation", "details": { "text_version_id": "…", "token_layer_id": "…", "dependency_types": ["lemma_annotations", "pos_annotations"] } }
+{ "code": "INVALID_POS_TARGET", "message": "token segment is not an eligible word-like POS target", "details": { "token_segment_id": "…", "reason": "not_word_like" } }
+{ "code": "INVALID_POS_VALUE", "message": "pos_tag is not one of the fifteen frozen coarse POS values", "details": { "reason": "not_in_frozen_pos_vocabulary", "input_type": "str" } }
 { "code": "INVALID_LEMMA_TARGET", "message": "token segment is not an eligible word-like lemma target", "details": { "token_segment_id": "…", "reason": "not_word_like" } }
 { "code": "INVALID_LEMMA_VALUE", "message": "lemma value is invalid", "details": { "reason": "lemma must not have leading or trailing Unicode whitespace" } }
 { "code": "VALIDATION_ERROR", "message": "request validation failed", "details": { "errors": [ { "location": ["body","label"], "type": "string_too_long", "message": "…", "input_type": "str" } ] } }
