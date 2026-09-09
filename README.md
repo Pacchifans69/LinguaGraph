@@ -33,7 +33,24 @@ candidate-to-main identity is **PASS / EXACT**.
 Exact-guarded implementation-branch cleanup has passed. M4 is therefore
 **COMPLETE / MERGED / CLOSED**.
 
-No M5 or later checkpoint is currently authorized.
+M5 — Human-Reviewed POS Annotation Foundation — now has a Human-approved
+frozen execution contract in `docs/development/M5_CONTRACT.md` on the approved
+pre-freeze base:
+
+```text
+base  68fedc4c8cba80201333e6550231b805e0f0853c
+tree  3bea6efd9662fe746328d2a7814fa65e1efb917f
+```
+
+M5 implementation has **not** started and is **not authorized**. The planned
+implementation branch `m5-human-reviewed-pos-annotation-foundation` may not be
+created until the freeze commit is independently verified and the Human
+separately authorizes bounded implementation.
+
+The frozen M5 scope is one optional Human-reviewed coarse POS annotation per
+saved `is_word_like = TRUE` token occurrence, using the closed fifteen-value
+LinguaGraph vocabulary defined by the contract. It does not authorize XPOS,
+morphology, syntax, automatic POS tagging, Lexeme identity, or generic EAV.
 
 ## Evidence status
 
@@ -69,6 +86,10 @@ passed the Human lemma workflow.
 `G2-X01` remains `OPEN / EXTERNAL`. `HRA-F09` remains inherited non-blocking
 visual debt.
 
+The M4 External Infrastructure Exception does not carry forward to M5. Any M5
+alternative hosted proof path requires fresh exact-candidate evidence and a
+separate Human-approved M5-specific exception at Gate 2.
+
 ## Authoritative documents
 
 Read these when reconstructing project state:
@@ -78,12 +99,14 @@ Read these when reconstructing project state:
   specification and Definition of Done;
 - `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` — accepted
   pre-implementation engineering report;
-- `docs/adr/` — accepted architecture decisions through ADR-012;
+- `docs/adr/` — accepted as-built architecture decisions through ADR-012; M5
+  requires a bounded ADR-013 during implementation;
 - `docs/development/CURRENT_STATE.md` — durable engineering handoff;
 - `docs/development/M1_CONTRACT.md` — completed frozen M1 contract;
 - `docs/development/M2_CONTRACT.md` — completed frozen M2 execution contract;
 - `docs/development/M3_CONTRACT.md` — completed frozen M3 execution contract;
 - `docs/development/M4_CONTRACT.md` — completed frozen M4 execution contract;
+- `docs/development/M5_CONTRACT.md` — active frozen M5 execution contract;
 - `docs/development/M0_7_CLOSEOUT.md` — M0.7 Gate 2/Human Review/merge/Gate 3
   evidence ledger;
 - `docs/architecture/ARCHITECTURE.md` — as-built architecture;

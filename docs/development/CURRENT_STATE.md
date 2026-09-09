@@ -47,15 +47,35 @@ M4 Gate 2 passed under the Human-approved M4-specific External Infrastructure
 Exception using independent exact-candidate hosted proof. `G2-X01` remains
 `OPEN / EXTERNAL`.
 
-No M5 or later checkpoint is reconstructed, frozen, or authorized.
+M5 — Human-Reviewed POS Annotation Foundation — now has a Human-approved
+frozen execution contract in `docs/development/M5_CONTRACT.md`.
+
+**M5 implementation is NOT STARTED / NOT AUTHORIZED.** No implementation
+branch may be created until the docs-only freeze commit is independently
+verified and the Human separately authorizes bounded implementation.
+
+M5 approved pre-freeze coordinates:
+
+- base: `68fedc4c8cba80201333e6550231b805e0f0853c`;
+- tree: `3bea6efd9662fe746328d2a7814fa65e1efb917f`;
+- planned implementation branch:
+  `m5-human-reviewed-pos-annotation-foundation`.
+
+`G2-X01` remains `OPEN / EXTERNAL`. The M4 External Infrastructure Exception
+does not carry forward to M5.
 
 ## 1. Repository checkpoint
 
 Current completed implementation checkpoint: **M4 — Human-Reviewed Lemma
 Annotation Foundation**.
 
-Current lifecycle status: **M4 COMPLETE / MERGED / CLOSED / NO LATER
-CHECKPOINT AUTHORIZED**.
+Current normative checkpoint: **M5 — Human-Reviewed POS Annotation Foundation
+/ CONTRACT FROZEN / IMPLEMENTATION NOT AUTHORIZED**.
+
+The M5 docs-only freeze commit is the commit containing this state update; its
+parent must be exactly `68fedc4c8cba80201333e6550231b805e0f0853c`. Resolve
+the freeze commit/tree directly from Git history rather than embedding a
+self-referential SHA in this file.
 
 Durable M4 implementation coordinates:
 
@@ -93,10 +113,13 @@ Durable M4 implementation coordinates:
 | M2 Linguistic Segmentation Foundation | #11 | `7cf756694e429abc50bf604ab2757fb3e44959c6` | rebase → `8972609a86d15d411917aafe6cf02c4577b7176f` |
 | M3 Word/Token Segmentation Foundation | #12 | `d4254c1239e649b17dc4ae6d6f995e52bd4635db` | rebase → `fc607b597bee35aff31a06a3945fa7a256f6b5c8` |
 | M4 Human-Reviewed Lemma Annotation Foundation | #13 | `ac1cd40ae190577783453050f2cbc209cd3958a6` | rebase → `4cc435893207cdd32216012ca887d338e1932250` |
+| M5 Human-Reviewed POS Annotation Foundation | — | implementation not started | contract frozen only |
 
 M0.5 and M0.6 merge commits preserved exact reviewed trees. M0.7, M1, M2,
 M3 and M4 used repository-permitted rebase merge; their Gate 3 bridges are
 exact reviewed-candidate to durable-implementation-main tree identities.
+
+The M5 row records only a normative contract boundary; no implementation result exists.
 
 ## 2. M1 durable provenance
 

@@ -23,6 +23,10 @@ The completed frozen M4 execution contract is:
 
 `docs/development/M4_CONTRACT.md`
 
+The active frozen M5 execution contract is:
+
+`docs/development/M5_CONTRACT.md`
+
 Before planning, modifying files, installing dependencies, or writing
 implementation code:
 
@@ -48,6 +52,24 @@ The frozen contract, bounded implementation, Gate 2, Static Human Diff Review,
 Human Runtime Acceptance, PR #13, Human Merge Decision, rebase merge, Gate 3
 exact-tree verification, durable-state closure, and exact-guarded
 implementation-branch cleanup have all completed.
+
+M5 — Human-Reviewed POS Annotation Foundation — now has a Human-approved
+frozen execution contract in `docs/development/M5_CONTRACT.md`.
+
+**M5 implementation is NOT STARTED / NOT AUTHORIZED.** No M5 implementation
+branch may be created until the docs-only freeze commit is independently
+verified and the Human separately authorizes bounded implementation.
+
+M5 contract-freeze coordinates:
+
+- approved pre-freeze durable base:
+  `68fedc4c8cba80201333e6550231b805e0f0853c`;
+- approved pre-freeze durable tree:
+  `3bea6efd9662fe746328d2a7814fa65e1efb917f`;
+- governing contract: `docs/development/M5_CONTRACT.md`;
+- planned implementation branch:
+  `m5-human-reviewed-pos-annotation-foundation`;
+- implementation authorization: **NOT GRANTED**.
 
 M4 durable implementation provenance:
 
@@ -103,7 +125,10 @@ services from a separate local checkout at
 No unresolved M4 product defect is known. `HRA-F09` remains inherited,
 explicitly deferred visual debt.
 
-No M5 or later implementation checkpoint is authorized by M4 completion.
+M5 is authorized only through the docs-only contract-freeze boundary. The M4
+External Infrastructure Exception does not carry forward to M5; any M5
+exception requires new exact-candidate evidence and explicit Human approval at
+M5 Gate 2.
 
 ## Historical M0 state
 
@@ -131,7 +156,7 @@ diagnostic/support refs and repositories remain protected evidence while
 
 See `docs/development/M0_7_CLOSEOUT.md` for the full historical ledger.
 
-## Post-M4 boundary
+## Post-M4 / M5 boundary
 
 M4 is complete, merged, durably recorded, and closed.
 
@@ -146,21 +171,27 @@ All proof repositories, successful CircleCI evidence, GitHub Actions
 diagnostics, PR history, and reviewed candidate history remain retained.
 `G2-X01` remains `OPEN / EXTERNAL`.
 
-No M5 or later checkpoint has been reconstructed, frozen, or authorized.
+M5 — Human-Reviewed POS Annotation Foundation — is now the active frozen
+normative checkpoint. It is authorized only to the contract-freeze boundary. Until a separate Human authorization is
+given, do not create the M5 implementation branch and do not modify
+implementation, migration, test, dependency, runtime, ADR, or workflow files.
 
 ## Scope discipline
 
-Do not introduce speculative NLP/LLM automation, automatic lemmatization,
-Lexeme/shared-vocabulary identity, generic annotation ontology, translation,
-authentication, collaboration, graph/vector infrastructure, advanced
-workspace geometry, connector-routing redesign, or other later-stage
-functionality without a separately reconstructed and Human-frozen later
-checkpoint.
+Do not broaden M5 beyond its frozen occurrence-level coarse POS boundary. In
+particular, do not introduce `PUNCT`/`SYM` tagging, XPOS, morphology, syntax,
+automatic POS tagging, speculative NLP/LLM automation, Lexeme/shared-vocabulary
+identity, generic annotation ontology, translation, authentication,
+collaboration, graph/vector infrastructure, Alignment concurrency redesign,
+advanced workspace geometry, connector-routing redesign, or other later-stage
+functionality outside the frozen M5 contract.
 
 Detailed M0 constraints remain defined by the frozen M0 specification; the
 completed M1 interaction boundary remains defined by `M1_CONTRACT.md`;
 completed M2/M3 segmentation boundaries remain defined by their contracts; and
 the completed M4 occurrence-level lemma boundary remains defined by
-`M4_CONTRACT.md` and ADR-012.
+`M4_CONTRACT.md` and ADR-012. The active M5 coarse-POS boundary is defined by
+`M5_CONTRACT.md`; ADR-013 is an implementation obligation, not part of this
+docs-only freeze.
 
 This file records workflow state and does not replace those authorities.
