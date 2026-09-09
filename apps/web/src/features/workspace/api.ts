@@ -93,6 +93,52 @@ export interface LemmaAnnotationPutInput {
   lemma: string;
 }
 
+/**
+ * M5: one sparse Human-reviewed coarse POS annotation bound to an exact saved
+ * token `Segment.id`. It is the SIBLING of `TokenLemmaAnnotation` — neither
+ * owns nor derives the other — and carries no redundant token context:
+ * coordinates, `exact_text`, `is_word_like` and the owning layer stay owned by
+ * the token hierarchy. The workspace snapshot is the only read authority.
+ */
+export interface TokenPosAnnotation {
+  id: string;
+  token_segment_id: string;
+  pos_tag: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PosAnnotationPutInput {
+  tokenSegmentId: string;
+  pos_tag: string;
+}
+
+/**
+ * The frozen M5 coarse-POS vocabulary (contract section 4). The controlled
+ * selector exposes exactly these fifteen values in this order; it is NOT a
+ * language-specific or free-text tagset and deliberately excludes
+ * `PUNCT`/`SYM`.
+ */
+export const POS_TAGS = [
+  'ADJ',
+  'ADP',
+  'ADV',
+  'AUX',
+  'CCONJ',
+  'DET',
+  'INTJ',
+  'NOUN',
+  'NUM',
+  'PART',
+  'PRON',
+  'PROPN',
+  'SCONJ',
+  'VERB',
+  'X',
+] as const;
+
+export type PosTag = (typeof POS_TAGS)[number];
+
 export interface SegmentCoordinates {
   start: number;
   end: number;
@@ -136,6 +182,7 @@ export interface WorkspaceSnapshot {
   segmentation_layers?: SegmentationLayer[];
   segments?: LinguisticSegment[];
   token_lemma_annotations?: TokenLemmaAnnotation[];
+  token_pos_annotations?: TokenPosAnnotation[];
 }
 
 export interface TextVersionCreateInput {
@@ -156,6 +203,9 @@ const segmentationMutationKey = (documentId: string) =>
 const lemmaMutationKey = (documentId: string) =>
   ['lemma-mutation', documentId] as const;
 
+const posMutationKey = (documentId: string) =>
+  ['pos-mutation', documentId] as const;
+
 export function useSegmentationMutationPending(documentId: string): boolean {
   return useIsMutating({ mutationKey: segmentationMutationKey(documentId) }) > 0;
 }
@@ -163,6 +213,17 @@ export function useSegmentationMutationPending(documentId: string): boolean {
 /** True while ANY lemma annotation mutation of this document is in flight. */
 export function useLemmaMutationPending(documentId: string): boolean {
   return useIsMutating({ mutationKey: lemmaMutationKey(documentId) }) > 0;
+}
+
+/**
+ * True while ANY POS annotation mutation of this document is in flight.
+ *
+ * Deliberately separate from the lemma pending signal: lemma and POS are
+ * independent sibling lifecycles, so a pending POS write must not present the
+ * lemma panel as pending (and vice versa).
+ */
+export function usePosMutationPending(documentId: string): boolean {
+  return useIsMutating({ mutationKey: posMutationKey(documentId) }) > 0;
 }
 
 export function useWorkspace(documentId: string) {
@@ -325,6 +386,38 @@ export function useDeleteTokenLemma(documentId: string) {
     mutationKey: lemmaMutationKey(documentId),
     mutationFn: (tokenSegmentId: string) =>
       apiClient.del(`/api/v1/token-segments/${tokenSegmentId}/lemma`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
+    },
+  });
+}
+
+/**
+ * M5 POS mutation hooks. Like the lemma hooks, the server response is never
+ * adopted as local authority: every success invalidates the authoritative
+ * workspace snapshot, which is the only source the panels read.
+ */
+export function usePutTokenPos(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: posMutationKey(documentId),
+    mutationFn: ({ tokenSegmentId, pos_tag }: PosAnnotationPutInput) =>
+      apiClient.put<TokenPosAnnotation>(
+        `/api/v1/token-segments/${tokenSegmentId}/pos`,
+        { pos_tag },
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
+    },
+  });
+}
+
+export function useDeleteTokenPos(documentId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: posMutationKey(documentId),
+    mutationFn: (tokenSegmentId: string) =>
+      apiClient.del(`/api/v1/token-segments/${tokenSegmentId}/pos`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(documentId) });
     },

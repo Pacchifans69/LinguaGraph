@@ -1384,3 +1384,108 @@ select:focus-visible {
   border-radius: var(--radius-sm);
   background: #fffdf5;
 }
+
+/* M5 coarse POS controls also remain outside [data-text-content-root].
+   The panel is a sibling of the canonical text surface and of the lemma
+   panel; lemma and POS authorities are never merged in the UI. */
+.pos-annotation-panel {
+  border-top-style: dashed;
+  background: #f7faff;
+}
+
+.pos-list {
+  max-height: 22rem;
+}
+
+.pos-row {
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--border);
+}
+
+.pos-copy {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--text);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.pos-range {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.pos-token {
+  font-family: var(--font-mono);
+}
+
+.pos-current {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+}
+
+.pos-saved-label {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.pos-saved-value {
+  color: var(--text-strong);
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.pos-empty {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.pos-row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.pos-row-actions label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.pos-row-actions select {
+  min-width: 7rem;
+  min-height: 1.82rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+}
+
+.pos-row-error {
+  margin-top: var(--space-1);
+}
+
+.pos-hint,
+.pos-dependency-note {
+  margin: var(--space-1) 0 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.pos-dependency-note {
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #f3f8ff;
+}

@@ -15,6 +15,7 @@ import type {
   SegmentationLayer,
   TextVersion,
   TokenLemmaAnnotation,
+  TokenPosAnnotation,
   WorkspaceSnapshot,
   WorkspaceSpan,
 } from './api';
@@ -48,6 +49,15 @@ export interface NormalizedWorkspace {
   lemmaAnnotationsById: Record<string, TokenLemmaAnnotation>;
   /** M4: the authoritative annotation lookup for one saved token Segment.id. */
   lemmaAnnotationByTokenSegmentId: Record<string, TokenLemmaAnnotation>;
+  /**
+   * M5: sparse coarse POS annotations in deterministic server order. Kept
+   * strictly separate from the lemma maps: the two are sibling authorities and
+   * are never merged.
+   */
+  posAnnotations: TokenPosAnnotation[];
+  posAnnotationsById: Record<string, TokenPosAnnotation>;
+  /** M5: the authoritative POS lookup for one saved token Segment.id. */
+  posAnnotationByTokenSegmentId: Record<string, TokenPosAnnotation>;
 }
 
 function indexById<T extends { id: string }>(items: T[]): Record<string, T> {
@@ -103,6 +113,13 @@ export function normalizeWorkspace(snapshot: WorkspaceSnapshot): NormalizedWorks
     lemmaAnnotationByTokenSegmentId[annotation.token_segment_id] = annotation;
   }
 
+  const posAnnotations = snapshot.token_pos_annotations ?? [];
+  const posAnnotationsById = indexById(posAnnotations);
+  const posAnnotationByTokenSegmentId: Record<string, TokenPosAnnotation> = {};
+  for (const annotation of posAnnotations) {
+    posAnnotationByTokenSegmentId[annotation.token_segment_id] = annotation;
+  }
+
   return {
     document: snapshot.document,
     textVersions,
@@ -124,5 +141,8 @@ export function normalizeWorkspace(snapshot: WorkspaceSnapshot): NormalizedWorks
     lemmaAnnotations,
     lemmaAnnotationsById,
     lemmaAnnotationByTokenSegmentId,
+    posAnnotations,
+    posAnnotationsById,
+    posAnnotationByTokenSegmentId,
   };
 }
