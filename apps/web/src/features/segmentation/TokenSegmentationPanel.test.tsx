@@ -58,6 +58,24 @@ function renderBlockedTokenSave(details: unknown) {
   return view;
 }
 
+/**
+ * Assert the blocked-save rendering for a ``SEGMENTATION_HAS_DEPENDENTS``
+ * payload whose ``details`` must NOT be specialized: the stable API error
+ * surface is retained verbatim and no dependency guidance is invented.
+ */
+async function expectGenericStableErrorOnly(details: unknown) {
+  const view = renderBlockedTokenSave(details);
+
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveAttribute('data-error-code', 'SEGMENTATION_HAS_DEPENDENTS');
+  expect(alert).toHaveTextContent(
+    'delete the dependent occurrence annotations before changing token segmentation',
+  );
+  expect(
+    view.container.querySelector('.token-annotation-dependency'),
+  ).toBeNull();
+}
+
 describe('TokenSegmentationPanel', () => {
   it('explains the sentence prerequisite', () => {
     renderWithProviders(<TokenSegmentationPanel documentId="doc-1" version={version} sentenceSegments={[]} savedSegments={[]} />);
@@ -211,6 +229,35 @@ describe('TokenSegmentationPanel', () => {
     );
   });
 
+  it('names the lemma cleanup when only a lemma annotation depends on the token layer', async () => {
+    const view = renderBlockedTokenSave({
+      dependency_types: ['lemma_annotations'],
+    });
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveAttribute('data-error-code', 'SEGMENTATION_HAS_DEPENDENTS');
+    expect(
+      view.container.querySelector('.token-annotation-dependency'),
+    ).toHaveTextContent(
+      'Delete the dependent lemma annotations before changing token segmentation.',
+    );
+  });
+
+  it('collapses a duplicated recognized identifier to the lemma-only cleanup', async () => {
+    // Duplicates inside an otherwise complete set are collapsed, not treated as
+    // an extra or unknown dependency.
+    const view = renderBlockedTokenSave({
+      dependency_types: ['lemma_annotations', 'lemma_annotations'],
+    });
+
+    await screen.findByRole('alert');
+    expect(
+      view.container.querySelector('.token-annotation-dependency'),
+    ).toHaveTextContent(
+      'Delete the dependent lemma annotations before changing token segmentation.',
+    );
+  });
+
   it.each<[string, unknown]>([
     ['an unknown identifier only', { dependency_types: ['morphology_annotations'] }],
     ['a non-string array entry', { dependency_types: [42, null] }],
@@ -234,6 +281,53 @@ describe('TokenSegmentationPanel', () => {
       expect(
         view.container.querySelector('.token-annotation-dependency'),
       ).toBeNull();
+    },
+  );
+
+  it('treats a recognized identifier mixed with an unknown one as a malformed complete set', async () => {
+    // G2-F02: `dependency_types` is the COMPLETE authoritative set, so a
+    // malformed payload must not be filtered down to its recognized subset.
+    await expectGenericStableErrorOnly({
+      dependency_types: ['lemma_annotations', 'morphology_annotations'],
+    });
+  });
+
+  it('treats a recognized identifier mixed with a non-string member as a malformed complete set', async () => {
+    await expectGenericStableErrorOnly({
+      dependency_types: ['pos_annotations', 42],
+    });
+  });
+
+  it('suppresses the legacy scalar when a malformed list is present alongside it', async () => {
+    await expectGenericStableErrorOnly({
+      dependency_types: ['lemma_annotations', 'syntax_annotations'],
+      dependency_type: 'lemma_annotations',
+    });
+  });
+
+  it('suppresses the legacy scalar when a non-array value is present instead of a list', async () => {
+    await expectGenericStableErrorOnly({
+      dependency_types: 'pos_annotations',
+      dependency_type: 'pos_annotations',
+    });
+  });
+
+  it('suppresses the legacy scalar when an empty list is present', async () => {
+    await expectGenericStableErrorOnly({
+      dependency_types: [],
+      dependency_type: 'lemma_annotations',
+    });
+  });
+
+  it.each<[string, unknown]>([
+    ['a present null list', { dependency_types: null, dependency_type: 'lemma_annotations' }],
+    ['a present numeric list', { dependency_types: 7, dependency_type: 'lemma_annotations' }],
+    ['a present object list', { dependency_types: { 0: 'lemma_annotations' }, dependency_type: 'lemma_annotations' }],
+    ['a list of unknown identifiers only alongside a valid scalar', { dependency_types: ['syntax_annotations'], dependency_type: 'lemma_annotations' }],
+  ])(
+    'keeps the generic stable error for %s',
+    async (_label, details) => {
+      await expectGenericStableErrorOnly(details);
     },
   );
 

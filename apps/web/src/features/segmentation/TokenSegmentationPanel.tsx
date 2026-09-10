@@ -57,16 +57,34 @@ const OCCURRENCE_ANNOTATION_NAMES: ReadonlyMap<string, string> = new Map([
   ['pos_annotations', 'POS'],
 ]);
 
-/** Recognized identifiers from a `dependency_types` array, canonical order. */
-function recognizedDependencyIdentifiers(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
+/** True only for one of the two recognized occurrence-annotation identifiers. */
+function isOccurrenceAnnotationIdentifier(value: unknown): value is string {
+  return typeof value === 'string' && OCCURRENCE_ANNOTATION_NAMES.has(value);
+}
+
+/**
+ * Validate and canonicalize a ``dependency_types`` value as the COMPLETE
+ * authoritative dependency set.
+ *
+ * The set is accepted only when it is a non-empty array whose every member is
+ * one of the two recognized identifiers. Every other value — an empty array, a
+ * non-array, or an array with any unknown or non-string member — is a malformed
+ * set and yields ``null`` rather than a filtered subset, so a partially
+ * recognized payload can never be presented as if it were complete (G2-F02).
+ *
+ * Accepted duplicates are collapsed, and the result is returned in canonical
+ * contract order regardless of the reported order.
+ */
+function completeDependencyIdentifiers(value: unknown): string[] | null {
+  if (!Array.isArray(value) || value.length === 0) {
+    return null;
   }
-  const present = new Set(
-    value.filter((item): item is string => typeof item === 'string'),
-  );
+  const members: unknown[] = value;
+  if (!members.every((member) => isOccurrenceAnnotationIdentifier(member))) {
+    return null;
+  }
   return [...OCCURRENCE_ANNOTATION_NAMES.keys()].filter((identifier) =>
-    present.has(identifier),
+    members.includes(identifier),
   );
 }
 
@@ -74,10 +92,12 @@ function recognizedDependencyIdentifiers(value: unknown): string[] {
  * Normalize the token-occurrence annotation dependency set of a
  * ``SEGMENTATION_HAS_DEPENDENTS`` payload.
  *
- * - ``details.dependency_types`` (the complete authoritative set) wins when it
- *   contains at least one recognized identifier;
- * - the inherited legacy scalar ``details.dependency_type`` is otherwise
- *   normalized to a one-element list;
+ * - ``details.dependency_types`` is the complete authoritative set whenever the
+ *   property is present: it is either valid as a whole or the payload yields no
+ *   specialized guidance at all;
+ * - the inherited legacy scalar ``details.dependency_type`` is consulted only
+ *   when the property is absent, and then only when it is exactly one
+ *   recognized identifier, which normalizes to a one-element set;
  * - unknown, malformed or unrelated details (for example the inherited
  *   sentence→token shape, which carries neither field) yield an empty list so
  *   the caller keeps the generic stable error rendering and never infers a
@@ -88,14 +108,19 @@ function tokenAnnotationDependencyNames(details: unknown): string[] {
     return [];
   }
   const record = details as Record<string, unknown>;
-  const listed = recognizedDependencyIdentifiers(record.dependency_types);
-  const scalar = record.dependency_type;
-  const identifiers =
-    listed.length > 0
-      ? listed
-      : typeof scalar === 'string' && OCCURRENCE_ANNOTATION_NAMES.has(scalar)
-        ? [scalar]
-        : [];
+  let identifiers: string[] | null;
+  if (Object.prototype.hasOwnProperty.call(record, 'dependency_types')) {
+    // Present — authoritative. A malformed set suppresses the legacy scalar
+    // instead of falling through to it.
+    identifiers = completeDependencyIdentifiers(record.dependency_types);
+  } else {
+    // Absent — only now may the scalar compatibility path apply.
+    const scalar = record.dependency_type;
+    identifiers = isOccurrenceAnnotationIdentifier(scalar) ? [scalar] : null;
+  }
+  if (identifiers === null) {
+    return [];
+  }
   return identifiers.map(
     (identifier) => OCCURRENCE_ANNOTATION_NAMES.get(identifier)!,
   );
