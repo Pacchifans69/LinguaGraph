@@ -26,6 +26,38 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/**
+ * Render the token panel bound to a mocked token-layer mutation that fails with
+ * ``SEGMENTATION_HAS_DEPENDENTS`` and the supplied ``details`` payload, then
+ * trigger the blocked save. Returns the render result for direct DOM queries.
+ */
+function renderBlockedTokenSave(details: unknown) {
+  installFetchMock([
+    [
+      '/segmentations/token',
+      async () =>
+        json(409, {
+          code: 'SEGMENTATION_HAS_DEPENDENTS',
+          message:
+            'delete the dependent occurrence annotations before changing token segmentation',
+          details,
+        }),
+    ],
+  ]);
+  const view = renderWithProviders(
+    <TokenSegmentationPanel
+      documentId="doc-1"
+      version={version}
+      sentenceLayer={sentenceLayer}
+      sentenceSegments={sentenceSegments}
+      savedSegments={[]}
+    />,
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Start manual' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save tokens' }));
+  return view;
+}
+
 describe('TokenSegmentationPanel', () => {
   it('explains the sentence prerequisite', () => {
     renderWithProviders(<TokenSegmentationPanel documentId="doc-1" version={version} sentenceSegments={[]} savedSegments={[]} />);
@@ -97,7 +129,8 @@ describe('TokenSegmentationPanel', () => {
   it('renders the stable multi-dependent conflict for lemma + POS dependents', async () => {
     // M5: the token layer cannot be replaced while ANY occurrence annotation
     // (lemma and/or coarse POS) depends on it. The panel presents the stable
-    // envelope and the cleanup instruction returned by the API.
+    // envelope AND names the actual dependency set so the Human can see both
+    // required cleanups.
     installFetchMock([
       [
         '/segmentations/token',
@@ -114,7 +147,7 @@ describe('TokenSegmentationPanel', () => {
           }),
       ],
     ]);
-    renderWithProviders(<TokenSegmentationPanel documentId="doc-1" version={version} sentenceLayer={sentenceLayer} sentenceSegments={sentenceSegments} savedSegments={[]} />);
+    const view = renderWithProviders(<TokenSegmentationPanel documentId="doc-1" version={version} sentenceLayer={sentenceLayer} sentenceSegments={sentenceSegments} savedSegments={[]} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Start manual' }));
     fireEvent.click(screen.getByRole('button', { name: 'Save tokens' }));
@@ -123,6 +156,127 @@ describe('TokenSegmentationPanel', () => {
     expect(alert).toHaveAttribute('data-error-code', 'SEGMENTATION_HAS_DEPENDENTS');
     expect(alert).toHaveTextContent(
       'delete the dependent occurrence annotations before changing token segmentation',
+    );
+    expect(
+      view.container.querySelector('.token-annotation-dependency'),
+    ).toHaveTextContent(
+      'Delete the dependent lemma and POS annotations before changing token segmentation.',
+    );
+  });
+
+  it('names the POS cleanup when only a POS annotation depends on the token layer', async () => {
+    const view = renderBlockedTokenSave({
+      text_version_id: 'tv-1',
+      token_layer_id: 'token-1',
+      dependency_types: ['pos_annotations'],
+    });
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveAttribute('data-error-code', 'SEGMENTATION_HAS_DEPENDENTS');
+    expect(
+      view.container.querySelector('.token-annotation-dependency'),
+    ).toHaveTextContent(
+      'Delete the dependent POS annotations before changing token segmentation.',
+    );
+  });
+
+  it('names the lemma cleanup from the legacy scalar dependency_type payload', async () => {
+    // Inherited single-dependency payloads carry the scalar only: normalize it
+    // to a one-element list rather than inventing a primary dependency.
+    const view = renderBlockedTokenSave({
+      text_version_id: 'tv-1',
+      token_layer_id: 'token-1',
+      dependency_type: 'lemma_annotations',
+    });
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveAttribute('data-error-code', 'SEGMENTATION_HAS_DEPENDENTS');
+    expect(
+      view.container.querySelector('.token-annotation-dependency'),
+    ).toHaveTextContent(
+      'Delete the dependent lemma annotations before changing token segmentation.',
+    );
+  });
+
+  it('presents the canonical lemma + POS order regardless of the reported order', async () => {
+    const view = renderBlockedTokenSave({
+      dependency_types: ['pos_annotations', 'lemma_annotations'],
+    });
+
+    await screen.findByRole('alert');
+    expect(
+      view.container.querySelector('.token-annotation-dependency'),
+    ).toHaveTextContent(
+      'Delete the dependent lemma and POS annotations before changing token segmentation.',
+    );
+  });
+
+  it.each<[string, unknown]>([
+    ['an unknown identifier only', { dependency_types: ['morphology_annotations'] }],
+    ['a non-string array entry', { dependency_types: [42, null] }],
+    ['an unknown legacy scalar', { dependency_type: 'syntax_annotations' }],
+    ['the inherited sentence->token shape', { text_version_id: 'tv-1', sentence_layer_id: 'sentence-1' }],
+    ['an empty details object', {}],
+    ['null details', null],
+    ['non-object details', 'lemma_annotations'],
+  ])(
+    'keeps the generic stable error and invents no dependency for %s',
+    async (_label, details) => {
+      const view = renderBlockedTokenSave(details);
+
+      const alert = await screen.findByRole('alert');
+      // The stable API error surface is retained unchanged...
+      expect(alert).toHaveAttribute('data-error-code', 'SEGMENTATION_HAS_DEPENDENTS');
+      expect(alert).toHaveTextContent(
+        'delete the dependent occurrence annotations before changing token segmentation',
+      );
+      // ...and no dependency is inferred from unrecognized/malformed details.
+      expect(
+        view.container.querySelector('.token-annotation-dependency'),
+      ).toBeNull();
+    },
+  );
+
+  it('names the remaining POS cleanup after the deletion path is blocked', async () => {
+    const tokenLayer: SegmentationLayer = {
+      id: 'token-1', text_version_id: version.id, granularity: 'token',
+      basis_layer_id: sentenceLayer.id, requested_locale: 'en',
+      resolved_locale: 'en', origin: 'manual', content_hash: version.content_hash,
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    };
+    installFetchMock([
+      [
+        '/segmentations/token',
+        async () =>
+          json(409, {
+            code: 'SEGMENTATION_HAS_DEPENDENTS',
+            message:
+              'delete the dependent occurrence annotations before changing token segmentation',
+            details: { dependency_types: ['pos_annotations'] },
+          }),
+      ],
+    ]);
+    const view = renderWithProviders(
+      <TokenSegmentationPanel
+        documentId="doc-1"
+        version={version}
+        sentenceLayer={sentenceLayer}
+        sentenceSegments={sentenceSegments}
+        savedLayer={tokenLayer}
+        savedSegments={[]}
+      />,
+    );
+
+    const deleteButtons = screen.getAllByRole('button', { name: 'Delete tokens' });
+    fireEvent.click(deleteButtons[deleteButtons.length - 1]!);
+    const confirmButtons = screen.getAllByRole('button', { name: 'Delete tokens' });
+    fireEvent.click(confirmButtons[confirmButtons.length - 1]!);
+
+    await screen.findByRole('alert');
+    expect(
+      view.container.querySelector('.token-annotation-dependency'),
+    ).toHaveTextContent(
+      'Delete the dependent POS annotations before changing token segmentation.',
     );
   });
 

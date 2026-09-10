@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { sliceByCodePoints } from '../../shared/text/offset';
+import { isApiError } from '../../shared/api/errors';
 import { Button } from '../../shared/ui/Button';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
 import { ErrorMessage } from '../../shared/ui/feedback';
@@ -39,6 +40,85 @@ function tokenRanges(segments: LinguisticSegment[]): TokenDraft[] {
       end: segment.end_offset,
       isWordLike: segment.is_word_like === true,
     }));
+}
+
+/**
+ * M4/M5 token-occurrence annotation dependency identifiers and their
+ * Human-readable names. This is the complete recognized set — there is no
+ * generic dependency ontology here: an occurrence annotation is either a lemma
+ * annotation or a coarse POS annotation (ADR-012 / ADR-013).
+ *
+ * Insertion order is the canonical contract order, so a multi-dependent
+ * conflict is always presented as "lemma and POS" regardless of the order the
+ * server happened to report.
+ */
+const OCCURRENCE_ANNOTATION_NAMES: ReadonlyMap<string, string> = new Map([
+  ['lemma_annotations', 'lemma'],
+  ['pos_annotations', 'POS'],
+]);
+
+/** Recognized identifiers from a `dependency_types` array, canonical order. */
+function recognizedDependencyIdentifiers(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const present = new Set(
+    value.filter((item): item is string => typeof item === 'string'),
+  );
+  return [...OCCURRENCE_ANNOTATION_NAMES.keys()].filter((identifier) =>
+    present.has(identifier),
+  );
+}
+
+/**
+ * Normalize the token-occurrence annotation dependency set of a
+ * ``SEGMENTATION_HAS_DEPENDENTS`` payload.
+ *
+ * - ``details.dependency_types`` (the complete authoritative set) wins when it
+ *   contains at least one recognized identifier;
+ * - the inherited legacy scalar ``details.dependency_type`` is otherwise
+ *   normalized to a one-element list;
+ * - unknown, malformed or unrelated details (for example the inherited
+ *   sentence→token shape, which carries neither field) yield an empty list so
+ *   the caller keeps the generic stable error rendering and never infers a
+ *   dependency that was not reported.
+ */
+function tokenAnnotationDependencyNames(details: unknown): string[] {
+  if (details === null || typeof details !== 'object') {
+    return [];
+  }
+  const record = details as Record<string, unknown>;
+  const listed = recognizedDependencyIdentifiers(record.dependency_types);
+  const scalar = record.dependency_type;
+  const identifiers =
+    listed.length > 0
+      ? listed
+      : typeof scalar === 'string' && OCCURRENCE_ANNOTATION_NAMES.has(scalar)
+        ? [scalar]
+        : [];
+  return identifiers.map(
+    (identifier) => OCCURRENCE_ANNOTATION_NAMES.get(identifier)!,
+  );
+}
+
+/**
+ * Human-readable cleanup instruction for a token-layer mutation blocked by
+ * saved occurrence annotations, or ``null`` when the error is not that case.
+ * Only ``SEGMENTATION_HAS_DEPENDENTS`` is specialized.
+ */
+function tokenAnnotationDependencyGuidance(error: unknown): string | null {
+  if (!isApiError(error) || !error.isCode('SEGMENTATION_HAS_DEPENDENTS')) {
+    return null;
+  }
+  const names = tokenAnnotationDependencyNames(error.details);
+  if (names.length === 0) {
+    return null;
+  }
+  const joined =
+    names.length === 1
+      ? names[0]!
+      : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return `Delete the dependent ${joined} annotations before changing token segmentation.`;
 }
 
 export function TokenSegmentationPanel({
@@ -85,6 +165,15 @@ export function TokenSegmentationPanel({
   const current = draftIdentity === identity ? draft : authoritative;
   const changed = draftIdentity === identity && dirty;
   const pending = anySegmentationMutationPending;
+
+  // Human-readable cleanup state for a token-layer mutation blocked by saved
+  // occurrence annotations. The stable error envelope (code + message) is
+  // still rendered by ErrorMessage below; this only names the actual
+  // dependency set so "lemma only", "POS only" and "lemma + POS" are
+  // distinguishable. Malformed/unknown details produce no guidance.
+  const dependencyGuidance =
+    tokenAnnotationDependencyGuidance(put.error) ??
+    tokenAnnotationDependencyGuidance(remove.error);
 
   function adopt(next: TokenDraft[]) {
     setDraft(next);
@@ -153,6 +242,11 @@ export function TokenSegmentationPanel({
       {error ? <p className="segmentation-warning" role="alert">{error}</p> : null}
       {put.isError ? <ErrorMessage error={put.error} /> : null}
       {remove.isError ? <ErrorMessage error={remove.error} /> : null}
+      {dependencyGuidance ? (
+        <p className="segmentation-warning token-annotation-dependency" role="status">
+          {dependencyGuidance}
+        </p>
+      ) : null}
 
       {current.length === 0 ? (
         <p className="segmentation-empty">{version.content.length === 0 ? 'Canonical content is empty; the token partition is empty.' : 'No token preview.'}</p>
