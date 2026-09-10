@@ -432,8 +432,10 @@ def test_m5_named_check_constraint_agrees_between_orm_and_migration(
     This is the mechanical agreement ``alembic check`` relies on: the ORM
     declares ``ck_token_pos_annotations_pos_tag`` with the frozen vocabulary,
     and the migrated database reflects the same name and the same accepted
-    values. The database constraint is additionally exercised directly so a
-    drifting expression cannot pass by name alone.
+    values. The database constraint is additionally exercised directly, and the
+    rejection is ISOLATED to the CHECK: the attempted row references a real
+    saved word-like token segment — the same id a frozen-value insert below
+    proves FK-satisfiable — so a foreign-key violation cannot mask the CHECK.
     """
 
     from app.db.models import POS_TAG_VALUES, TokenPosAnnotation
@@ -464,7 +466,99 @@ def test_m5_named_check_constraint_agrees_between_orm_and_migration(
         for excluded in ("PUNCT", "SYM", "XPOS"):
             assert f"'{excluded}'" not in definition
 
+        # --- CHECK isolation -------------------------------------------------
+        # Minimal real M5 ownership chain (project -> document -> TextVersion
+        # -> sentence layer/segment -> token layer -> word-like token segment),
+        # created locally rather than through a new shared fixture so the
+        # isolation proof stays explicit and self-contained.
+        (
+            project_id,
+            document_id,
+            version_id,
+            sentence_layer_id,
+            sentence_segment_id,
+            token_layer_id,
+            token_segment_id,
+        ) = [uuid.uuid4() for _ in range(7)]
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO projects (id, name, created_at, updated_at)"
+                    " VALUES (:id, 'M5 CHECK', now(), now())"
+                ),
+                {"id": project_id},
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO parallel_documents"
+                    " (id, project_id, title, created_at, updated_at)"
+                    " VALUES (:id, :project, 'M5 CHECK doc', now(), now())"
+                ),
+                {"id": document_id, "project": project_id},
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO text_versions"
+                    " (id, document_id, language_tag, label, content,"
+                    "  content_hash, sort_order, created_at, updated_at)"
+                    " VALUES (:id, :document, 'en', 'M5 CHECK text', 'Hi.',"
+                    "  :hash, 0, now(), now())"
+                ),
+                {"id": version_id, "document": document_id, "hash": "d" * 64},
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO segmentation_layers"
+                    " (id, text_version_id, granularity, requested_locale,"
+                    "  resolved_locale, origin, content_hash, created_at,"
+                    "  updated_at)"
+                    " VALUES (:id, :version, 'sentence', 'en', 'en', 'manual',"
+                    "  :hash, now(), now())"
+                ),
+                {
+                    "id": sentence_layer_id,
+                    "version": version_id,
+                    "hash": "d" * 64,
+                },
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO segments"
+                    " (id, segmentation_layer_id, ordinal, start_offset,"
+                    "  end_offset, exact_text, created_at)"
+                    " VALUES (:id, :layer, 0, 0, 3, 'Hi.', now())"
+                ),
+                {"id": sentence_segment_id, "layer": sentence_layer_id},
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO segmentation_layers"
+                    " (id, text_version_id, granularity, basis_layer_id,"
+                    "  requested_locale, resolved_locale, origin, content_hash,"
+                    "  created_at, updated_at)"
+                    " VALUES (:id, :version, 'token', :basis, 'en', 'en',"
+                    "  'manual', :hash, now(), now())"
+                ),
+                {
+                    "id": token_layer_id,
+                    "version": version_id,
+                    "basis": sentence_layer_id,
+                    "hash": "d" * 64,
+                },
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO segments"
+                    " (id, segmentation_layer_id, ordinal, start_offset,"
+                    "  end_offset, exact_text, is_word_like, created_at)"
+                    " VALUES (:id, :layer, 0, 0, 3, 'Hi.', true, now())"
+                ),
+                {"id": token_segment_id, "layer": token_layer_id},
+            )
+
         # The database itself refuses a value outside the frozen vocabulary.
+        # The row references the REAL saved token segment above, so the FK is
+        # satisfied and the rejection can only be the POS CHECK constraint.
         import sqlalchemy.exc
 
         try:
@@ -475,12 +569,34 @@ def test_m5_named_check_constraint_agrees_between_orm_and_migration(
                         " (id, token_segment_id, pos_tag, created_at, updated_at)"
                         " VALUES (:id, :token, 'PUNCT', now(), now())"
                     ),
-                    {"id": uuid.uuid4(), "token": uuid.uuid4()},
+                    {"id": uuid.uuid4(), "token": token_segment_id},
                 )
-        except sqlalchemy.exc.IntegrityError:
-            pass
+        except sqlalchemy.exc.IntegrityError as error:
+            violated = getattr(getattr(error, "orig", None), "diag", None)
+            assert violated is not None
+            assert violated.constraint_name == "ck_token_pos_annotations_pos_tag"
         else:  # pragma: no cover - a leak here is a hard failure
             raise AssertionError("database accepted a non-frozen POS value")
+
+        # The SAME token id satisfies the FK for a frozen value: the previous
+        # rejection was the CHECK alone, and the token id is genuinely valid.
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "INSERT INTO token_pos_annotations"
+                    " (id, token_segment_id, pos_tag, created_at, updated_at)"
+                    " VALUES (:id, :token, 'NOUN', now(), now())"
+                ),
+                {"id": uuid.uuid4(), "token": token_segment_id},
+            )
+        with engine.connect() as conn:
+            assert conn.execute(
+                text(
+                    "SELECT pos_tag FROM token_pos_annotations"
+                    " WHERE token_segment_id = :token"
+                ),
+                {"token": token_segment_id},
+            ).scalar_one() == "NOUN"
     finally:
         engine.dispose()
 
