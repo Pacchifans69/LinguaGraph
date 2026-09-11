@@ -12,103 +12,109 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 ## 0. Current durable status
 
 M5 — Human-Reviewed POS Annotation Foundation — has completed bounded
-implementation on the authorized branch
-`m5-human-reviewed-pos-annotation-foundation`, based exactly on frozen
-implementation base `11176df91dd9dc3d1169e4bef41808b0abfa8656` (tree
-`03b1d0746bb89c5e57fe27e63e417ea274447287`).
+implementation, exact-candidate Gate 2, Human Static Diff Review, Human Runtime
+Acceptance, PR #14, explicit Human Merge Decision, rebase merge, Gate 3 exact
+candidate-to-main tree verification, and this docs-only post-merge durable-state
+closure.
 
-M5 is **bounded implementation complete / candidate awaiting Human Static Diff
-Review, Gate 2 and Human Runtime Acceptance**. It is not merged, no PR was
-opened, no implementation-branch cleanup was performed, and `G2-X01` remains
-`OPEN / EXTERNAL`.
+M5 is **MERGED / DURABLY RECORDED / IMPLEMENTATION-BRANCH CLEANUP PENDING**.
+The implementation branch remains intentionally retained until a separate
+Human-authorized exact-guarded cleanup.
 
-M4 — Human-Reviewed Lemma Annotation Foundation — previously completed bounded
-implementation, exact-candidate Gate 2, Static Human Diff Review, Human Runtime
-Acceptance, PR #13, explicit Human Merge Decision, rebase merge, Gate 3 exact
-candidate-to-main tree verification, and its docs-only durable-state closure.
-
-The exact-guarded M4 implementation-branch cleanup has completed. M4 is
-**COMPLETE / MERGED / CLOSED**.
-
-M4 durable implementation coordinates:
+M5 durable implementation coordinates:
 
 - approved pre-freeze durable base:
-  `3cada0d2dcdcf349152aacc53992b15190271a75`;
-- pre-freeze tree:
-  `51564978a2e92ce8de61997219b3d8c596a6fa9a`;
+  `68fedc4c8cba80201333e6550231b805e0f0853c`;
+- approved pre-freeze durable tree:
+  `3bea6efd9662fe746328d2a7814fa65e1efb917f`;
 - frozen implementation base:
-  `4e12a11e266367e0a368c6128f722a620ce47ed3`;
+  `11176df91dd9dc3d1169e4bef41808b0abfa8656`;
 - frozen base tree:
-  `f3b09f9d9934686a07bdbbe7944f22d2df76f6e2`;
+  `03b1d0746bb89c5e57fe27e63e417ea274447287`;
 - implementation branch:
-  `m4-human-reviewed-lemma-annotation-foundation`;
+  `m5-human-reviewed-pos-annotation-foundation`;
 - final reviewed / independently proven candidate:
-  `ac1cd40ae190577783453050f2cbc209cd3958a6`;
+  `139f3349b8556f5dd13d5c2d8808fda4a79dc819`;
 - candidate tree:
-  `18eff900b903d7f3743aa88fa9390d3dbdebc477`;
-- PR #13: merged by rebase;
+  `179aba060d5e798ace46ea6bed0a7c496a50e9ad`;
+- PR #14: merged by rebase;
 - post-rebase implementation `main`:
-  `4cc435893207cdd32216012ca887d338e1932250`;
+  `49163ee407c0dae7d9e20cc647cabc8ae98f75de`;
 - post-rebase implementation tree:
-  `18eff900b903d7f3743aa88fa9390d3dbdebc477`;
+  `179aba060d5e798ace46ea6bed0a7c496a50e9ad`;
 - candidate → post-rebase `main` tree identity:
-  **PASS / EXACT**.
+  **PASS / EXACT**;
+- post-merge durable-state closure:
+  resolve the docs-only commit containing this record directly from Git
+  history after it is written.
 
-M4 Gate 2 passed under the Human-approved M4-specific External Infrastructure
-Exception using independent exact-candidate hosted proof. `G2-X01` remains
-`OPEN / EXTERNAL`.
+M5 Gate 2 result:
 
-M5 — Human-Reviewed POS Annotation Foundation — has a Human-approved frozen
-execution contract in `docs/development/M5_CONTRACT.md`.
+**PASS WITH M5-SPECIFIC EXTERNAL INFRASTRUCTURE EXCEPTION**
 
-Bounded M5 implementation has since been performed on the authorized
-implementation branch; the detailed record is section 14 of this document. The
-candidate is **unmerged**, no PR was opened, and no Gate 2 decision was made for
-it.
+Accepted independent hosted proof:
 
-M5 approved pre-freeze coordinates:
+- repository:
+  `Pacchifans69/linguagraph-m5-proof`;
+- proof commit:
+  `4cf38bc3dee0c312d072ef2cc47ebdb821b32465`;
+- proof tree:
+  `a59a66ec392f418bf7e23d1cab67eae61f4810a4`;
+- CircleCI build/pipeline:
+  #2;
+- status context:
+  `ci/circleci: m5-exact-candidate-proof`;
+- result:
+  **SUCCESS**.
 
-- base: `68fedc4c8cba80201333e6550231b805e0f0853c`;
-- tree: `3bea6efd9662fe746328d2a7814fa65e1efb917f`;
-- implementation branch:
-  `m5-human-reviewed-pos-annotation-foundation`.
+The proof artifact audit recorded 23/23 proof stages with exit code 0, backend
+`587 passed`, frontend `31 files / 441 passed`, Playwright `12 passed`, zero
+backend skips, unchanged dependency hashes, cleanup PASS, and final exact
+application/proof provenance.
 
-`G2-X01` remains `OPEN / EXTERNAL`. The M4 External Infrastructure Exception
-does not carry forward to M5.
+Canonical GitHub Actions exact-candidate run `34564666636`, PR-event run
+`34586589640`, and post-merge `main` run `34587072906` all reproduced the
+provider/pre-step `G2-X01` fingerprint: the M5 verification job ended before
+any repository-defined workflow step (`steps=[]`, runner id 0 / unavailable
+runner execution, unusable or empty logs). No application command executed in
+those runs.
+
+`G2-X01` therefore remains **OPEN / EXTERNAL**. The M5-specific exception
+waived only GitHub-hosted runner executability and did not waive any semantic
+verification requirement.
+
+Human Static Diff Review:
+
+**PASS.**
+
+Human Runtime Acceptance:
+
+**PASS WITH HUMAN-APPROVED UX DEFERRAL.**
+
+`HRA-F01` — Workbench information architecture / panel density — remains
+**OPEN / DEFERRED**. It is a real Human finding, is not resolved by M5, and
+must be the first contract input of the next Human-authorized Workbench
+Information Architecture checkpoint.
+
+M4 — Human-Reviewed Lemma Annotation Foundation — is
+**COMPLETE / MERGED / CLOSED**. Its historical durable provenance remains
+recorded in section 13.
 
 ## 1. Repository checkpoint
 
-Current completed, merged implementation checkpoint: **M4 — Human-Reviewed
-Lemma Annotation Foundation**.
+Current completed, merged implementation checkpoint: **M5 — Human-Reviewed
+POS Annotation Foundation**.
 
-Current normative checkpoint: **M5 — Human-Reviewed POS Annotation Foundation
-/ CONTRACT FROZEN / BOUNDED IMPLEMENTATION COMPLETE / UNMERGED CANDIDATE**.
+Current governance boundary: **M5 POST-MERGE DURABLE STATE RECORDED /
+IMPLEMENTATION-BRANCH CLEANUP PENDING**.
 
-The M5 docs-only freeze commit is historical provenance: its parent is exactly
-`68fedc4c8cba80201333e6550231b805e0f0853c`. Resolve the freeze commit/tree and
-the bounded-implementation candidate directly from Git history rather than
-embedding a self-referential SHA in this file.
+No next implementation checkpoint is authorized by this closeout. If/when the
+Human opens the next Workbench Information Architecture checkpoint,
+`HRA-F01` must be its first contract input.
 
-Durable M4 implementation coordinates:
-
-- frozen implementation base:
-  `4e12a11e266367e0a368c6128f722a620ce47ed3`;
-- final reviewed and independently proven candidate:
-  `ac1cd40ae190577783453050f2cbc209cd3958a6`;
-- candidate / post-rebase implementation tree:
-  `18eff900b903d7f3743aa88fa9390d3dbdebc477`;
-- PR #13: merged by rebase;
-- post-rebase implementation `main`:
-  `4cc435893207cdd32216012ca887d338e1932250`;
-- post-merge durable-state closure:
-  resolve the docs-only commit containing this record directly from Git
-  history after it is written;
-- implementation branch cleanup:
-  **PASS** — Human-authorized exact guard verified
-  `main@d90b0f52f96869d2710aa4b592514f34b7e2dd99` and
-  `m4-human-reviewed-lemma-annotation-foundation@ac1cd40ae190577783453050f2cbc209cd3958a6`
-  before deletion; GitHub independently returns 404 and an empty branch search
-  for the deleted ref.
+The M5 docs-only contract-freeze commit remains historical provenance. Resolve
+the freeze commit/tree and this durable-state closure commit directly from Git
+history rather than embedding a self-referential closure SHA in this file.
 
 ### Checkpoint ledger
 
@@ -125,14 +131,11 @@ Durable M4 implementation coordinates:
 | M2 Linguistic Segmentation Foundation | #11 | `7cf756694e429abc50bf604ab2757fb3e44959c6` | rebase → `8972609a86d15d411917aafe6cf02c4577b7176f` |
 | M3 Word/Token Segmentation Foundation | #12 | `d4254c1239e649b17dc4ae6d6f995e52bd4635db` | rebase → `fc607b597bee35aff31a06a3945fa7a256f6b5c8` |
 | M4 Human-Reviewed Lemma Annotation Foundation | #13 | `ac1cd40ae190577783453050f2cbc209cd3958a6` | rebase → `4cc435893207cdd32216012ca887d338e1932250` |
-| M5 Human-Reviewed POS Annotation Foundation | — | bounded implementation complete on `m5-human-reviewed-pos-annotation-foundation`; candidate awaiting corrected Static Diff Review | unmerged — no PR, no Gate 2 decision |
+| M5 Human-Reviewed POS Annotation Foundation | #14 | `139f3349b8556f5dd13d5c2d8808fda4a79dc819` | rebase → `49163ee407c0dae7d9e20cc647cabc8ae98f75de`; Gate 3 exact tree identity PASS |
 
 M0.5 and M0.6 merge commits preserved exact reviewed trees. M0.7, M1, M2,
-M3 and M4 used repository-permitted rebase merge; their Gate 3 bridges are
+M3, M4 and M5 used repository-permitted rebase merge; their Gate 3 bridges are
 exact reviewed-candidate to durable-implementation-main tree identities.
-
-The M5 row records a bounded implementation candidate on the authorized branch;
-unlike M0–M4 it has no PR, no merge and no Gate 2 result yet.
 
 ## 2. M1 durable provenance
 
@@ -448,10 +451,9 @@ deletion is blocked while a lemma and/or POS dependent exists, reporting the
 complete `dependency_types` set; POS, lemma and token mutations share the
 TextVersion-root serialization order.
 
-The M4 as-built boundary deliberately does **not** include Lexeme/shared
-vocabulary identity, POS/morphology/syntax, generic EAV annotations,
-automatic lemmatization, automatic alignment, NLP/LLM providers, or automatic
-re-anchoring.
+M5 deliberately does **not** include Lexeme/shared vocabulary identity, XPOS,
+morphology, syntax, generic EAV annotations, automatic lemmatization/POS
+annotation/alignment, NLP/LLM providers, or automatic re-anchoring.
 
 ## 8. Verification entry points
 
@@ -510,9 +512,12 @@ See `docs/testing/testing-strategy.md` for evidence semantics.
 
 ## 9. Known retained limitations and evidence
 
-Open/non-blocking items:
+Open/non-blocking or explicitly deferred items:
 
 - `G2-X01` — GitHub-hosted-runner execution remains `OPEN / EXTERNAL`;
+- `HRA-F01` — Workbench information architecture / panel density remains
+  `OPEN / DEFERRED`; it must be the first contract input of the next
+  Human-authorized Workbench Information Architecture checkpoint;
 - HRA-F07 — a malformed local `node` command that resolves without version
   stdout can surface a low-level PowerShell/.NET diagnostic;
 - HRA-F09 — inherited connector lines can cross text glyphs under frozen
@@ -521,7 +526,7 @@ Open/non-blocking items:
   protocol;
 - later lexical ontology, automatic NLP/LLM behavior, authentication,
   collaboration, graph/vector infrastructure and connector-routing redesign
-  remain outside the completed M4 boundary.
+  remain outside completed M5.
 
 Retained provider/proof evidence remains protected while `G2-X01` is open,
 including historical M0.7 diagnostics and:
@@ -538,17 +543,36 @@ including historical M0.7 diagnostics and:
   `33c101ceb1cf6449f8e5f23d0592a0a320bb1d03`;
 - M4 CircleCI build/pipeline #1:
   `ci/circleci: m4-exact-candidate-proof` — SUCCESS;
-- exact M4 GitHub Actions diagnostic run #80 / `34245187052`.
+- exact M4 GitHub Actions diagnostic run #80 / `34245187052`;
+- M5 proof:
+  `Pacchifans69/linguagraph-m5-proof@4cf38bc3dee0c312d072ef2cc47ebdb821b32465`;
+- M5 proof tree:
+  `a59a66ec392f418bf7e23d1cab67eae61f4810a4`;
+- M5 CircleCI build/pipeline #2:
+  `ci/circleci: m5-exact-candidate-proof` — SUCCESS;
+- exact M5 candidate GitHub Actions diagnostic run `34564666636`;
+- PR-event diagnostic run `34586589640`;
+- post-merge `main` diagnostic run `34587072906`.
 
-The successful M4 CircleCI proof does not itself close `G2-X01`; it is
-checkpoint-specific accepted semantic evidence under the Human-approved M4
-exception.
+Successful checkpoint-specific CircleCI proofs do not themselves close
+`G2-X01`; they are accepted semantic evidence under their respective
+Human-approved exceptions.
 
 Proof/diagnostic cleanup remains deferred. Implementation-branch cleanup must
 not delete proof repositories, provider diagnostics, PR history, or reviewed
 candidate commits.
 
 ## 10. Cleanup status
+
+M5 implementation-branch cleanup is **NOT STARTED / NOT AUTHORIZED BY THIS
+DURABLE-STATE CLOSURE**.
+
+Required retained branch before any future cleanup authorization:
+
+`m5-human-reviewed-pos-annotation-foundation@139f3349b8556f5dd13d5c2d8808fda4a79dc819`
+
+Any future M5 cleanup must fail closed unless the then-current Human-approved
+durable-main guard and the exact implementation-branch SHA both match.
 
 **M1 implementation-branch cleanup: PASS.**
 
@@ -1113,15 +1137,31 @@ PR history, and reviewed candidate history remain retained. `G2-X01` remains
 
 M4 is **COMPLETE / MERGED / CLOSED**.
 
-## 14. M5 bounded implementation record
+## 14. M5 durable closure
 
-### 14.1 Status
+### 14.1 Final status
 
-**M5 — Human-Reviewed POS Annotation Foundation: bounded implementation
-complete on the authorized branch; candidate awaiting Human Static Diff Review,
-Gate 2 and Human Runtime Acceptance.**
+**M5 — Human-Reviewed POS Annotation Foundation: MERGED / DURABLY RECORDED /
+IMPLEMENTATION-BRANCH CLEANUP PENDING.**
 
-M5 is not merged, no PR was opened, and no Gate 2 exception decision was made.
+Completed lifecycle through this closure:
+
+- repository reality reconstruction / Gate 1: PASS;
+- Human contract freeze: PASS;
+- bounded implementation: PASS;
+- exact corrected candidate freeze: PASS;
+- Gate 2: PASS WITH M5-SPECIFIC EXTERNAL INFRASTRUCTURE EXCEPTION;
+- Human Static Diff Review: PASS;
+- Human Runtime Acceptance: PASS WITH HUMAN-APPROVED UX DEFERRAL;
+- PR #14: merged by rebase after explicit Human Merge Decision;
+- Gate 3: PASS / EXACT TREE IDENTITY;
+- durable-state closure: recorded by this docs-only commit;
+- implementation-branch cleanup: NOT STARTED / REQUIRES SEPARATE HUMAN AUTHORITY.
+
+`G2-X01` remains **OPEN / EXTERNAL**.
+
+`HRA-F01` remains **OPEN / DEFERRED** and must not be marked resolved by M5
+closeout.
 
 ### 14.2 Provenance
 
@@ -1135,38 +1175,206 @@ M5 is not merged, no PR was opened, and no Gate 2 exception decision was made.
   `03b1d0746bb89c5e57fe27e63e417ea274447287`;
 - implementation branch:
   `m5-human-reviewed-pos-annotation-foundation`;
-- governing contract: `docs/development/M5_CONTRACT.md`;
-- decision record: `docs/adr/ADR-013-token-occurrence-coarse-pos-annotations.md`;
-- exact candidate SHA/tree: recorded in the bounded-implementation report and
-  commit history.
+- final corrected, reviewed and independently proven candidate:
+  `139f3349b8556f5dd13d5c2d8808fda4a79dc819`;
+- candidate tree:
+  `179aba060d5e798ace46ea6bed0a7c496a50e9ad`;
+- governing contract:
+  `docs/development/M5_CONTRACT.md`;
+- decision record:
+  `docs/adr/ADR-013-token-occurrence-coarse-pos-annotations.md`;
+- PR:
+  `#14 — M5 — Human-Reviewed POS Annotation Foundation`;
+- merge method:
+  rebase;
+- post-rebase implementation `main`:
+  `49163ee407c0dae7d9e20cc647cabc8ae98f75de`;
+- post-rebase implementation tree:
+  `179aba060d5e798ace46ea6bed0a7c496a50e9ad`.
 
-### 14.3 Delivered as-built outcome
+The corrected candidate remained frozen through re-established Gate 2, Human
+Static Diff Review, Human Runtime Acceptance, PR creation and Human Merge
+Decision.
 
-M5 durably establishes, on the authorized branch:
+### 14.3 Gate 2
+
+Formal result:
+
+**PASS WITH M5-SPECIFIC EXTERNAL INFRASTRUCTURE EXCEPTION**
+
+Canonical GitHub Actions exact-candidate evidence:
+
+- corrected candidate:
+  `139f3349b8556f5dd13d5c2d8808fda4a79dc819`;
+- run:
+  `34564666636`;
+- result:
+  failure before repository-defined workflow steps;
+- verification job:
+  `steps=[]`, logs unavailable / `BlobNotFound`.
+
+The Human explicitly re-approved the M5-specific exception for the corrected
+exact candidate. It waived only successful GitHub-hosted-runner executability.
+
+Accepted independent hosted proof:
+
+- repository:
+  `Pacchifans69/linguagraph-m5-proof`;
+- proof commit:
+  `4cf38bc3dee0c312d072ef2cc47ebdb821b32465`;
+- proof tree:
+  `a59a66ec392f418bf7e23d1cab67eae61f4810a4`;
+- CircleCI build/pipeline:
+  #2;
+- status context:
+  `ci/circleci: m5-exact-candidate-proof`;
+- result:
+  **SUCCESS**.
+
+The proof enforced exact proof-source and application SHA/tree/frozen-base
+guards and executed clean hosted Linux, Python 3.13, Node 24, PostgreSQL 18,
+`uv sync --frozen`, Alembic empty → `0006` / current / check, full
+real-PostgreSQL pytest with zero skips, `npm ci`, lint, typecheck, Vitest,
+production build, golden/Unicode/M2/M3/M4/M5 Playwright paths,
+disposable-database cleanup, dependency-hash equality and final remote/local
+provenance/tree integrity.
+
+Hosted artifact audit:
+
+- command stages: 23/23 exit 0;
+- backend: `587 passed`, zero skipped;
+- frontend: `31 files / 441 passed`;
+- Playwright: `12 passed`;
+- dependency hashes: before == after;
+- final candidate/proof identities: exact;
+- `G2-N02`: retained non-blocking CircleCI bulk-download packaging note for
+  omitted zero-byte artifacts.
+
+PR-event run `34586589640` and post-merge `main` run `34587072906` reproduced
+the same `G2-X01` pre-step fingerprint (`steps=[]`, no runner execution). They
+do not constitute application failure evidence.
+
+`G2-X01` remains **OPEN / EXTERNAL**.
+
+### 14.4 Human review and runtime acceptance
+
+Human Static Diff Review:
+
+**PASS.**
+
+Closed review findings:
+
+- `HSDR-F01`: CLOSED — cross-operation token dependency guidance now reflects
+  the latest backend response rather than retaining stale sibling guidance;
+- `HSDR-F02`: CLOSED — contradictory pre-merge M5 documentation was repaired
+  without modifying the frozen M5 contract.
+
+Human Runtime Acceptance:
+
+**PASS WITH HUMAN-APPROVED UX DEFERRAL.**
+
+Accepted runtime behavior covered:
+
+- saved-token prerequisite and word-like-only POS targets;
+- exact fifteen-tag selector;
+- POS create → reload → edit → reload → delete lifecycle;
+- lemma-only / POS-only / lemma+POS sibling independence;
+- multi-dependent token-mutation blocking and recovery;
+- real-browser HSDR-F01 regression: PUT reports lemma+POS, deleting lemma then
+  switching to token-layer DELETE reports POS only with no stale prior guidance;
+- Unicode/multilingual token identity and persisted POS binding (`Straße`,
+  `schön`);
+- native selection and Add to Alignment;
+- Alignment create/reload/activate/connector behavior;
+- Delete POS preserves Alignment;
+- Delete Alignment preserves POS;
+- inherited sentence/token/lemma workflows.
+
+`HRA-F01` remains **OPEN / DEFERRED**: the Human judged the vertically stacked
+sentence/token/lemma/POS workspace information architecture and panel density
+NOT ACCEPTABLE. Its root cause spans the overall frontend composition rather
+than M5 POS domain correctness. The Human approved deferral only on the
+condition that it becomes the first contract input of the next Workbench
+Information Architecture checkpoint and remains unresolved in M5 closeout.
+
+### 14.5 Merge and Gate 3
+
+PR #14 was created against exact base:
+
+`main@11176df91dd9dc3d1169e4bef41808b0abfa8656`
+
+with exact head:
+
+`m5-human-reviewed-pos-annotation-foundation@139f3349b8556f5dd13d5c2d8808fda4a79dc819`
+
+After explicit Human merge authorization, GitHub merged PR #14 by rebase.
+
+Post-rebase implementation `main`:
+
+`49163ee407c0dae7d9e20cc647cabc8ae98f75de`
+
+Post-rebase implementation tree:
+
+`179aba060d5e798ace46ea6bed0a7c496a50e9ad`
+
+Reviewed candidate tree:
+
+`179aba060d5e798ace46ea6bed0a7c496a50e9ad`
+
+Therefore:
+
+**M5 Gate 3 candidate → post-rebase main tree identity: PASS / EXACT.**
+
+The rebase changed commit identities while preserving the reviewed application
+tree exactly. Post-rebase `main` is 10 commits ahead of the frozen
+implementation base and 0 behind, with merge base exactly
+`11176df91dd9dc3d1169e4bef41808b0abfa8656`.
+
+### 14.6 Delivered durable outcome
+
+M5 durably establishes:
 
 - additive Alembic `0006_human_reviewed_pos_annotations.py`; revisions
-  `0001`–`0005` remain byte-for-byte unchanged (SHA-256 guarded by test);
-- sparse `token_pos_annotations` with `UNIQUE(token_segment_id)`, named
-  `ON DELETE CASCADE` token FK and the named fifteen-value CHECK constraint
-  agreeing between ORM metadata and migration;
-- `PUT`/`DELETE /api/v1/token-segments/{token_segment_id}/pos`, with logical
-  no-op preserving `updated_at` and explicit delete preserving the sibling
-  lemma;
-- the closed case-sensitive fifteen-value coarse vocabulary, with
-  `INVALID_POS_VALUE` for unknown strings and `VALIDATION_ERROR` retained for
-  non-string values and extra fields;
-- `INVALID_POS_TARGET` eligibility over persisted
-  `granularity = token` + `is_word_like = TRUE` targets only;
-- multi-dependent retokenization blocking with canonical
-  `dependency_types` (`lemma_annotations`, `pos_annotations`) and the
-  single-member legacy scalar;
-- shared TextVersion-root serialization for POS, lemma and token mutation;
-- workspace `token_pos_annotations` read authority with deterministic ordering;
-- frontend POS normalization maps and the bounded `PosAnnotationPanel` outside
-  the canonical text root with an exact fifteen-value controlled selector;
-- backend, frontend and Playwright M5 verification coverage;
-- no dependency, lockfile or runtime-baseline change; no Alignment or
-  `text_version_service.py` change.
+  `0001`–`0005` unchanged;
+- sparse `token_pos_annotations` with one optional POS per saved eligible token
+  occurrence;
+- direct persisted `Segment.id` occurrence identity;
+- exact closed fifteen-value coarse POS vocabulary;
+- explicit PUT create/update/no-op and DELETE semantics;
+- `INVALID_POS_TARGET` / `INVALID_POS_VALUE` distinctions;
+- lemma/POS sibling independence;
+- complete-set retokenization dependency blocking;
+- shared TextVersion-root serialization for token/lemma/POS mutation;
+- workspace `token_pos_annotations` read authority;
+- frontend POS normalization and `PosAnnotationPanel` outside
+  `[data-text-content-root]`;
+- authoritative reload after persisted mutation;
+- Alignment independence;
+- M5 backend/frontend/E2E verification coverage;
+- ADR-013;
+- no dependency, lockfile or runtime-baseline change;
+- no Alignment service or `text_version_service.py` change.
 
-`G2-X01` remains `OPEN / EXTERNAL`. The M4 External Infrastructure Exception
-does not carry forward to M5.
+### 14.7 Cleanup and retention boundary
+
+This docs-only commit is the M5 post-merge durable-state closure. Resolve its
+SHA/tree directly from Git history after the commit is created; do not embed a
+self-referential SHA here.
+
+Implementation-branch cleanup is **PENDING / NOT AUTHORIZED BY THIS COMMIT**.
+The branch must remain:
+
+`m5-human-reviewed-pos-annotation-foundation@139f3349b8556f5dd13d5c2d8808fda4a79dc819`
+
+until a separate Human authorization supplies the required exact durable-main
+and branch guards.
+
+The reviewed candidate commit, PR #14, proof repository, CircleCI build #2 and
+artifacts, GitHub Actions diagnostics, and historical proof evidence remain
+retained.
+
+`G2-X01` remains **OPEN / EXTERNAL**.
+
+`HRA-F01` remains **OPEN / DEFERRED**.
+
+No next implementation checkpoint is authorized by this closeout.
