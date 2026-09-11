@@ -192,6 +192,12 @@ async function openPanel(page: Page, label: string) {
     await openButton.click();
   }
   await expect(slot).toBeVisible();
+  await activateMode(page, 'POS', label);
+}
+
+async function activateMode(page: Page, mode: 'Token' | 'Lemma' | 'POS', label: string) {
+  await page.getByRole('tab', { name: mode }).click();
+  await page.getByRole('combobox', { name: 'Active text version' }).selectOption({ label });
 }
 
 function panelSlot(page: Page, label: string) {
@@ -199,11 +205,11 @@ function panelSlot(page: Page, label: string) {
 }
 
 function posPanel(page: Page, label: string) {
-  return panelSlot(page, label).locator('.pos-annotation-panel');
+  return page.locator('.pos-annotation-panel', { hasText: label });
 }
 
 function lemmaPanel(page: Page, label: string) {
-  return panelSlot(page, label).locator('.lemma-annotation-panel');
+  return page.locator('.lemma-annotation-panel', { hasText: label });
 }
 
 function posRow(page: Page, label: string, tokenSegmentId: string) {
@@ -224,6 +230,7 @@ async function savePos(
   tokenSegmentId: string,
   tag: string,
 ) {
+  await activateMode(page, 'POS', label);
   const row = posRow(page, label, tokenSegmentId);
   await row.getByLabel(/^Coarse POS for /).selectOption(tag);
   await row.getByRole('button', { name: 'Save POS' }).click();
@@ -236,6 +243,7 @@ async function saveLemma(
   tokenSegmentId: string,
   lemma: string,
 ) {
+  await activateMode(page, 'Lemma', label);
   const row = lemmaRow(page, label, tokenSegmentId);
   await row.getByLabel(/^Lemma for /).fill(lemma);
   await row.getByRole('button', { name: 'Save lemma' }).click();
@@ -385,6 +393,7 @@ test('M5 POS annotation persists, edits, deletes, and preserves segmentation + l
   await expect(reloadedPanel).not.toContainText('Saved POS');
 
   // The sibling lemma survived both POS writes and deletions.
+  await activateMode(page, 'Lemma', 'M5 English');
   await expect(
     lemmaRow(page, 'M5 English', hello!.id).locator('.lemma-saved-value'),
   ).toHaveText('house');
@@ -393,13 +402,16 @@ test('M5 POS annotation persists, edits, deletes, and preserves segmentation + l
   await page.reload();
   await openPanel(page, 'M5 English');
   const slot = panelSlot(page, 'M5 English');
-  await expect(slot.locator('.token-segmentation-panel .segmentation-row')).toHaveCount(
+  await activateMode(page, 'Token', 'M5 English');
+  const preservedTokenPanel = page.locator('.token-segmentation-panel', { hasText: 'M5 English' });
+  await expect(preservedTokenPanel.locator('.segmentation-row')).toHaveCount(
     tokens.length,
   );
   await expect(
-    slot.locator('.token-segmentation-panel').getByText('Saved'),
+    preservedTokenPanel.getByText('Saved'),
   ).toBeVisible();
-  await expect(slot.locator('.pos-annotation-panel .pos-row')).toHaveCount(3);
+  await activateMode(page, 'POS', 'M5 English');
+  await expect(posPanel(page, 'M5 English').locator('.pos-row')).toHaveCount(3);
 
   // Alignment state is preserved, and canonical text is unchanged.
   const snapshot = await (
@@ -472,9 +484,8 @@ test('M5 multi-dependent block reports both types and unblocks only after both s
 
   // The token panel surfaces the same stable conflict AND names both
   // remaining annotation dependencies for the Human.
-  const tokenPanel = panelSlot(page, 'M5 Dependency A').locator(
-    '.token-segmentation-panel',
-  );
+  await activateMode(page, 'Token', 'M5 Dependency A');
+  const tokenPanel = page.locator('.token-segmentation-panel', { hasText: 'M5 Dependency A' });
   await tokenPanel.getByRole('button', { name: 'Start manual' }).click();
   await expect(tokenPanel.getByText('Unsaved preview')).toBeVisible();
   await tokenPanel.getByRole('button', { name: 'Save tokens' }).click();
@@ -487,6 +498,7 @@ test('M5 multi-dependent block reports both types and unblocks only after both s
   );
 
   // Delete the LEMMA first: the POS dependent still blocks the parent.
+  await activateMode(page, 'Lemma', 'M5 Dependency A');
   await lemmaRow(page, 'M5 Dependency A', alpha.id)
     .getByRole('button', { name: 'Delete lemma' })
     .click();
@@ -507,18 +519,21 @@ test('M5 multi-dependent block reports both types and unblocks only after both s
   expect(posOnlyBody.details.dependency_type).toBe('pos_annotations');
 
   // Retrying from the panel shows the REMAINING cleanup state: POS only.
+  await activateMode(page, 'Token', 'M5 Dependency A');
   await tokenPanel.getByRole('button', { name: 'Save tokens' }).click();
   await expect(tokenPanel.locator('.token-annotation-dependency')).toHaveText(
     'Delete the dependent POS annotations before changing token segmentation.',
   );
 
   // Delete the remaining POS: token replacement now succeeds.
+  await activateMode(page, 'POS', 'M5 Dependency A');
   await posRow(page, 'M5 Dependency A', alpha.id)
     .getByRole('button', { name: 'Delete POS' })
     .click();
   await expect(
     posRow(page, 'M5 Dependency A', alpha.id).locator('.pos-empty'),
   ).toBeVisible();
+  await activateMode(page, 'Token', 'M5 Dependency A');
   await tokenPanel.getByRole('button', { name: 'Save tokens' }).click();
   await expect(tokenPanel.getByText('Saved')).toBeVisible();
   await expect(tokenPanel.locator('.token-annotation-dependency')).toHaveCount(0);
@@ -556,9 +571,8 @@ test('M5 multi-dependent block unblocks only after both siblings are deleted (PO
   await saveLemma(page, 'M5 Dependency B', alpha.id, 'alpha');
 
   // The Human-visible panel starts from the complete dependency set.
-  const tokenPanel = panelSlot(page, 'M5 Dependency B').locator(
-    '.token-segmentation-panel',
-  );
+  await activateMode(page, 'Token', 'M5 Dependency B');
+  const tokenPanel = page.locator('.token-segmentation-panel', { hasText: 'M5 Dependency B' });
   await tokenPanel.getByRole('button', { name: 'Start manual' }).click();
   await tokenPanel.getByRole('button', { name: 'Save tokens' }).click();
   await expect(tokenPanel.locator('.token-annotation-dependency')).toHaveText(
@@ -566,6 +580,7 @@ test('M5 multi-dependent block unblocks only after both siblings are deleted (PO
   );
 
   // Delete the POS first: the lemma dependent still blocks the parent.
+  await activateMode(page, 'POS', 'M5 Dependency B');
   await posRow(page, 'M5 Dependency B', alpha.id)
     .getByRole('button', { name: 'Delete POS' })
     .click();
@@ -586,12 +601,14 @@ test('M5 multi-dependent block unblocks only after both siblings are deleted (PO
   expect(lemmaOnlyBody.details.dependency_type).toBe('lemma_annotations');
 
   // Retrying from the panel now identifies the LEMMA as the remaining cleanup.
+  await activateMode(page, 'Token', 'M5 Dependency B');
   await tokenPanel.getByRole('button', { name: 'Save tokens' }).click();
   await expect(tokenPanel.locator('.token-annotation-dependency')).toHaveText(
     'Delete the dependent lemma annotations before changing token segmentation.',
   );
 
   // Delete the remaining lemma: token replacement now succeeds.
+  await activateMode(page, 'Lemma', 'M5 Dependency B');
   await lemmaRow(page, 'M5 Dependency B', alpha.id)
     .getByRole('button', { name: 'Delete lemma' })
     .click();
@@ -640,9 +657,8 @@ test('M5 cross-operation block reports only the remaining dependency for a token
   await saveLemma(page, 'M5 Dependency C', alpha.id, 'alpha');
   await savePos(page, 'M5 Dependency C', alpha.id, 'NOUN');
 
-  const tokenPanel = panelSlot(page, 'M5 Dependency C').locator(
-    '.token-segmentation-panel',
-  );
+  await activateMode(page, 'Token', 'M5 Dependency C');
+  const tokenPanel = page.locator('.token-segmentation-panel', { hasText: 'M5 Dependency C' });
 
   // 1. The replacement PUT is blocked with BOTH types, and the panel says so.
   await tokenPanel.getByRole('button', { name: 'Start manual' }).click();
@@ -656,6 +672,7 @@ test('M5 cross-operation block reports only the remaining dependency for a token
   );
 
   // 2. One sibling is cleaned up, so ONLY the POS dependent remains.
+  await activateMode(page, 'Lemma', 'M5 Dependency C');
   await lemmaRow(page, 'M5 Dependency C', alpha.id)
     .getByRole('button', { name: 'Delete lemma' })
     .click();
@@ -677,6 +694,7 @@ test('M5 cross-operation block reports only the remaining dependency for a token
   // 4. A real confirmed token-layer DELETE must surface ONLY the remaining POS
   //    cleanup: the earlier replacement PUT guidance must not remain
   //    authoritative merely because it is stored in the other mutation.
+  await activateMode(page, 'Token', 'M5 Dependency C');
   await tokenPanel.getByRole('button', { name: 'Delete tokens' }).click();
   await page
     .getByRole('alertdialog')
@@ -687,12 +705,14 @@ test('M5 cross-operation block reports only the remaining dependency for a token
   );
 
   // 5. Removing the remaining sibling lets the token-layer DELETE succeed.
+  await activateMode(page, 'POS', 'M5 Dependency C');
   await posRow(page, 'M5 Dependency C', alpha.id)
     .getByRole('button', { name: 'Delete POS' })
     .click();
   await expect(
     posRow(page, 'M5 Dependency C', alpha.id).locator('.pos-empty'),
   ).toBeVisible();
+  await activateMode(page, 'Token', 'M5 Dependency C');
   await tokenPanel.getByRole('button', { name: 'Delete tokens' }).click();
   await page
     .getByRole('alertdialog')

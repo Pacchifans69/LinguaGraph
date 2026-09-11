@@ -1,8 +1,8 @@
-# LinguaGraph — Architecture (as built through M5)
+# LinguaGraph — Architecture (M6 implementation candidate)
 
-This document describes the architecture implemented through the completed M5
-boundary. It is a description, not a new authority: the accepted ADRs
-(`docs/adr/ADR-001…ADR-013`) and the authoritative
+This document describes the architecture implemented by the M6 candidate on
+top of the completed M5 boundary. It is a description, not a new authority:
+the accepted ADRs (`docs/adr/ADR-001…ADR-014`) and the authoritative
 pre-implementation documents
 (`docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md`,
 `M0_PREIMPLEMENTATION_REPORT.md`) remain authoritative. Where this document
@@ -50,8 +50,9 @@ optimistically.
   (the Alignment Tray, ADR-007), `hoveredAlignmentId`,
   `activeAlignmentId`, and the inspector mutation-freeze flag. Nothing
   ephemeral is persisted to `localStorage`; only per-document panel
-  preferences are
-  (`linguagraph.workspace.preferences.v1.<documentId>`).
+  preferences are (`linguagraph.workspace.preferences.v1.<documentId>`).
+  M6 mode and active linguistic TextVersion are document-scoped component
+  state: they are deterministic on mount and are not persisted.
 - **Shared text engine** (`src/shared/text/`, framework-light, unit-tested
   without React):
   - `offset.ts` — the single UTF-16 ↔ Unicode code-point conversion
@@ -72,7 +73,11 @@ optimistically.
   (canonical content root with flat `<span data-run data-start data-end>`
   runs, `white-space: pre-wrap`, no `dangerouslySetInnerHTML`),
   `AlignmentTray`, `ConnectorOverlay` (SVG, `pointer-events: none`,
-  rAF-coalesced recomputation), `ImportPanel`.
+  rAF-coalesced recomputation), `WorkbenchTaskNavigation`, mount-preserved
+  task sessions, and on-demand mount-preserved `ImportPanel`. The persistent
+  canonical canvas and connector overlay retain their common coordinate
+  container; exactly one of Alignment/Sentence/Token/Lemma/POS is visible in
+  the bounded task deck.
 - **Alignments** (`src/features/alignments/`): `SavedAlignments` (read-only
   persisted representation + keyboard-accessible activation index),
   `AlignmentInspector` (note editing, member removal, delete — all driven
@@ -82,8 +87,10 @@ optimistically.
   boundaries through the shared code-point utility and validates a complete
   partition; `SegmentationPanel` owns only an unsaved preview and exposes
   manual initialization, split, merge, discard, save and confirmed delete.
-  It renders adjacent to each TextPanel and outside
-  `[data-text-content-root]`.
+  Sentence, Token, Lemma, and POS editors are keyed by TextVersion and remain
+  mounted in the task deck; inactive sessions use `hidden`, remain outside
+  `[data-text-content-root]`, and report dirty/pending/error/conflict/dialog
+  status to the Workbench shell.
 - **Shared UI**: `ErrorMessage` (`role="alert"`), `LoadingMessage`
   (`role="status"`), `EmptyState`, `ConfirmDialog` (accessible destructive
   confirmation with focus lifecycle, M0.7).
@@ -200,6 +207,10 @@ contract and `docs/development/CURRENT_STATE.md` for the schema summary.
   its layer and segments.
 - **Pending selections (ADR-007)**: the tray is ephemeral frontend state;
   nothing persists until one atomic Create-Alignment request.
+- **Mode-oriented Workbench (ADR-014)**: the canonical Text Canvas is
+  persistent; one bounded task destination is visible; editor sessions are
+  mount-preserved; compact Tray status is mode-independent; authoritative
+  basis changes make dirty linguistic drafts conflict and fail closed.
 - **State ownership (report section 10)**: TanStack Query = server state;
   reducer/Context = ephemeral UI; localStorage = per-document panel
   preferences only. No Redux/Zustand.

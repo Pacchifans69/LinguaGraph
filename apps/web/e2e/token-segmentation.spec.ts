@@ -20,8 +20,8 @@ test('M3 token review binds to sentences, persists, blocks basis mutation, and d
 
   await page.goto(`/documents/${document.id}/workspace`);
   await page.getByRole('button', { name: 'Open M3 English' }).click();
-  const slot = page.locator('.panel-slot', { hasText: 'M3 English' });
-  const tokens = slot.locator('.token-segmentation-panel');
+  await page.getByRole('tab', { name: 'Token' }).click();
+  const tokens = page.getByRole('tabpanel', { name: 'token task' }).locator('.token-segmentation-panel');
   await expect(tokens).toContainText(sentence.layer.id.slice(0, 8));
   await tokens.getByRole('button', { name: 'Generate word suggestion' }).click();
   await expect(tokens.locator('.segmentation-row')).not.toHaveCount(0);
@@ -39,7 +39,8 @@ test('M3 token review binds to sentences, persists, blocks basis mutation, and d
   await expect(tokens.getByText('Saved')).toBeVisible();
 
   await page.reload();
-  const reloaded = page.locator('.panel-slot', { hasText: 'M3 English' }).locator('.token-segmentation-panel');
+  await page.getByRole('tab', { name: 'Token' }).click();
+  const reloaded = page.getByRole('tabpanel', { name: 'token task' }).locator('.token-segmentation-panel');
   await expect(reloaded.locator('.segmentation-row')).toHaveCount(2);
   await expect(reloaded.getByLabel('Word-like').first()).not.toBeChecked();
 

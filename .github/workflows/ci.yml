@@ -1,7 +1,7 @@
-# LinguaGraph M5 CI — release-baseline verification (M0.7 W6).
+# LinguaGraph M6 CI — release-baseline verification.
 #
-# One minimal job verifying the complete M5 inherited, segmentation, lemma and
-# coarse-POS baseline on the frozen ADR-009 environment:
+# One minimal job verifying the complete M6 inherited baseline plus the
+# mode-oriented Workbench information architecture on the frozen environment:
 #
 #   - Python 3.13 (uv)                       - uv sync --frozen
 #   - Node 24                                - npm ci
@@ -35,7 +35,7 @@ on:
 
 jobs:
   m0-verification:
-    name: M5 verification (Python 3.13 / Node 24 / PostgreSQL 18)
+    name: M6 verification (Python 3.13 / Node 24 / PostgreSQL 18)
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
@@ -127,6 +127,6 @@ jobs:
         working-directory: apps/web
         run: npx playwright install --with-deps chromium
 
-      - name: E2E — golden path + Unicode + M2/M3/M4/M5 segmentation, lemma and POS (isolated disposable E2E databases)
+      - name: E2E — complete M0–M6 surface (isolated disposable E2E databases)
         working-directory: apps/web
-        run: npx playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmentation.spec.ts e2e/token-segmentation.spec.ts e2e/lemma-annotation.spec.ts e2e/pos-annotation.spec.ts
+        run: npx playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmentation.spec.ts e2e/token-segmentation.spec.ts e2e/lemma-annotation.spec.ts e2e/pos-annotation.spec.ts e2e/workbench-information-architecture.spec.ts

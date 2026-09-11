@@ -36,10 +36,12 @@ test('M2 sentence segmentation persists, reloads, replaces, and deletes', async 
   await page.goto(`/documents/${document.id}/workspace`);
   await page.getByRole('button', { name: 'Open M2 English' }).click();
 
-  const panel = page.locator('.panel-slot', { hasText: 'M2 English' });
-  const canonicalRoot = panel.locator('[data-text-content-root]');
+  const canonicalPanel = page.locator('.panel-slot', { hasText: 'M2 English' });
+  const canonicalRoot = canonicalPanel.locator('[data-text-content-root]');
   await expect(canonicalRoot).toHaveText('Hello. Again 🙂!');
   await expect(canonicalRoot.locator('button, input, select, textarea')).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Sentence' }).click();
+  const panel = page.getByRole('tabpanel', { name: 'sentence task' });
 
   await panel.getByRole('button', { name: 'Start manual' }).click();
   await expect(panel.getByText('Unsaved preview')).toBeVisible();
@@ -85,7 +87,8 @@ test('M2 sentence segmentation persists, reloads, replaces, and deletes', async 
   ]);
 
   await page.reload();
-  const reloadedPanel = page.locator('.panel-slot', { hasText: 'M2 English' });
+  await page.getByRole('tab', { name: 'Sentence' }).click();
+  const reloadedPanel = page.getByRole('tabpanel', { name: 'sentence task' });
   await expect(reloadedPanel.locator('.segmentation-row')).toHaveCount(2);
   await reloadedPanel
     .getByRole('button', { name: 'Merge previous' })
@@ -119,8 +122,9 @@ test('M2 sentence segmentation persists, reloads, replaces, and deletes', async 
   await expect(dialog).toHaveCount(0);
 
   await page.reload();
+  await page.getByRole('tab', { name: 'Sentence' }).click();
   await expect(
-    page.locator('.panel-slot', { hasText: 'M2 English' }).getByText('Not saved'),
+    page.getByRole('tabpanel', { name: 'sentence task' }).getByText('Not saved'),
   ).toBeVisible();
   snapshotResponse = await request.get(
     `/api/v1/documents/${document.id}/workspace`,

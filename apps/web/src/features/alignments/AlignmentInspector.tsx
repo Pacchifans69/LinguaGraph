@@ -46,6 +46,7 @@ import type {
 import { useWorkspaceState } from '../workspace/state/workspaceContext';
 import { ErrorMessage } from '../../shared/ui/feedback';
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog';
+import type { EditorSessionStatus } from '../workspace/workbenchIa';
 
 /** Backend-enforced note length (mirrored at the UI boundary). */
 export const NOTE_MAX_LENGTH = 4000;
@@ -59,6 +60,7 @@ export interface AlignmentInspectorProps {
   versionsById: Record<string, TextVersion>;
   /** Close the Inspector (clears activeAlignmentId — no click-to-toggle-off). */
   onClose: () => void;
+  onSessionStateChange?: (status: EditorSessionStatus) => void;
 }
 
 function shortId(id: string): string {
@@ -73,6 +75,7 @@ export function AlignmentInspector({
   spansById,
   versionsById,
   onClose,
+  onSessionStateChange,
 }: AlignmentInspectorProps) {
   const { isMutatingAlignment, setAlignmentMutationPending } =
     useWorkspaceState();
@@ -248,6 +251,16 @@ export function AlignmentInspector({
     : deleteMutation.isError
       ? deleteMutation.error
       : null;
+
+  useEffect(() => {
+    onSessionStateChange?.({
+      dirty: noteDirty,
+      pending: isMutatingAlignment,
+      error: mutationError !== null,
+      conflict: false,
+      dialogOpen: pendingRemove !== null || pendingDeleteGroupId !== null,
+    });
+  }, [noteDirty, isMutatingAlignment, mutationError, pendingRemove, pendingDeleteGroupId, onSessionStateChange]);
 
   if (group === null) {
     return null;

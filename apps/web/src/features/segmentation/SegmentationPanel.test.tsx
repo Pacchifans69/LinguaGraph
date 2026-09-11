@@ -162,7 +162,7 @@ describe('SegmentationPanel', () => {
     expect(calls[0]?.init?.method).toBe('DELETE');
   });
 
-  it('preserves a dirty preview across equivalent refetches and resets for new content', () => {
+  it('preserves a dirty preview across equivalent refetches and fails closed on new content', () => {
     const view = renderWithProviders(
       <SegmentationPanel
         documentId="doc-1"
@@ -200,9 +200,14 @@ describe('SegmentationPanel', () => {
         savedSegments={[]}
       />,
     );
+    expect(screen.getByText('Unsaved preview')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('basis changed');
+    expect(screen.getByRole('button', { name: 'Save segmentation' })).toBeDisabled();
+    expect(screen.getByText('2. [5, 9)')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard preview' }));
     expect(screen.getByText('Not saved')).toBeInTheDocument();
     expect(screen.getByText(/No preview/)).toBeInTheDocument();
-    expect(screen.queryByText('2. [5, 9)')).not.toBeInTheDocument();
   });
 
 });

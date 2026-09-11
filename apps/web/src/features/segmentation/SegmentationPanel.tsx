@@ -22,12 +22,14 @@ import {
   suggestSentences,
   type SegmentDraft,
 } from './sentenceSuggestion';
+import type { EditorSessionStatus } from '../workspace/workbenchIa';
 
 interface SegmentationPanelProps {
   documentId: string;
   version: TextVersion;
   savedLayer?: SegmentationLayer;
   savedSegments: LinguisticSegment[];
+  onSessionStateChange?: (status: EditorSessionStatus) => void;
 }
 
 function savedRanges(segments: LinguisticSegment[]): SegmentDraft[] {
@@ -44,6 +46,7 @@ export function SegmentationPanel({
   version,
   savedLayer,
   savedSegments,
+  onSessionStateChange,
 }: SegmentationPanelProps) {
   const putMutation = usePutSentenceSegmentation(documentId);
   const deleteMutation = useDeleteSentenceSegmentation(documentId);
@@ -60,6 +63,7 @@ export function SegmentationPanel({
     authoritativeRangeKey,
   ].join(':');
   const [draft, setDraft] = useState<SegmentDraft[]>(authoritativeRanges);
+  const [draftContent, setDraftContent] = useState(version.content);
   const [draftIdentity, setDraftIdentity] = useState(authoritativeIdentity);
   const [origin, setOrigin] = useState<'manual' | 'intl_segmenter'>(
     savedLayer?.origin ?? 'manual',
@@ -71,41 +75,76 @@ export function SegmentationPanel({
   const [splitInputs, setSplitInputs] = useState<Record<number, string>>({});
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [conflict, setConflict] = useState(false);
+  const [submittedDraftKey, setSubmittedDraftKey] = useState<string | null>(null);
 
   useEffect(() => {
+    if (draftIdentity === authoritativeIdentity) {
+      return;
+    }
+    if (dirty && submittedDraftKey === authoritativeRangeKey) {
+      setDraft(authoritativeRanges);
+      setDraftContent(version.content);
+      setDraftIdentity(authoritativeIdentity);
+      setOrigin(savedLayer?.origin ?? 'manual');
+      setResolvedLocale(savedLayer?.resolved_locale ?? version.language_tag);
+      setDirty(false);
+      setConflict(false);
+      setSubmittedDraftKey(null);
+      setSplitInputs({});
+      return;
+    }
+    if (dirty) {
+      setConflict(true);
+      setSubmittedDraftKey(null);
+      return;
+    }
     setDraft(authoritativeRanges);
+    setDraftContent(version.content);
     setDraftIdentity(authoritativeIdentity);
     setOrigin(savedLayer?.origin ?? 'manual');
     setResolvedLocale(savedLayer?.resolved_locale ?? version.language_tag);
-    setDirty(false);
+    setConflict(false);
     setSplitInputs({});
     setSuggestionError(null);
   }, [
     authoritativeRanges,
     authoritativeIdentity,
+    authoritativeRangeKey,
     savedLayer?.origin,
     savedLayer?.resolved_locale,
     version.language_tag,
+    version.content,
+    draftIdentity,
+    dirty,
+    submittedDraftKey,
   ]);
 
-  const draftIsCurrent = draftIdentity === authoritativeIdentity;
-  const activeDraft = draftIsCurrent ? draft : authoritativeRanges;
-  const activeOrigin = draftIsCurrent
-    ? origin
-    : (savedLayer?.origin ?? 'manual');
-  const activeResolvedLocale = draftIsCurrent
-    ? resolvedLocale
-    : (savedLayer?.resolved_locale ?? version.language_tag);
-  const activeDirty = draftIsCurrent && dirty;
+  const activeDraft = draft;
+  const activeOrigin = origin;
+  const activeResolvedLocale = resolvedLocale;
+  const activeDirty = dirty;
   const isMutating = anySegmentationMutationPending;
   const suggestionSupported = hasIntlSentenceSegmenter();
 
+  useEffect(() => {
+    onSessionStateChange?.({
+      dirty: activeDirty,
+      pending: isMutating,
+      error: putMutation.isError || deleteMutation.isError || suggestionError !== null,
+      conflict,
+      dialogOpen: confirmDelete,
+    });
+  }, [activeDirty, isMutating, putMutation.isError, deleteMutation.isError, suggestionError, conflict, confirmDelete, onSessionStateChange]);
+
   function beginManual() {
     setDraft(manualSentencePartition(version.content));
+    setDraftContent(version.content);
     setDraftIdentity(authoritativeIdentity);
     setOrigin('manual');
     setResolvedLocale(version.language_tag);
     setDirty(true);
+    setConflict(false);
     setSplitInputs({});
     setSuggestionError(null);
   }
@@ -117,10 +156,12 @@ export function SegmentationPanel({
         version.language_tag,
       );
       setDraft(suggestion.ranges);
+      setDraftContent(version.content);
       setDraftIdentity(authoritativeIdentity);
       setOrigin('intl_segmenter');
       setResolvedLocale(suggestion.resolvedLocale);
       setDirty(true);
+      setConflict(false);
       setSplitInputs({});
       setSuggestionError(null);
     } catch (error) {
@@ -144,6 +185,7 @@ export function SegmentationPanel({
       setDraft(splitSegment(version.content, activeDraft, index, value));
       setDraftIdentity(authoritativeIdentity);
       setDirty(true);
+      setConflict(false);
       setSplitInputs({});
       setSuggestionError(null);
     } catch (error) {
@@ -158,6 +200,7 @@ export function SegmentationPanel({
       setDraft(mergeWithPrevious(version.content, activeDraft, index));
       setDraftIdentity(authoritativeIdentity);
       setDirty(true);
+      setConflict(false);
       setSplitInputs({});
       setSuggestionError(null);
     } catch (error) {
@@ -169,18 +212,22 @@ export function SegmentationPanel({
 
   function discard() {
     setDraft(authoritativeRanges);
+    setDraftContent(version.content);
     setDraftIdentity(authoritativeIdentity);
     setOrigin(savedLayer?.origin ?? 'manual');
     setResolvedLocale(savedLayer?.resolved_locale ?? version.language_tag);
     setDirty(false);
+    setConflict(false);
+    setSubmittedDraftKey(null);
     setSplitInputs({});
     setSuggestionError(null);
   }
 
   function save() {
-    if (!activeDirty || isMutating) {
+    if (!activeDirty || isMutating || conflict) {
       return;
     }
+    setSubmittedDraftKey(JSON.stringify(activeDraft));
     putMutation.mutate({
       textVersionId: version.id,
       content_hash: version.content_hash,
@@ -225,7 +272,7 @@ export function SegmentationPanel({
           type="button"
           size="sm"
           variant="secondary"
-          disabled={isMutating}
+          disabled={isMutating || conflict}
           onClick={beginManual}
         >
           Start manual
@@ -234,7 +281,7 @@ export function SegmentationPanel({
           type="button"
           size="sm"
           variant="secondary"
-          disabled={isMutating || !suggestionSupported}
+          disabled={isMutating || conflict || !suggestionSupported}
           onClick={generateSuggestion}
         >
           Generate suggestion
@@ -258,6 +305,11 @@ export function SegmentationPanel({
       {suggestionError ? (
         <p className="segmentation-warning" role="alert">
           {suggestionError}
+        </p>
+      ) : null}
+      {conflict ? (
+        <p className="segmentation-warning" role="alert">
+          The saved sentence basis changed while this preview was unsaved. Discard the preview to load current data; stale boundaries cannot be submitted.
         </p>
       ) : null}
       {putMutation.isError ? <ErrorMessage error={putMutation.error} /> : null}
@@ -285,7 +337,7 @@ export function SegmentationPanel({
                   <span className="segmentation-range">
                     {index + 1}. [{range.start}, {range.end})
                   </span>
-                  <span>{sliceByCodePoints(version.content, range.start, range.end)}</span>
+                  <span>{sliceByCodePoints(draftContent, range.start, range.end)}</span>
                 </div>
                 <div className="segmentation-row-actions">
                   <label>
@@ -295,7 +347,7 @@ export function SegmentationPanel({
                       min={range.start + 1}
                       max={range.end - 1}
                       value={splitInputs[index] ?? ''}
-                      disabled={isMutating || range.end - range.start < 2}
+                      disabled={isMutating || conflict || range.end - range.start < 2}
                       onChange={(event) =>
                         setSplitInputs((current) => ({
                           ...current,
@@ -308,7 +360,7 @@ export function SegmentationPanel({
                     type="button"
                     size="sm"
                     variant="secondary"
-                    disabled={isMutating || !splitIsValid}
+                    disabled={isMutating || conflict || !splitIsValid}
                     onClick={() => split(index)}
                   >
                     Split
@@ -318,7 +370,7 @@ export function SegmentationPanel({
                       type="button"
                       size="sm"
                       variant="quiet"
-                      disabled={isMutating}
+                      disabled={isMutating || conflict}
                       onClick={() => merge(index)}
                     >
                       Merge previous
@@ -336,7 +388,7 @@ export function SegmentationPanel({
           type="button"
           size="sm"
           variant="primary"
-          disabled={isMutating || !activeDirty}
+          disabled={isMutating || !activeDirty || conflict}
           onClick={save}
         >
           {putMutation.isPending ? 'Saving…' : 'Save segmentation'}
