@@ -12,7 +12,10 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
  * Dependency path: a saved lemma + POS block token replacement with
  * SEGMENTATION_HAS_DEPENDENTS reporting BOTH dependency types; deleting one
  * sibling keeps the parent blocked; deleting the final sibling unblocks it.
- * Both sibling-deletion orders are covered.
+ * Both sibling-deletion orders are covered. A third path crosses OPERATIONS: a
+ * blocked replacement PUT, then one sibling cleaned up, then a blocked
+ * token-layer DELETE — the UI must present only the remaining dependency type
+ * reported by the latest backend response.
  *
  * Unicode path: non-ASCII, combining-mark and astral content keep canonical
  * text and token identity intact while using the same closed fifteen-value
@@ -609,6 +612,96 @@ test('M5 multi-dependent block unblocks only after both siblings are deleted (PO
   };
   expect(snapshot.token_pos_annotations).toEqual([]);
   expect(snapshot.token_lemma_annotations).toEqual([]);
+});
+
+test('M5 cross-operation block reports only the remaining dependency for a token-layer DELETE', async ({ page, request }) => {
+  const document = await createDocument(request, 'M5 Dependency C');
+  const content = 'Alpha beta gamma.';
+  const version = await createVersion(request, document.id, {
+    language_tag: 'en',
+    label: 'M5 Dependency C',
+    content,
+    sort_order: 0,
+  });
+  const sentences = await saveSentenceLayer(request, version, [
+    { start: 0, end: content.length },
+  ]);
+  const tokens = codePointTokens(content);
+  const tokenLayer = await saveTokenLayer(
+    request,
+    version,
+    sentences.layer.id,
+    tokens,
+  );
+  const alpha = tokenLayer.segments.find((segment) => segment.exact_text === 'Alpha')!;
+
+  await page.goto(`/documents/${document.id}/workspace`);
+  await openPanel(page, 'M5 Dependency C');
+  await saveLemma(page, 'M5 Dependency C', alpha.id, 'alpha');
+  await savePos(page, 'M5 Dependency C', alpha.id, 'NOUN');
+
+  const tokenPanel = panelSlot(page, 'M5 Dependency C').locator(
+    '.token-segmentation-panel',
+  );
+
+  // 1. The replacement PUT is blocked with BOTH types, and the panel says so.
+  await tokenPanel.getByRole('button', { name: 'Start manual' }).click();
+  await tokenPanel.getByRole('button', { name: 'Save tokens' }).click();
+  await expect(tokenPanel.getByRole('alert')).toHaveAttribute(
+    'data-error-code',
+    'SEGMENTATION_HAS_DEPENDENTS',
+  );
+  await expect(tokenPanel.locator('.token-annotation-dependency')).toHaveText(
+    'Delete the dependent lemma and POS annotations before changing token segmentation.',
+  );
+
+  // 2. One sibling is cleaned up, so ONLY the POS dependent remains.
+  await lemmaRow(page, 'M5 Dependency C', alpha.id)
+    .getByRole('button', { name: 'Delete lemma' })
+    .click();
+  await expect(
+    lemmaRow(page, 'M5 Dependency C', alpha.id).locator('.lemma-empty'),
+  ).toBeVisible();
+
+  // 3. The backend's own DELETE authority is now the remaining set only.
+  const blockedDelete = await request.delete(
+    `/api/v1/text-versions/${version.id}/segmentations/token`,
+  );
+  expect(blockedDelete.status()).toBe(409);
+  const blockedDeleteBody = await blockedDelete.json();
+  expect(blockedDeleteBody.code).toBe('SEGMENTATION_HAS_DEPENDENTS');
+  expect(blockedDeleteBody.details.dependency_types).toEqual([
+    'pos_annotations',
+  ]);
+
+  // 4. A real confirmed token-layer DELETE must surface ONLY the remaining POS
+  //    cleanup: the earlier replacement PUT guidance must not remain
+  //    authoritative merely because it is stored in the other mutation.
+  await tokenPanel.getByRole('button', { name: 'Delete tokens' }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Delete tokens' })
+    .click();
+  await expect(tokenPanel.locator('.token-annotation-dependency')).toHaveText(
+    'Delete the dependent POS annotations before changing token segmentation.',
+  );
+
+  // 5. Removing the remaining sibling lets the token-layer DELETE succeed.
+  await posRow(page, 'M5 Dependency C', alpha.id)
+    .getByRole('button', { name: 'Delete POS' })
+    .click();
+  await expect(
+    posRow(page, 'M5 Dependency C', alpha.id).locator('.pos-empty'),
+  ).toBeVisible();
+  await tokenPanel.getByRole('button', { name: 'Delete tokens' }).click();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Delete tokens' })
+    .click();
+  await expect(
+    tokenPanel.getByRole('button', { name: 'Delete tokens' }),
+  ).toHaveCount(0);
+  await expect(tokenPanel.locator('.token-annotation-dependency')).toHaveCount(0);
 });
 
 test('M5 POS annotation keeps Unicode content and token identity intact', async ({ page, request }) => {

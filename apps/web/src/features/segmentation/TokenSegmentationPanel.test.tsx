@@ -76,6 +76,46 @@ async function expectGenericStableErrorOnly(details: unknown) {
   ).toBeNull();
 }
 
+const savedTokenLayer: SegmentationLayer = {
+  id: 'token-1', text_version_id: version.id, granularity: 'token',
+  basis_layer_id: sentenceLayer.id, requested_locale: 'en',
+  resolved_locale: 'en', origin: 'manual', content_hash: version.content_hash,
+  created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+};
+
+/** The stable blocked-token-mutation payload with an explicit dependency set. */
+function hasDependents(details: unknown) {
+  return json(409, {
+    code: 'SEGMENTATION_HAS_DEPENDENTS',
+    message:
+      'delete the dependent occurrence annotations before changing token segmentation',
+    details,
+  });
+}
+
+/**
+ * Render the token panel bound to a SAVED token layer, which is what makes the
+ * replacement PUT and the confirmed token-layer DELETE both reachable — the
+ * cross-operation authority boundary (HSDR-F01) needs both.
+ */
+function renderSavedTokenPanel() {
+  return renderWithProviders(
+    <TokenSegmentationPanel
+      documentId="doc-1"
+      version={version}
+      sentenceLayer={sentenceLayer}
+      sentenceSegments={sentenceSegments}
+      savedLayer={savedTokenLayer}
+      savedSegments={[]}
+    />,
+  );
+}
+
+/** The Human-visible dependency guidance element, or null when absent. */
+function dependencyGuidance(container: HTMLElement) {
+  return container.querySelector('.token-annotation-dependency');
+}
+
 describe('TokenSegmentationPanel', () => {
   it('explains the sentence prerequisite', () => {
     renderWithProviders(<TokenSegmentationPanel documentId="doc-1" version={version} sentenceSegments={[]} savedSegments={[]} />);
@@ -372,6 +412,92 @@ describe('TokenSegmentationPanel', () => {
     ).toHaveTextContent(
       'Delete the dependent POS annotations before changing token segmentation.',
     );
+  });
+
+  it('lets a later blocked token deletion supersede stale replacement guidance', async () => {
+    // HSDR-F01: the replacement PUT and the token-layer DELETE keep separate
+    // stored errors. A replacement the backend blocked with lemma + POS,
+    // followed by a confirmed deletion the backend now blocks with POS only
+    // (one sibling has since been cleaned up), must present ONLY the POS
+    // cleanup — the stale, larger replacement error must not stay
+    // authoritative merely because it lives in the other mutation object.
+    let replacementCalls = 0;
+    installFetchMock([
+      [
+        '/segmentations/token',
+        async (_url, init) => {
+          if (init?.method === 'DELETE') {
+            return hasDependents({ dependency_types: ['pos_annotations'] });
+          }
+          replacementCalls += 1;
+          return hasDependents({
+            dependency_types: ['lemma_annotations', 'pos_annotations'],
+          });
+        },
+      ],
+    ]);
+    const view = renderSavedTokenPanel();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start manual' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save tokens' }));
+    await waitFor(() =>
+      expect(dependencyGuidance(view.container)).toHaveTextContent(
+        'Delete the dependent lemma and POS annotations before changing token segmentation.',
+      ),
+    );
+
+    const openDelete = screen.getAllByRole('button', { name: 'Delete tokens' });
+    fireEvent.click(openDelete[openDelete.length - 1]!);
+    const confirmDelete = screen.getAllByRole('button', { name: 'Delete tokens' });
+    fireEvent.click(confirmDelete[confirmDelete.length - 1]!);
+
+    await waitFor(() =>
+      expect(dependencyGuidance(view.container)).toHaveTextContent(
+        'Delete the dependent POS annotations before changing token segmentation.',
+      ),
+    );
+    // The superseded replacement guidance is gone, not merely outranked.
+    expect(dependencyGuidance(view.container)).not.toHaveTextContent('lemma');
+    expect(replacementCalls).toBe(1);
+  });
+
+  it('lets a later blocked replacement supersede stale deletion guidance', async () => {
+    // Symmetric direction of HSDR-F01: the confirmed deletion reported both
+    // dependencies, then a new replacement reports only the lemma. The
+    // latest backend response wins in both directions.
+    installFetchMock([
+      [
+        '/segmentations/token',
+        async (_url, init) => {
+          if (init?.method === 'DELETE') {
+            return hasDependents({
+              dependency_types: ['lemma_annotations', 'pos_annotations'],
+            });
+          }
+          return hasDependents({ dependency_types: ['lemma_annotations'] });
+        },
+      ],
+    ]);
+    const view = renderSavedTokenPanel();
+
+    const openDelete = screen.getAllByRole('button', { name: 'Delete tokens' });
+    fireEvent.click(openDelete[openDelete.length - 1]!);
+    const confirmDelete = screen.getAllByRole('button', { name: 'Delete tokens' });
+    fireEvent.click(confirmDelete[confirmDelete.length - 1]!);
+    await waitFor(() =>
+      expect(dependencyGuidance(view.container)).toHaveTextContent(
+        'Delete the dependent lemma and POS annotations before changing token segmentation.',
+      ),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start manual' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save tokens' }));
+    await waitFor(() =>
+      expect(dependencyGuidance(view.container)).toHaveTextContent(
+        'Delete the dependent lemma annotations before changing token segmentation.',
+      ),
+    );
+    expect(dependencyGuidance(view.container)).not.toHaveTextContent('POS');
   });
 
   it('disables sentence and token controls while any segmentation mutation is pending', async () => {
