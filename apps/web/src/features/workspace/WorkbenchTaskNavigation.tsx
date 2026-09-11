@@ -1,20 +1,18 @@
+import { type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { Button } from '../../shared/ui/Button';
 import type { TextVersion } from './api';
 import {
   WORKBENCH_MODES,
+  WORKBENCH_MODE_LABELS,
+  isTabNavigationKey,
+  nextWorkbenchTab,
   type EditorSessionStatus,
   type LinguisticMode,
   type WorkbenchMode,
   sessionKey,
 } from './workbenchIa';
 
-const MODE_LABELS: Record<WorkbenchMode, string> = {
-  alignment: 'Alignment',
-  sentence: 'Sentence',
-  token: 'Token',
-  lemma: 'Lemma',
-  pos: 'POS',
-};
+const MODE_LABELS = WORKBENCH_MODE_LABELS;
 
 function statusLabel(status: EditorSessionStatus | undefined): string | null {
   if (status?.conflict) return 'Conflict';
@@ -54,6 +52,39 @@ export function WorkbenchTaskNavigation({
   const activeStatusLabel = statusLabel(activeStatus);
   const noteworthySessions = Object.entries(sessionStatuses).filter(([, status]) => statusLabel(status) !== null);
 
+  // M6-G2-F03: the next activated tab must receive visible focus synchronously
+  // (all five destinations are always rendered, so the element already
+  // exists). Resolved from the tablist itself — no extra ref plumbing.
+  function focusTab(tablist: Element | null, mode: WorkbenchMode) {
+    tablist?.querySelector<HTMLButtonElement>(`#workbench-tab-${mode}`)?.focus();
+  }
+
+  // A disabled destination never accepts a mode switch. The only current
+  // disable source is the workspace navigation lock (session dialog or
+  // workspace-owned destructive confirmation); every other destination is
+  // enabled.
+  const enabledModes: WorkbenchMode[] = navigationLocked ? [] : [...WORKBENCH_MODES];
+
+  function handleTabKeyDown(
+    event: ReactKeyboardEvent<HTMLButtonElement>,
+    mode: WorkbenchMode,
+  ) {
+    // Dialog/pending lock owns navigation: a locked tab deck never switches
+    // mode from the keyboard (automatic activation included).
+    if (!isTabNavigationKey(event.key)) {
+      return;
+    }
+    const next = nextWorkbenchTab(enabledModes, mode, event.key);
+    if (next === null) {
+      return;
+    }
+    event.preventDefault();
+    const tablist = event.currentTarget.closest('[role="tablist"]');
+    // Recommended ARIA automatic activation: focus movement activates.
+    onModeChange(next);
+    focusTab(tablist, next);
+  }
+
   function sessionName(key: string): string {
     if (key === 'alignment') return 'Alignment';
     if (key === 'import') return 'Add text version';
@@ -77,17 +108,27 @@ export function WorkbenchTaskNavigation({
         ) : null}
       </div>
 
-      <div className="workbench-mode-tabs" role="tablist" aria-label="Workbench task">
+      <div
+        className="workbench-mode-tabs"
+        role="tablist"
+        aria-label="Workbench task"
+        aria-orientation="horizontal"
+      >
         {WORKBENCH_MODES.map((mode) => (
           <Button
             key={mode}
+            id={`workbench-tab-${mode}`}
             type="button"
             variant={activeMode === mode ? 'primary' : 'quiet'}
             className="workbench-mode-tab"
             role="tab"
             aria-selected={activeMode === mode}
             aria-controls={`workbench-session-${mode}`}
+            // Roving tabindex: only the active destination is in the tab
+            // order; arrow keys move focus (and activate) within the deck.
+            tabIndex={activeMode === mode ? 0 : -1}
             disabled={navigationLocked}
+            onKeyDown={(event) => handleTabKeyDown(event, mode)}
             onClick={() => onModeChange(mode)}
           >
             {MODE_LABELS[mode]}

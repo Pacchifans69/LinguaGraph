@@ -64,6 +64,34 @@ function alignedM6Snapshot(): WorkspaceSnapshot {
   return data;
 }
 
+/** The active alignment plus a third version that is NOT one of its members. */
+function alignedM6SnapshotWithThird(): WorkspaceSnapshot {
+  const data = alignedM6Snapshot();
+  data.text_versions = [
+    ...data.text_versions,
+    {
+      id: 'tv-fr', document_id: 'doc-1', language_tag: 'fr', label: 'French',
+      content: 'Trois.', content_hash: 'h-fr', sort_order: 2,
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    },
+  ];
+  return data;
+}
+
+/** Authoritative result of a successful force deletion of `tv-en`. */
+function snapshotWithoutEnglish(): WorkspaceSnapshot {
+  const data = m6Snapshot();
+  data.text_versions = data.text_versions.filter((version) => version.id !== 'tv-en');
+  data.segmentation_layers = [];
+  data.segments = [];
+  return data;
+}
+
+/** Force-deleting `tv-en` also cascades the now-invalid `alignment-1`. */
+function alignedSnapshotWithoutEnglish(): WorkspaceSnapshot {
+  return snapshotWithoutEnglish();
+}
+
 function renderWorkspace(snapshot = m6Snapshot(), handlers: Array<[string, Handler]> = []) {
   installFetchMock([...handlers, ['/workspace', () => json(200, snapshot)]]);
   return renderPageAt(
@@ -174,13 +202,67 @@ describe('WorkspacePage M6 mode-oriented IA', () => {
     fireEvent.click(within(englishSession).getByRole('button', { name: 'Start manual' }));
     await waitFor(() => expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('Unsaved'));
 
+    // Ordinary dirty work with no dialog still hides freely (M6-G2-F01 keeps
+    // this path while only locking the dialog-owning case).
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+
     fireEvent.click(screen.getByRole('button', { name: 'Delete English' }));
     const dialog = screen.getByRole('alertdialog');
-    expect(dialog).toHaveTextContent('unsaved linguistic work');
+    // M6-G2-F04: the confirmation names the exact affected unsaved category
+    // instead of a generic "linguistic work" claim.
+    expect(dialog).toHaveTextContent('unsaved work: Sentence');
     for (const tab of screen.getAllByRole('tab')) expect(tab).toBeDisabled();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(within(englishSession).getByText('Unsaved preview')).toBeInTheDocument();
+  });
+
+  // M6-G2-F01: a mounted linguistic dialog must never be hidden by a canvas
+  // action; the workspace refuses Hide/Delete while navigation is locked.
+  it('blocks canvas hide/delete while a session dialog is open and restores them after close', async () => {
+    renderWorkspace();
+    fireEvent.click(await screen.findByRole('button', { name: 'Open English' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    const opener = screen.getByRole('button', { name: 'Delete segmentation' });
+    opener.focus();
+    fireEvent.click(opener);
+
+    const dialog = screen.getByRole('alertdialog');
+    expect(dialog).toBeVisible();
+    // The mounted alertdialog is never inside a hidden/inert ancestor.
+    expect(dialog.closest('[hidden]')).toBeNull();
+
+    for (const tab of screen.getAllByRole('tab')) expect(tab).toBeDisabled();
+    expect(
+      screen.getByRole('combobox', { name: 'Active text version' }),
+    ).toBeDisabled();
+
+    const hide = screen.getByRole('button', { name: 'Hide English panel' });
+    const deleteButton = screen.getByRole('button', { name: 'Delete English' });
+    expect(hide).toBeDisabled();
+    expect(deleteButton).toBeDisabled();
+
+    // Even a programmatic activation attempt cannot hide/delete the version
+    // that owns the open dialog.
+    fireEvent.click(hide);
+    fireEvent.click(deleteButton);
+    expect(screen.queryByRole('button', { name: 'Open English' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Hide English panel' })).toBeInTheDocument();
+    expect(screen.getByRole('alertdialog')).toBeVisible();
+    expect(screen.getByRole('alertdialog').closest('[hidden]')).toBeNull();
+
+    // Escape closes the unlocked dialog and restores opener focus.
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(opener).toHaveFocus();
+
+    // Controls recover once no dialog remains.
+    expect(screen.getByRole('button', { name: 'Hide English panel' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Delete English' })).toBeEnabled();
+    expect(
+      screen.getByRole('combobox', { name: 'Active text version' }),
+    ).toBeEnabled();
+    expect(screen.getAllByRole('tab').every((tab) => !(tab as HTMLButtonElement).disabled)).toBe(true);
   });
 
   it('registers native leave protection and requires disposition for document links', async () => {
@@ -255,8 +337,195 @@ describe('WorkspacePage M6 mode-oriented IA', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     for (const tab of screen.getAllByRole('tab')) expect(tab).toBeDisabled();
+    // M6-G2-F01: the pending destructive lock also holds the canvas actions.
+    expect(screen.getByRole('button', { name: 'Hide English panel' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Delete English' })).toBeDisabled();
 
     resolveDelete?.({ status: 204, body: null });
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    // Settled: the canvas actions recover.
+    expect(screen.getByRole('button', { name: 'Hide English panel' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Delete English' })).toBeEnabled();
+  });
+
+  // ---- M6-G2-F03: keyboard-only task navigation --------------------------
+
+  it('switches the visible task panel with the complete tabs keyboard model', async () => {
+    const view = renderWorkspace();
+    await openBoth();
+
+    const alignmentTab = screen.getByRole('tab', { name: 'Alignment' });
+    alignmentTab.focus();
+    expect(alignmentTab).toHaveFocus();
+    expect(screen.getByRole('tabpanel', { name: 'Alignment task' })).toBeVisible();
+
+    fireEvent.keyDown(alignmentTab, { key: 'ArrowRight' });
+    const sentenceTab = screen.getByRole('tab', { name: 'Sentence' });
+    expect(sentenceTab).toHaveFocus();
+    expect(sentenceTab).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tabpanel', { name: 'sentence task' })).toBeVisible();
+    expect(screen.queryByRole('tabpanel', { name: 'Alignment task' })).toBeNull();
+
+    fireEvent.keyDown(sentenceTab, { key: 'End' });
+    const posTab = screen.getByRole('tab', { name: 'POS' });
+    expect(posTab).toHaveFocus();
+    expect(screen.getByRole('tabpanel', { name: 'POS task' })).toBeVisible();
+
+    // Ordinary Tab order from the active tab reaches the active-target
+    // selector: only the active destination is in the tab order.
+    const nav = view.container.querySelector('.workbench-navigation') as HTMLElement;
+    const order = Array.from(
+      nav.querySelectorAll<HTMLElement>('button, select, input, textarea, [tabindex]'),
+    ).filter(
+      (element) =>
+        !element.hasAttribute('disabled') &&
+        element.getAttribute('tabindex') !== '-1',
+    );
+    expect(order[order.indexOf(posTab) + 1]).toBe(
+      screen.getByRole('combobox', { name: 'Active text version' }),
+    );
+    expect(screen.getAllByRole('tab')).toHaveLength(5);
+  });
+
+  // ---- M6-G2-F04: affected dirty sessions named in deletion warnings -----
+
+  it('names a dirty Alignment note when the deleted version can cascade the active alignment', async () => {
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    renderWorkspace(alignedM6Snapshot());
+    await openBoth();
+    fireEvent.click(screen.getByRole('button', { name: /Activate alignment/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: /Note/ }), {
+      target: { value: 'alignment draft' },
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('AlignmentUnsaved'),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete English' }));
+    const dialog = screen.getByRole('alertdialog');
+    expect(dialog).toHaveTextContent('Alignment note');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.getByRole('textbox', { name: /Note/ })).toHaveValue('alignment draft');
+  });
+
+  it('does not claim Alignment note loss for a version outside the active alignment', async () => {
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    renderWorkspace(alignedM6SnapshotWithThird(), [
+      [
+        '/api/v1/text-versions/',
+        async () =>
+          json(409, {
+            code: 'TEXT_HAS_ANNOTATIONS',
+            message: 'text version has annotations',
+            details: {},
+          }),
+      ],
+    ]);
+    await openBoth();
+    fireEvent.click(await screen.findByRole('button', { name: 'Open French' }));
+    fireEvent.click(screen.getByRole('button', { name: /Activate alignment/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: /Note/ }), {
+      target: { value: 'unrelated draft' },
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('AlignmentUnsaved'),
+    );
+
+    // The active alignment only contains English/German, so deleting French
+    // cannot cascade the note and must not be described as losing it.
+    fireEvent.click(screen.getByRole('button', { name: 'Delete French' }));
+    const forceDialog = await screen.findByRole('alertdialog');
+    expect(forceDialog).toHaveTextContent('persisted annotations');
+    expect(forceDialog).not.toHaveTextContent('Alignment note');
+    expect(forceDialog).not.toHaveTextContent('Unsaved work in this text version');
+
+    fireEvent.click(within(forceDialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('textbox', { name: /Note/ })).toHaveValue('unrelated draft');
+  });
+
+  it('carries unsaved-work context into the force confirmation and removes sessions only after authoritative success', async () => {
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    let snapshot = alignedM6Snapshot();
+    let resolveForce: ((value: MockResponse) => void) | undefined;
+    installFetchMock([
+      [
+        '/api/v1/text-versions/',
+        async (url, init) => {
+          if (init?.method === 'DELETE' && String(url).includes('force=true')) {
+            return new Promise((resolve) => {
+              resolveForce = resolve;
+            });
+          }
+          return json(409, {
+            code: 'TEXT_HAS_ANNOTATIONS',
+            message: 'text version has annotations',
+            details: {},
+          });
+        },
+      ],
+      ['/workspace', async () => json(200, snapshot)],
+    ]);
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    await openBoth();
+    fireEvent.click(screen.getByRole('button', { name: /Activate alignment/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: /Note/ }), {
+      target: { value: 'cascading draft' },
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('AlignmentUnsaved'),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete English' }));
+    const dirtyDialog = screen.getByRole('alertdialog');
+    expect(dirtyDialog).toHaveTextContent('unsaved work: Alignment note');
+    fireEvent.click(within(dirtyDialog).getByRole('button', { name: 'Continue delete' }));
+
+    // Ordinary DELETE -> TEXT_HAS_ANNOTATIONS -> the force confirmation keeps
+    // the same unsaved-work context.
+    const forceDialog = await screen.findByRole('alertdialog');
+    expect(forceDialog).toHaveTextContent(
+      'Unsaved work in this text version (Alignment note)',
+    );
+    fireEvent.click(within(forceDialog).getByRole('button', { name: 'Delete permanently' }));
+    await screen.findByRole('button', { name: 'Deleting…' });
+
+    // Pending force mutation: Escape is inert and the canvas stays locked.
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Hide English panel' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Delete English' })).toBeDisabled();
+
+    // Authoritative success: only now do the session and the cascade-deleted
+    // alignment disappear.
+    expect(screen.getByRole('button', { name: /Activate alignment/ })).toBeInTheDocument();
+    snapshot = alignedSnapshotWithoutEnglish();
+    resolveForce?.({ status: 204, body: null });
+
+    await waitFor(() =>
+      expect(view.container.querySelector('[data-session-key="tv-en:lemma"]')).toBeNull(),
+    );
+    expect(screen.queryByRole('button', { name: 'Open English' })).toBeNull();
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /Activate alignment/ })).toBeNull(),
+    );
+    expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 });

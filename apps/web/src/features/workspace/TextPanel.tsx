@@ -54,6 +54,13 @@ export interface TextPanelProps {
   version: TextVersion;
   runs: RunDescriptor[];
   onHide: () => void;
+  /**
+   * M6-G2-F01: while any mounted session dialog (or workspace-owned
+   * destructive confirmation) is open, hiding would move the session that
+   * owns the dialog into a hidden/inert task surface. The workspace therefore
+   * disables the Hide control; the callback stays a no-op guard as well.
+   */
+  hideDisabled?: boolean;
   /** M0.6: canonical span->DOM registry (registered per run.spanIds). */
   spanRegistry: RenderedSpanRegistry;
   /**
@@ -108,6 +115,7 @@ export function TextPanel({
   version,
   runs,
   onHide,
+  hideDisabled = false,
   spanRegistry,
   survivingGroupIds,
 }: TextPanelProps) {
@@ -256,6 +264,7 @@ export function TextPanel({
           type="button"
           className="panel-close"
           aria-label={`Hide ${version.label} panel`}
+          disabled={hideDisabled}
           onClick={onHide}
         >
           ✕

@@ -439,4 +439,100 @@ describe('PosAnnotationPanel', () => {
         .value,
     ).toBe('');
   });
+
+  // M6-G2-F02: an unexpected authoritative value/basis change must preserve
+  // the local draft AND adopt the current authority, so an explicit discard
+  // loads the current basis rather than restoring a stale savedValue.
+  it('discards a conflicted draft onto the latest authoritative basis (M6-G2-F02)', async () => {
+    const changedLayer = { ...tokenLayer, id: 'token-2' };
+    const changedSegments = savedSegments.map((item) => ({
+      ...item,
+      segmentation_layer_id: changedLayer.id,
+    }));
+    const { calls } = installFetchMock([
+      ['/pos', async () => json(200, { ...annotation, pos_tag: 'VERB' })],
+    ]);
+    const { rerender } = renderPanel({
+      annotations: { 'tok-hello': annotation },
+    });
+    expect(screen.getByLabelText('Coarse POS for Hello')).toHaveValue('NOUN');
+
+    fireEvent.change(screen.getByLabelText('Coarse POS for Hello'), {
+      target: { value: 'ADJ' },
+    });
+
+    rerender(
+      <PosAnnotationPanel
+        documentId="doc-1"
+        version={version}
+        tokenLayer={changedLayer}
+        tokenSegments={changedSegments}
+        posAnnotationsByTokenSegmentId={{
+          'tok-hello': { ...annotation, pos_tag: 'VERB' },
+        }}
+      />,
+    );
+
+    // The Human's local draft is preserved ...
+    expect(screen.getByLabelText('Coarse POS for Hello')).toHaveValue('ADJ');
+    // ... the current authoritative value is displayed ...
+    expect(
+      screen.getByText('VERB', { selector: '.pos-saved-value' }),
+    ).toBeInTheDocument();
+    // ... and submission fails closed.
+    expect(screen.getAllByRole('button', { name: 'Save POS' })[0]).toBeDisabled();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This token occurrence changed while the POS draft was unsaved.',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }));
+
+    // Discard switched to the CURRENT authoritative value, not the stale one.
+    await waitFor(() =>
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText('Coarse POS for Hello')).toHaveValue('VERB');
+    expect(screen.getAllByRole('button', { name: 'Save POS' })[0]).toBeDisabled();
+
+    // The next edit submits against the current saved token occurrence.
+    fireEvent.change(screen.getByLabelText('Coarse POS for Hello'), {
+      target: { value: 'ADV' },
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Save POS' })[0]!);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]?.url).toBe('/api/v1/token-segments/tok-hello/pos');
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ pos_tag: 'ADV' });
+  });
+
+  it('never submits a stale removed occurrence after its basis disappears', async () => {
+    const { calls } = installFetchMock([['/pos', async () => json(200, annotation)]]);
+    const { rerender } = renderPanel();
+    fireEvent.change(screen.getByLabelText('Coarse POS for Hello'), {
+      target: { value: 'NOUN' },
+    });
+
+    rerender(
+      <PosAnnotationPanel
+        documentId="doc-1"
+        version={version}
+        tokenLayer={{ ...tokenLayer, id: 'token-2' }}
+        tokenSegments={savedSegments
+          .filter((item) => item.id !== 'tok-hello')
+          .map((item) => ({ ...item, segmentation_layer_id: 'token-2' }))}
+        posAnnotationsByTokenSegmentId={{}}
+      />,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'stale targets cannot be submitted',
+    );
+    expect(screen.getAllByRole('button', { name: 'Save POS' })[0]).toBeDisabled();
+    expect(calls).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }));
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Coarse POS for Hello')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText('Coarse POS for world')).toBeInTheDocument();
+  });
 });
