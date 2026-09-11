@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderPageAt } from '../../test/harness';
-import { installFetchMock, json } from '../../test/mockFetch';
+import { installFetchMock, json, type Handler, type MockResponse } from '../../test/mockFetch';
 import type { WorkspaceSnapshot } from './api';
 import { WorkspacePage } from './WorkspacePage';
 
@@ -48,8 +48,24 @@ function m6Snapshot(): WorkspaceSnapshot {
   };
 }
 
-function renderWorkspace() {
-  installFetchMock([['/workspace', () => json(200, m6Snapshot())]]);
+function alignedM6Snapshot(): WorkspaceSnapshot {
+  const data = m6Snapshot();
+  data.spans = [
+    { id: 'span-en', text_version_id: 'tv-en', start_offset: 0, end_offset: 3, exact_text: 'One', prefix: '', suffix: ' sentence.', created_at: '2026-01-01T00:00:00Z' },
+    { id: 'span-de', text_version_id: 'tv-de', start_offset: 0, end_offset: 3, exact_text: 'Ein', prefix: '', suffix: ' Satz.', created_at: '2026-01-01T00:00:00Z' },
+  ];
+  data.alignment_groups = [
+    { id: 'alignment-1', document_id: 'doc-1', note: null, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+  ];
+  data.alignment_members = [
+    { id: 'member-en', alignment_group_id: 'alignment-1', span_id: 'span-en', created_at: '2026-01-01T00:00:00Z' },
+    { id: 'member-de', alignment_group_id: 'alignment-1', span_id: 'span-de', created_at: '2026-01-01T00:00:00Z' },
+  ];
+  return data;
+}
+
+function renderWorkspace(snapshot = m6Snapshot(), handlers: Array<[string, Handler]> = []) {
+  installFetchMock([...handlers, ['/workspace', () => json(200, snapshot)]]);
   return renderPageAt(
     <WorkspacePage />,
     '/documents/:documentId/workspace',
@@ -184,5 +200,63 @@ describe('WorkspacePage M6 mode-oriented IA', () => {
     const beforeUnload = new Event('beforeunload', { cancelable: true });
     window.dispatchEvent(beforeUnload);
     expect(beforeUnload.defaultPrevented).toBe(true);
+  });
+
+  it('preserves a dirty Alignment Inspector note across mounted task sessions', async () => {
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    renderWorkspace(alignedM6Snapshot());
+    await openBoth();
+    fireEvent.click(screen.getByRole('button', { name: /Activate alignment/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: /Note/ }), {
+      target: { value: 'mounted inspector draft' },
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('AlignmentUnsaved'),
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'POS' }));
+    expect(screen.queryByRole('textbox', { name: /Note/ })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('AlignmentUnsaved');
+    fireEvent.click(screen.getByRole('tab', { name: 'Alignment' }));
+    expect(screen.getByRole('textbox', { name: /Note/ })).toHaveValue('mounted inspector draft');
+  });
+
+  it('pins a destructive session dialog, gives Escape ownership, and restores opener focus', async () => {
+    renderWorkspace();
+    fireEvent.click(await screen.findByRole('button', { name: 'Open English' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    const opener = screen.getByRole('button', { name: 'Delete segmentation' });
+    opener.focus();
+    fireEvent.click(opener);
+
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Cancel' })).toHaveFocus();
+    for (const tab of screen.getAllByRole('tab')) expect(tab).toBeDisabled();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+  });
+
+  it('keeps a pending destructive dialog locked against task navigation and Escape', async () => {
+    let resolveDelete: ((value: MockResponse) => void) | undefined;
+    renderWorkspace(m6Snapshot(), [
+      ['/segmentations/sentence', () => new Promise((resolve) => { resolveDelete = resolve; })],
+    ]);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open English' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete segmentation' }));
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete segmentation' }));
+
+    await screen.findByRole('button', { name: 'Deleting…' });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    for (const tab of screen.getAllByRole('tab')) expect(tab).toBeDisabled();
+
+    resolveDelete?.({ status: 204, body: null });
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
   });
 });

@@ -396,6 +396,34 @@ describe('PosAnnotationPanel', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('blocks and removes a dirty stale target after authoritative retokenization', async () => {
+    const { rerender } = renderPanel();
+    fireEvent.change(screen.getByLabelText('Coarse POS for Hello'), {
+      target: { value: 'NOUN' },
+    });
+
+    rerender(
+      <PosAnnotationPanel
+        documentId="doc-1"
+        version={version}
+        tokenLayer={{ ...tokenLayer, id: 'token-2' }}
+        tokenSegments={savedSegments
+          .filter((item) => item.id !== 'tok-hello')
+          .map((item) => ({ ...item, segmentation_layer_id: 'token-2' }))}
+        posAnnotationsByTokenSegmentId={{}}
+      />,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'stale targets cannot be submitted',
+    );
+    expect(screen.getAllByRole('button', { name: 'Save POS' })[0]).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    expect(screen.queryByLabelText('Coarse POS for Hello')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Coarse POS for world')).toBeInTheDocument();
+  });
+
   it('never binds a POS target to unsaved token draft identity', () => {
     const { container } = renderPanel();
     const rows = container.querySelectorAll('.pos-row');

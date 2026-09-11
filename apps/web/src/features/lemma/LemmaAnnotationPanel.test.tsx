@@ -282,6 +282,36 @@ describe('LemmaAnnotationPanel', () => {
     expect(screen.getByText('1 annotated / 2 word-like')).toBeInTheDocument();
   });
 
+  it('blocks a dirty draft after an authoritative token-basis change until it is discarded', async () => {
+    const changedLayer = { ...tokenLayer, id: 'token-2' };
+    const changedSegments = savedSegments.map((item) => ({
+      ...item,
+      segmentation_layer_id: changedLayer.id,
+    }));
+    const { rerender } = renderPanel();
+    fireEvent.change(screen.getByLabelText('Lemma for Hello'), {
+      target: { value: 'hello-draft' },
+    });
+
+    rerender(
+      <LemmaAnnotationPanel
+        documentId="doc-1"
+        version={version}
+        tokenLayer={changedLayer}
+        tokenSegments={changedSegments}
+        annotationsByTokenSegmentId={{}}
+      />,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This token occurrence changed while the lemma draft was unsaved.',
+    );
+    expect(screen.getAllByRole('button', { name: 'Save lemma' })[0]).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    expect(screen.getByLabelText('Lemma for Hello')).toHaveValue('');
+  });
+
   it('never binds a lemma target to unsaved token draft identity', () => {
     const { container } = renderPanel();
     const rows = container.querySelectorAll('.lemma-row');
