@@ -30,9 +30,15 @@ export function reconcileOccurrenceDrafts(
     if (dirty && savedValue === current.draft) {
       next[segment.id] = { segment, basisId, savedValue, draft: savedValue, conflict: false, stale: false };
     } else if (dirty) {
+      // M6-G2-F02: keep the Human's local draft until explicit disposition,
+      // but adopt the LATEST authoritative basis/value/segment in the same
+      // entry. Discard therefore reloads the current basis instead of
+      // restoring a stale savedValue from before the authoritative change.
       next[segment.id] = {
-        ...current,
         segment,
+        basisId,
+        savedValue,
+        draft: current.draft,
         conflict: current.conflict || current.basisId !== basisId || current.savedValue !== savedValue,
         stale: false,
       };

@@ -40,20 +40,32 @@ import { LemmaAnnotationPanel } from '../lemma/LemmaAnnotationPanel';
 import { PosAnnotationPanel } from '../pos/PosAnnotationPanel';
 import { WorkbenchTaskNavigation } from './WorkbenchTaskNavigation';
 import {
+  LINGUISTIC_MODES,
+  WORKBENCH_MODE_LABELS,
   nextVisibleTarget,
   sameSessionStatus,
   sessionKey,
   type EditorSessionStatus,
-  type LinguisticMode,
   type WorkbenchMode,
 } from './workbenchIa';
 
-interface PendingForceDelete {
+/**
+ * M6-G2-F04: one TextVersion deletion can destroy several different kinds of
+ * mounted unsaved work. The confirmation must name the affected categories
+ * instead of claiming a generic "linguistic" loss.
+ */
+interface PendingDelete {
   versionId: string;
   label: string;
+  /** Human-readable unsaved categories this deletion may discard. */
+  unsaved: string[];
 }
 
-const LINGUISTIC_MODES: LinguisticMode[] = ['sentence', 'token', 'lemma', 'pos'];
+const ALIGNMENT_NOTE_CATEGORY = 'Alignment note';
+
+function unsavedSummary(unsaved: readonly string[]): string {
+  return unsaved.join(', ');
+}
 
 function WorkspaceBody({
   documentId,
@@ -104,9 +116,9 @@ function WorkspaceBody({
   } = useWorkspaceState();
   const deleteMutation = useDeleteTextVersion(documentId);
   const [pendingForceDelete, setPendingForceDelete] =
-    useState<PendingForceDelete | null>(null);
+    useState<PendingDelete | null>(null);
   const [pendingDirtyDelete, setPendingDirtyDelete] =
-    useState<PendingForceDelete | null>(null);
+    useState<PendingDelete | null>(null);
   const [activeMode, setActiveMode] = useState<WorkbenchMode>('alignment');
   const [activeTargetId, setActiveTargetId] = useState<string | null>(null);
   const [sessionStatuses, setSessionStatuses] = useState<Record<string, EditorSessionStatus>>({});
@@ -216,17 +228,56 @@ function WorkspaceBody({
   // must invalidate geometry even when container dimensions are unchanged.
   const layoutKey = `${panelOrder.join('|')}#${visiblePanels.join('|')}`;
 
-  function versionHasDirtySession(versionId: string): boolean {
-    return LINGUISTIC_MODES.some((mode) => sessionStatuses[sessionKey(versionId, mode)]?.dirty);
+  /**
+   * M6-G2-F04: authoritative deletion (`force=true`) cascades the
+   * TextVersion's layers, segments and occurrence annotations, and removes
+   * any AlignmentGroup that becomes invalid. The active Alignment Inspector's
+   * unsaved note draft is mounted state, not persisted authority, so a
+   * deletion that can cascade the active group would silently destroy it.
+   */
+  function versionParticipatesInActiveAlignment(versionId: string): boolean {
+    if (activeAlignmentId === null) {
+      return false;
+    }
+    const members = savedAlignments.membersByGroup[activeAlignmentId] ?? [];
+    return members.some(
+      (member) =>
+        savedAlignments.spansById[member.span_id]?.text_version_id === versionId,
+    );
   }
 
-  function performDelete(versionId: string, label: string) {
+  /**
+   * The unsaved work that this TextVersion's deletion could discard, named by
+   * category so the Human sees exactly what is at stake. Import drafts are
+   * deliberately excluded: they are owned by the canvas-level Import session
+   * and are unaffected by deleting an existing TextVersion.
+   */
+  function affectedUnsavedWork(versionId: string): string[] {
+    const categories: string[] = [];
+    for (const mode of LINGUISTIC_MODES) {
+      if (sessionStatuses[sessionKey(versionId, mode)]?.dirty) {
+        categories.push(WORKBENCH_MODE_LABELS[mode]);
+      }
+    }
+    if (
+      sessionStatuses.alignment?.dirty &&
+      versionParticipatesInActiveAlignment(versionId)
+    ) {
+      categories.push(ALIGNMENT_NOTE_CATEGORY);
+    }
+    return categories;
+  }
+
+  function performDelete(versionId: string, label: string, unsaved: string[]) {
     deleteMutation.mutate(
       { versionId, force: false },
       {
         onError: (error) => {
           if (isApiError(error) && error.isCode('TEXT_HAS_ANNOTATIONS')) {
-            setPendingForceDelete({ versionId, label });
+            // The unsaved-work context survives the ordinary -> force
+            // confirmation handoff so the destructive dialog keeps naming
+            // exactly what is still at risk.
+            setPendingForceDelete({ versionId, label, unsaved });
           }
         },
       },
@@ -234,18 +285,35 @@ function WorkspaceBody({
   }
 
   function requestDelete(versionId: string, label: string) {
-    if (versionHasDirtySession(versionId)) {
-      setPendingDirtyDelete({ versionId, label });
+    if (navigationLocked) {
       return;
     }
-    performDelete(versionId, label);
+    const unsaved = affectedUnsavedWork(versionId);
+    if (unsaved.length > 0) {
+      setPendingDirtyDelete({ versionId, label, unsaved });
+      return;
+    }
+    performDelete(versionId, label, unsaved);
   }
 
   function confirmDirtyDelete() {
     if (!pendingDirtyDelete) return;
     const target = pendingDirtyDelete;
     setPendingDirtyDelete(null);
-    performDelete(target.versionId, target.label);
+    performDelete(target.versionId, target.label, target.unsaved);
+  }
+
+  /**
+   * M6-G2-F01: a caption-less canvas action must never move a dialog-owning
+   * session into a hidden/inert surface. Hide and Delete both remove or
+   * deactivate the version's mounted sessions, so both are refused while the
+   * workspace navigation lock is held.
+   */
+  function requestHide(versionId: string) {
+    if (navigationLocked) {
+      return;
+    }
+    hidePanel(versionId);
   }
 
   function changeMode(mode: WorkbenchMode) {
@@ -357,7 +425,7 @@ function WorkspaceBody({
                     variant="danger"
                     size="sm"
                     aria-label={`Delete ${version.label}`}
-                    disabled={deleteMutation.isPending}
+                    disabled={deleteMutation.isPending || navigationLocked}
                     onClick={() => requestDelete(version.id, version.label)}
                   >
                     Delete
@@ -366,7 +434,8 @@ function WorkspaceBody({
                 <TextPanel
                   version={version}
                   runs={runsByVersion[id] ?? []}
-                  onHide={() => hidePanel(id)}
+                  onHide={() => requestHide(id)}
+                  hideDisabled={navigationLocked}
                   spanRegistry={spanRegistry}
                   survivingGroupIds={survivingGroupIds}
                 />
@@ -536,8 +605,9 @@ function WorkspaceBody({
         >
           <h3 id="dirty-delete-heading">Discard drafts and delete text version?</h3>
           <p>
-            “{pendingDirtyDelete.label}” has unsaved linguistic work. Continuing
-            will discard those drafts if the authoritative deletion succeeds.
+            “{pendingDirtyDelete.label}” has unsaved work:{' '}
+            {unsavedSummary(pendingDirtyDelete.unsaved)}. Continuing will
+            discard those drafts if the authoritative deletion succeeds.
           </p>
           <div className="confirm-dialog-actions">
             <Button type="button" variant="secondary" disabled={deleteMutation.isPending} onClick={() => setPendingDirtyDelete(null)}>
@@ -565,6 +635,13 @@ function WorkspaceBody({
             with members from a single text version) will also be deleted.
             This cannot be undone.
           </p>
+          {pendingForceDelete.unsaved.length > 0 ? (
+            <p className="force-delete-unsaved" role="status">
+              Unsaved work in this text version (
+              {unsavedSummary(pendingForceDelete.unsaved)}) will also be
+              discarded if the deletion succeeds.
+            </p>
+          ) : null}
           <div className="confirm-dialog-actions">
             <Button
               type="button"

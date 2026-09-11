@@ -328,4 +328,103 @@ describe('LemmaAnnotationPanel', () => {
       ).getAllByRole('button', { name: 'Save lemma' })[0],
     ).toBeDisabled();
   });
+
+  // M6-G2-F02: an unexpected authoritative value/basis change must preserve
+  // the local draft AND adopt the current authority, so an explicit discard
+  // loads the current basis rather than restoring a stale savedValue.
+  it('discards a conflicted draft onto the latest authoritative basis (M6-G2-F02)', async () => {
+    const changedLayer = { ...tokenLayer, id: 'token-2' };
+    const changedSegments = savedSegments.map((item) => ({
+      ...item,
+      segmentation_layer_id: changedLayer.id,
+    }));
+    const { calls } = installFetchMock([
+      ['/lemma', async () => json(200, { ...annotation, lemma: 'home' })],
+    ]);
+    const { rerender } = renderPanel({
+      annotations: { 'tok-hello': annotation },
+    });
+    expect(screen.getByLabelText('Lemma for Hello')).toHaveValue('house');
+
+    fireEvent.change(screen.getByLabelText('Lemma for Hello'), {
+      target: { value: 'houses' },
+    });
+
+    rerender(
+      <LemmaAnnotationPanel
+        documentId="doc-1"
+        version={version}
+        tokenLayer={changedLayer}
+        tokenSegments={changedSegments}
+        annotationsByTokenSegmentId={{
+          'tok-hello': { ...annotation, lemma: 'home' },
+        }}
+      />,
+    );
+
+    // The Human's local draft is preserved ...
+    expect(screen.getByLabelText('Lemma for Hello')).toHaveValue('houses');
+    // ... the current authoritative value is displayed ...
+    expect(
+      screen.getByText('home', { selector: '.lemma-saved-value' }),
+    ).toBeInTheDocument();
+    // ... and submission fails closed.
+    expect(screen.getAllByRole('button', { name: 'Save lemma' })[0]).toBeDisabled();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This token occurrence changed while the lemma draft was unsaved.',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }));
+
+    // Discard switched to the CURRENT authoritative value, not the stale one.
+    await waitFor(() =>
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText('Lemma for Hello')).toHaveValue('home');
+    expect(screen.getByLabelText('Lemma for Hello')).not.toBeDisabled();
+    expect(screen.getAllByRole('button', { name: 'Save lemma' })[0]).toBeDisabled();
+
+    // The next edit submits against the current saved token occurrence.
+    fireEvent.change(screen.getByLabelText('Lemma for Hello'), {
+      target: { value: 'homes' },
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Save lemma' })[0]!);
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0]?.url).toBe('/api/v1/token-segments/tok-hello/lemma');
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ lemma: 'homes' });
+  });
+
+  it('never submits a stale removed occurrence after its basis disappears', async () => {
+    const { calls } = installFetchMock([['/lemma', async () => json(200, annotation)]]);
+    const { rerender } = renderPanel();
+    fireEvent.change(screen.getByLabelText('Lemma for Hello'), {
+      target: { value: 'stale-draft' },
+    });
+
+    rerender(
+      <LemmaAnnotationPanel
+        documentId="doc-1"
+        version={version}
+        tokenLayer={{ ...tokenLayer, id: 'token-2' }}
+        tokenSegments={savedSegments
+          .filter((item) => item.id !== 'tok-hello')
+          .map((item) => ({ ...item, segmentation_layer_id: 'token-2' }))}
+        annotationsByTokenSegmentId={{}}
+      />,
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'stale targets cannot be submitted',
+    );
+    // The stale row keeps the local draft but cannot be submitted.
+    expect(screen.getByLabelText('Lemma for Hello')).toHaveValue('stale-draft');
+    expect(screen.getAllByRole('button', { name: 'Save lemma' })[0]).toBeDisabled();
+    expect(calls).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }));
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Lemma for Hello')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByLabelText('Lemma for world')).toBeInTheDocument();
+  });
 });
