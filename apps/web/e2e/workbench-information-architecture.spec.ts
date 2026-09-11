@@ -57,7 +57,7 @@ test('M6 task deck preserves canonical selection, mounted sessions and mode-inde
   await page.setViewportSize({ width: 1280, height: 720 });
   const document = await createDocument(request, 'M6 IA');
   const english = await createVersion(request, document.id, 'M6 English', 'en', 'Hello world.');
-  const german = await createVersion(request, document.id, 'M6 German', 'de', 'Hallo Welt.');
+  const german = await createVersion(request, document.id, 'M6 German', 'de', 'Hallo 🙂 Welt.');
 
   const sentence = await (await request.put(`/api/v1/text-versions/${english.id}/segmentations/sentence`, {
     data: {
@@ -97,13 +97,44 @@ test('M6 task deck preserves canonical selection, mounted sessions and mode-inde
   await expect(page.locator('.lemma-annotation-panel', { hasText: 'M6 English' })).toContainText('hello');
   await page.getByRole('button', { name: 'Open Alignment' }).click();
 
-  await selectCanonical(page, german.id, 0, 5);
+  // DOM Range offsets are UTF-16. Selecting [6, 8) captures one astral emoji;
+  // the persisted Alignment span must use Unicode code-point offsets [6, 7).
+  await selectCanonical(page, german.id, 6, 8);
   await page.locator(`.text-panel[data-text-version-id="${german.id}"]`).getByRole('button', { name: 'Add to Alignment' }).click();
   await expect(page.getByLabel('Pending alignment status')).toContainText('ready to create');
   await page.getByRole('button', { name: 'Create Alignment' }).click();
   const activate = page.getByRole('button', { name: /Activate alignment/ });
   await expect(activate).toBeVisible();
   await activate.click();
+  await expect(page.getByTestId('connector-overlay')).toBeVisible();
+
+  const persisted = await (await request.get(`/api/v1/documents/${document.id}/workspace`)).json() as {
+    spans: Array<{ text_version_id: string; start_offset: number; end_offset: number; exact_text: string }>;
+  };
+  expect(persisted.spans).toContainEqual(expect.objectContaining({
+    text_version_id: german.id,
+    start_offset: 6,
+    end_offset: 7,
+    exact_text: '🙂',
+  }));
+
+  // Reload proves that Alignment plus the inherited M1–M5 persisted data are
+  // all reachable through the bounded task deck, rather than only surviving
+  // in mounted client drafts.
+  await page.reload();
+  await expect(page.locator('[data-text-content-root]')).toHaveCount(2);
+  await page.getByRole('tab', { name: 'Sentence' }).click();
+  await expect(page.locator(`[data-session-key="${english.id}:sentence"]`)).toContainText('Saved');
+  await page.getByRole('tab', { name: 'Token' }).click();
+  await expect(page.locator(`[data-session-key="${english.id}:token"]`)).toContainText('Hello');
+  await page.getByRole('tab', { name: 'Lemma' }).click();
+  await expect(page.locator(`[data-session-key="${english.id}:lemma"]`)).toContainText('hello');
+  await page.getByRole('tab', { name: 'POS' }).click();
+  await expect(page.locator(`[data-session-key="${english.id}:pos"]`)).toContainText('INTJ');
+  await page.getByRole('tab', { name: 'Alignment' }).click();
+  const reloadedActivate = page.getByRole('button', { name: /Activate alignment/ });
+  await expect(reloadedActivate).toBeVisible();
+  await reloadedActivate.click();
   await expect(page.getByTestId('connector-overlay')).toBeVisible();
 
   await page.getByRole('tab', { name: 'Sentence' }).click();

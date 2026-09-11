@@ -27,4 +27,33 @@ describe('WorkbenchTaskNavigation', () => {
     for (const tab of screen.getAllByRole('tab')) expect(tab).toBeDisabled();
     expect(screen.getByRole('combobox')).toBeDisabled();
   });
+
+  it('keeps inactive pending and error sessions discoverable until recovery', () => {
+    const props = {
+      activeMode: 'sentence' as const,
+      activeTargetId: 'v1',
+      visibleVersions: ['v1', 'v2'],
+      versionsById: versions,
+      trayCount: 0,
+      canCreateAlignment: false,
+      navigationLocked: false,
+      onModeChange: vi.fn(),
+      onTargetChange: vi.fn(),
+    };
+    const { rerender } = render(
+      <WorkbenchTaskNavigation
+        {...props}
+        sessionStatuses={{
+          'v2:lemma': { dirty: true, pending: true, error: false, conflict: false, dialogOpen: false },
+          'v1:pos': { dirty: true, pending: false, error: true, conflict: false, dialogOpen: false },
+        }}
+      />,
+    );
+    const summary = screen.getByLabelText('Workbench session status');
+    expect(summary).toHaveTextContent('French · LemmaPending');
+    expect(summary).toHaveTextContent('English · POSError');
+
+    rerender(<WorkbenchTaskNavigation {...props} sessionStatuses={{}} />);
+    expect(screen.queryByLabelText('Workbench session status')).not.toBeInTheDocument();
+  });
 });
