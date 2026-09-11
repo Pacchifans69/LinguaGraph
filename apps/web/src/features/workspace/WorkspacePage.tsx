@@ -8,7 +8,7 @@
  * offsets and can break reconciliation while dynamic alignment UI unmounts.
  */
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useDeleteTextVersion, useWorkspace, type TextVersion } from './api';
 import { normalizeWorkspace } from './normalize';
@@ -38,11 +38,22 @@ import { SegmentationPanel } from '../segmentation/SegmentationPanel';
 import { TokenSegmentationPanel } from '../segmentation/TokenSegmentationPanel';
 import { LemmaAnnotationPanel } from '../lemma/LemmaAnnotationPanel';
 import { PosAnnotationPanel } from '../pos/PosAnnotationPanel';
+import { WorkbenchTaskNavigation } from './WorkbenchTaskNavigation';
+import {
+  nextVisibleTarget,
+  sameSessionStatus,
+  sessionKey,
+  type EditorSessionStatus,
+  type LinguisticMode,
+  type WorkbenchMode,
+} from './workbenchIa';
 
 interface PendingForceDelete {
   versionId: string;
   label: string;
 }
+
+const LINGUISTIC_MODES: LinguisticMode[] = ['sentence', 'token', 'lemma', 'pos'];
 
 function WorkspaceBody({
   documentId,
@@ -94,6 +105,79 @@ function WorkspaceBody({
   const deleteMutation = useDeleteTextVersion(documentId);
   const [pendingForceDelete, setPendingForceDelete] =
     useState<PendingForceDelete | null>(null);
+  const [pendingDirtyDelete, setPendingDirtyDelete] =
+    useState<PendingForceDelete | null>(null);
+  const [activeMode, setActiveMode] = useState<WorkbenchMode>('alignment');
+  const [activeTargetId, setActiveTargetId] = useState<string | null>(null);
+  const [sessionStatuses, setSessionStatuses] = useState<Record<string, EditorSessionStatus>>({});
+  const [importOpen, setImportOpen] = useState(false);
+
+  const visible = panelOrder.filter((id) => visiblePanels.includes(id));
+  const hidden = panelOrder.filter((id) => !visiblePanels.includes(id));
+
+  useEffect(() => {
+    setActiveTargetId((current) => nextVisibleTarget(panelOrder, visiblePanels, current));
+  }, [panelOrder, visiblePanels]);
+
+  const reportSessionStatus = useCallback((key: string, status: EditorSessionStatus) => {
+    setSessionStatuses((current) =>
+      sameSessionStatus(current[key], status) ? current : { ...current, [key]: status },
+    );
+  }, []);
+
+  const sessionReporters = useMemo(() => {
+    const reporters: Record<string, (status: EditorSessionStatus) => void> = {};
+    for (const versionId of panelOrder) {
+      for (const mode of LINGUISTIC_MODES) {
+        const key = sessionKey(versionId, mode);
+        reporters[key] = (status) => reportSessionStatus(key, status);
+      }
+    }
+    reporters.alignment = (status) => reportSessionStatus('alignment', status);
+    reporters.import = (status) => reportSessionStatus('import', status);
+    return reporters;
+  }, [panelOrder, reportSessionStatus]);
+
+  useEffect(() => {
+    const surviving = new Set(panelOrder);
+    setSessionStatuses((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([key]) => {
+          if (key === 'alignment' || key === 'import') return true;
+          return surviving.has(key.slice(0, key.lastIndexOf(':')));
+        }),
+      ),
+    );
+  }, [panelOrder]);
+
+  const anyDirty = Object.values(sessionStatuses).some((status) => status.dirty);
+  const anySessionDialogOpen = Object.values(sessionStatuses).some((status) => status.dialogOpen);
+  const navigationLocked = anySessionDialogOpen || pendingDirtyDelete !== null || pendingForceDelete !== null;
+
+  useEffect(() => {
+    if (!anyDirty) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    const handleDocumentNavigation = (event: MouseEvent) => {
+      const target = event.target;
+      const anchor = target instanceof Element ? target.closest('a[href]') : null;
+      if (!(anchor instanceof HTMLAnchorElement) || anchor.target === '_blank') return;
+      const destination = new URL(anchor.href, window.location.href);
+      if (destination.origin !== window.location.origin || destination.href === window.location.href) return;
+      if (!window.confirm('Leave this document workspace? Unsaved editor drafts will be discarded.')) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('click', handleDocumentNavigation, true);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('click', handleDocumentNavigation, true);
+    };
+  }, [anyDirty]);
 
   // Frozen M0.6 precedence: active wins over hovered.
   const effectiveAlignmentId = activeAlignmentId ?? hoveredAlignmentId;
@@ -125,8 +209,6 @@ function WorkspaceBody({
     isCreatingAlignment: createMutation.isPending,
   });
 
-  const visible = panelOrder.filter((id) => visiblePanels.includes(id));
-  const hidden = panelOrder.filter((id) => !visiblePanels.includes(id));
   const indexOf = (id: string) => panelOrder.indexOf(id);
   const lastIndex = panelOrder.length - 1;
 
@@ -134,7 +216,11 @@ function WorkspaceBody({
   // must invalidate geometry even when container dimensions are unchanged.
   const layoutKey = `${panelOrder.join('|')}#${visiblePanels.join('|')}`;
 
-  function requestDelete(versionId: string, label: string) {
+  function versionHasDirtySession(versionId: string): boolean {
+    return LINGUISTIC_MODES.some((mode) => sessionStatuses[sessionKey(versionId, mode)]?.dirty);
+  }
+
+  function performDelete(versionId: string, label: string) {
     deleteMutation.mutate(
       { versionId, force: false },
       {
@@ -145,6 +231,27 @@ function WorkspaceBody({
         },
       },
     );
+  }
+
+  function requestDelete(versionId: string, label: string) {
+    if (versionHasDirtySession(versionId)) {
+      setPendingDirtyDelete({ versionId, label });
+      return;
+    }
+    performDelete(versionId, label);
+  }
+
+  function confirmDirtyDelete() {
+    if (!pendingDirtyDelete) return;
+    const target = pendingDirtyDelete;
+    setPendingDirtyDelete(null);
+    performDelete(target.versionId, target.label);
+  }
+
+  function changeMode(mode: WorkbenchMode) {
+    if (navigationLocked || mode === activeMode) return;
+    if (activeMode === 'alignment') setHoveredAlignment(null);
+    setActiveMode(mode);
   }
 
   function confirmForceDelete() {
@@ -263,62 +370,6 @@ function WorkspaceBody({
                   spanRegistry={spanRegistry}
                   survivingGroupIds={survivingGroupIds}
                 />
-                {(() => {
-                  const layers = segmentation.layersByVersionAndGranularity[id];
-                  const layer = layers?.sentence;
-                  const tokenLayer = layers?.token;
-                  return (
-                    <>
-                      <SegmentationPanel
-                        documentId={documentId}
-                        version={version}
-                        savedLayer={layer}
-                        savedSegments={layer ? segmentation.segmentsByLayer[layer.id] ?? [] : []}
-                      />
-                      <TokenSegmentationPanel
-                        documentId={documentId}
-                        version={version}
-                        sentenceLayer={layer}
-                        sentenceSegments={layer ? segmentation.segmentsByLayer[layer.id] ?? [] : []}
-                        savedLayer={tokenLayer}
-                        savedSegments={tokenLayer ? segmentation.segmentsByLayer[tokenLayer.id] ?? [] : []}
-                      />
-                      <LemmaAnnotationPanel
-                        documentId={documentId}
-                        version={version}
-                        tokenLayer={tokenLayer}
-                        tokenSegments={
-                          tokenLayer
-                            ? segmentation.segmentsByLayer[tokenLayer.id] ?? []
-                            : []
-                        }
-                        annotationsByTokenSegmentId={
-                          segmentation.lemmaAnnotationByTokenSegmentId
-                        }
-                      />
-                      <PosAnnotationPanel
-                        documentId={documentId}
-                        version={version}
-                        tokenLayer={tokenLayer}
-                        tokenSegments={
-                          tokenLayer
-                            ? segmentation.segmentsByLayer[tokenLayer.id] ?? []
-                            : []
-                        }
-                        posAnnotationsByTokenSegmentId={
-                          segmentation.posAnnotationByTokenSegmentId
-                        }
-                        lemmaTokenSegmentIds={
-                          new Set(
-                            Object.keys(
-                              segmentation.lemmaAnnotationByTokenSegmentId,
-                            ),
-                          )
-                        }
-                      />
-                    </>
-                  );
-                })()}
               </div>
             );
           })
@@ -332,39 +383,172 @@ function WorkspaceBody({
         />
       </div>
 
-      <div className="workbench-stack" aria-label="Alignment workflow">
-        <AlignmentTray
-          members={pendingMembers}
-          versionsById={versionsById}
-          onRemove={removePendingMember}
-          onClear={clearPendingTray}
-          canCreate={canCreateAlignment}
-          onCreate={handleCreateAlignment}
-          isCreating={createMutation.isPending}
-        />
+      <section className="canvas-tools" aria-label="Text version tools">
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          aria-expanded={importOpen}
+          aria-controls="text-version-import"
+          disabled={navigationLocked}
+          onClick={() => setImportOpen((open) => !open)}
+        >
+          {importOpen ? 'Close add text version' : 'Add text version'}
+        </Button>
+        <div id="text-version-import" hidden={!importOpen}>
+          <ImportPanel documentId={documentId} onSessionStateChange={sessionReporters.import} />
+        </div>
+      </section>
 
-        <AlignmentInspector
-          documentId={documentId}
-          activeAlignmentId={activeAlignmentId}
-          groupsById={savedAlignments.groupsById}
-          membersByGroup={savedAlignments.membersByGroup}
-          spansById={savedAlignments.spansById}
-          versionsById={savedAlignments.versionsById}
-          onClose={() => setActiveAlignment(null)}
-        />
+      <WorkbenchTaskNavigation
+        activeMode={activeMode}
+        activeTargetId={activeTargetId}
+        visibleVersions={visible}
+        versionsById={versionsById}
+        sessionStatuses={sessionStatuses}
+        trayCount={pendingMembers.length}
+        canCreateAlignment={canCreateAlignment}
+        navigationLocked={navigationLocked}
+        onModeChange={changeMode}
+        onTargetChange={setActiveTargetId}
+      />
 
-        <SavedAlignments
-          groups={savedAlignments.groups}
-          membersByGroup={savedAlignments.membersByGroup}
-          spansById={savedAlignments.spansById}
-          versionsById={savedAlignments.versionsById}
-          onActivate={setActiveAlignment}
-          onHover={setHoveredAlignment}
-          disabled={isMutatingAlignment}
-        />
+      <div className="workbench-task-deck" aria-label="Active workbench task">
+        <div
+          id="workbench-session-alignment"
+          className="workbench-task-session"
+          role="tabpanel"
+          aria-label="Alignment task"
+          hidden={activeMode !== 'alignment'}
+        >
+          <AlignmentTray
+            members={pendingMembers}
+            versionsById={versionsById}
+            onRemove={removePendingMember}
+            onClear={clearPendingTray}
+            canCreate={canCreateAlignment}
+            onCreate={handleCreateAlignment}
+            isCreating={createMutation.isPending}
+          />
 
-        <ImportPanel documentId={documentId} />
+          <AlignmentInspector
+            documentId={documentId}
+            activeAlignmentId={activeAlignmentId}
+            groupsById={savedAlignments.groupsById}
+            membersByGroup={savedAlignments.membersByGroup}
+            spansById={savedAlignments.spansById}
+            versionsById={savedAlignments.versionsById}
+            onClose={() => setActiveAlignment(null)}
+            onSessionStateChange={sessionReporters.alignment}
+          />
+
+          <SavedAlignments
+            groups={savedAlignments.groups}
+            membersByGroup={savedAlignments.membersByGroup}
+            spansById={savedAlignments.spansById}
+            versionsById={savedAlignments.versionsById}
+            onActivate={setActiveAlignment}
+            onHover={setHoveredAlignment}
+            disabled={isMutatingAlignment}
+          />
+        </div>
+
+        {LINGUISTIC_MODES.map((mode) => (
+          <div
+            key={mode}
+            id={`workbench-session-${mode}`}
+            className="workbench-task-session"
+            role="tabpanel"
+            aria-label={`${mode === 'pos' ? 'POS' : mode} task`}
+            hidden={activeMode !== mode}
+          >
+            {panelOrder.map((id) => {
+              const version = versionsById[id];
+              if (!version) return null;
+              const layers = segmentation.layersByVersionAndGranularity[id];
+              const sentenceLayer = layers?.sentence;
+              const tokenLayer = layers?.token;
+              const reporter = sessionReporters[sessionKey(id, mode)];
+              return (
+                <div
+                  key={id}
+                  className="linguistic-editor-session"
+                  data-session-key={sessionKey(id, mode)}
+                  hidden={activeTargetId !== id || !visiblePanels.includes(id)}
+                >
+                  {mode === 'sentence' ? (
+                    <SegmentationPanel
+                      documentId={documentId}
+                      version={version}
+                      savedLayer={sentenceLayer}
+                      savedSegments={sentenceLayer ? segmentation.segmentsByLayer[sentenceLayer.id] ?? [] : []}
+                      onSessionStateChange={reporter}
+                    />
+                  ) : null}
+                  {mode === 'token' ? (
+                    <TokenSegmentationPanel
+                      documentId={documentId}
+                      version={version}
+                      sentenceLayer={sentenceLayer}
+                      sentenceSegments={sentenceLayer ? segmentation.segmentsByLayer[sentenceLayer.id] ?? [] : []}
+                      savedLayer={tokenLayer}
+                      savedSegments={tokenLayer ? segmentation.segmentsByLayer[tokenLayer.id] ?? [] : []}
+                      onSessionStateChange={reporter}
+                    />
+                  ) : null}
+                  {mode === 'lemma' ? (
+                    <LemmaAnnotationPanel
+                      documentId={documentId}
+                      version={version}
+                      tokenLayer={tokenLayer}
+                      tokenSegments={tokenLayer ? segmentation.segmentsByLayer[tokenLayer.id] ?? [] : []}
+                      annotationsByTokenSegmentId={segmentation.lemmaAnnotationByTokenSegmentId}
+                      onSessionStateChange={reporter}
+                    />
+                  ) : null}
+                  {mode === 'pos' ? (
+                    <PosAnnotationPanel
+                      documentId={documentId}
+                      version={version}
+                      tokenLayer={tokenLayer}
+                      tokenSegments={tokenLayer ? segmentation.segmentsByLayer[tokenLayer.id] ?? [] : []}
+                      posAnnotationsByTokenSegmentId={segmentation.posAnnotationByTokenSegmentId}
+                      lemmaTokenSegmentIds={new Set(Object.keys(segmentation.lemmaAnnotationByTokenSegmentId))}
+                      onSessionStateChange={reporter}
+                    />
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </div>
+
+      {activeMode !== 'alignment' && activeTargetId === null ? (
+        <EmptyState>Open a text version to use linguistic tools.</EmptyState>
+      ) : null}
+
+      {pendingDirtyDelete ? (
+        <ConfirmDialog
+          headingId="dirty-delete-heading"
+          onClose={() => setPendingDirtyDelete(null)}
+          closeDisabled={deleteMutation.isPending}
+        >
+          <h3 id="dirty-delete-heading">Discard drafts and delete text version?</h3>
+          <p>
+            “{pendingDirtyDelete.label}” has unsaved linguistic work. Continuing
+            will discard those drafts if the authoritative deletion succeeds.
+          </p>
+          <div className="confirm-dialog-actions">
+            <Button type="button" variant="secondary" disabled={deleteMutation.isPending} onClick={() => setPendingDirtyDelete(null)}>
+              Cancel
+            </Button>
+            <Button type="button" variant="danger" disabled={deleteMutation.isPending} onClick={confirmDirtyDelete}>
+              Continue delete
+            </Button>
+          </div>
+        </ConfirmDialog>
+      ) : null}
 
       {pendingForceDelete ? (
         <ConfirmDialog

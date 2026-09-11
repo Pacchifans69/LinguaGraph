@@ -1,7 +1,8 @@
-# LinguaGraph — Testing Strategy (as built through M5)
+# LinguaGraph — Testing Strategy (M6 implementation candidate)
 
 This document describes the inherited M0/M1 testing architecture, M2/M3
 segmentation coverage, M4 lemma-annotation coverage, M5 coarse-POS coverage,
+M6 mode-oriented Workbench coverage,
 and the rules for what counts as evidence. It is descriptive, not a new authority: the accepted
 pre-implementation report and frozen milestone contracts remain authoritative.
 
@@ -107,6 +108,9 @@ Coverage includes:
 - mutation freeze / pending destructive locks;
 - ConfirmDialog focus/keyboard lifecycle;
 - Playwright configuration isolation guards.
+- deterministic M6 initial mode/target and target reconciliation;
+- mount-preserved task sessions, dirty/conflict summaries, document-leave
+  protection, canonical-root invariants, and mode-independent connectors;
 - sentence suggestion UTF-16/code-point conversion, complete partitions,
   manual split/merge and SegmentationPanel save/discard/delete behavior.
 - word suggestion sentence-local UTF-16/global code-point conversion,
@@ -157,9 +161,16 @@ dependency path (lemma + POS blocking token replacement with both
 after deleting the last one, in both sibling-deletion orders), and
 astral/combining/non-ASCII Unicode identity under the same closed vocabulary.
 
+`workbench-information-architecture.spec.ts` is the M6 IA release path. It
+covers two-version and four-version desktop compositions, the five task
+destinations, deterministic target selection, mode-preserved Alignment
+selection/tray/activation/connectors, dirty session continuity, canonical flat
+runs, hide/reopen reconciliation, and the 1280×720 and 1440×900 acceptance
+viewports.
+
 ## 2. Canonical release-baseline workflow configuration
 
-`.github/workflows/ci.yml` is the canonical M5 release-baseline workflow
+`.github/workflows/ci.yml` is the canonical M6 candidate release-baseline workflow
 configuration. Its semantic gates are:
 
 - Python 3.13;
@@ -180,6 +191,7 @@ configuration. Its semantic gates are:
 - Playwright M3 token segmentation release path.
 - Playwright M4 lemma annotation release path.
 - Playwright M5 coarse POS annotation release path.
+- Playwright M6 Workbench information-architecture release path.
 
 Workflow configuration by itself is not execution evidence.
 

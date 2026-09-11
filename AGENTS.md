@@ -49,13 +49,14 @@ implementation code:
 
 ## Current phase
 
-M6 — Mode-Oriented Workbench Information Architecture — now has a
-Human-approved frozen execution contract in
-`docs/development/M6_CONTRACT.md`.
+M6 — Mode-Oriented Workbench Information Architecture — has a Human-approved
+frozen execution contract in `docs/development/M6_CONTRACT.md`. The Human
+subsequently authorized bounded implementation from the exact frozen main.
 
-**M6 implementation is NOT STARTED / NOT AUTHORIZED.** No M6 implementation
-branch may be created until the docs-only freeze commit is independently
-verified and the Human separately authorizes bounded implementation.
+**M6 IMPLEMENTATION CANDIDATE IN PROGRESS / NOT MERGED.** Work is confined to
+`m6-mode-oriented-workbench-information-architecture`. Gate 2, Human Static
+Diff Review, Human Runtime Acceptance, PR creation, and merge remain separate
+future decisions.
 
 M6 contract-freeze coordinates:
 
@@ -66,7 +67,7 @@ M6 contract-freeze coordinates:
 - governing contract: `docs/development/M6_CONTRACT.md`;
 - planned implementation branch:
   `m6-mode-oriented-workbench-information-architecture`;
-- implementation authorization: **NOT GRANTED**.
+- implementation authorization: **GRANTED / BOUNDED**.
 
 M6 is governed by the Human-approved A+ composition, mount-preserved editor
 sessions, and mode-independent connector decision. It must keep the canonical
@@ -237,10 +238,9 @@ diagnostics, PR history, and reviewed candidate history remain retained.
 Human acceptance target.
 
 M6 — Mode-Oriented Workbench Information Architecture — is now the active
-frozen normative checkpoint. It is authorized only to the contract-freeze
-boundary. Until a separate Human authorization is given, do not create the M6
-implementation branch and do not modify implementation, test, dependency,
-runtime, ADR, architecture-as-built, or workflow files.
+frozen normative checkpoint. Bounded candidate implementation is authorized
+only on `m6-mode-oriented-workbench-information-architecture`. Do not create a
+PR or merge without separate Human authorization.
 
 ## Scope discipline
 
@@ -258,7 +258,7 @@ completed M2/M3 segmentation boundaries remain defined by their contracts; the
 completed M4 occurrence-level lemma boundary remains defined by
 `M4_CONTRACT.md` and ADR-012; and the completed M5 coarse-POS boundary remains
 defined by `M5_CONTRACT.md` and ADR-013. The active M6 information-architecture
-boundary is defined by `M6_CONTRACT.md`; ADR-014 is an implementation
-obligation and is not part of this docs-only freeze.
+boundary is defined by `M6_CONTRACT.md`; ADR-014 records the candidate's
+mode-oriented implementation decision without broadening that contract.
 
 This file records workflow state and does not replace those authorities.

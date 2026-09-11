@@ -29,6 +29,8 @@ import type {
   TokenLemmaAnnotation,
 } from '../workspace/api';
 import { useDeleteTokenLemma, usePutTokenLemma, useLemmaMutationPending } from '../workspace/api';
+import type { EditorSessionStatus } from '../workspace/workbenchIa';
+import { useOccurrenceDrafts, type OccurrenceDraftEntry } from '../workspace/useOccurrenceDrafts';
 
 interface Props {
   documentId: string;
@@ -39,6 +41,7 @@ interface Props {
   tokenSegments: LinguisticSegment[];
   /** Authoritative annotation lookup keyed by saved token Segment.id. */
   annotationsByTokenSegmentId: Record<string, TokenLemmaAnnotation>;
+  onSessionStateChange?: (status: EditorSessionStatus) => void;
 }
 
 function dependencyHint(error: unknown): string | null {
@@ -55,31 +58,28 @@ function dependencyHint(error: unknown): string | null {
 }
 
 function LemmaRow({
-  documentId,
-  segment,
+  entry,
   annotation,
+  pending,
+  activeMutationId,
+  error,
+  onChange,
+  onSave,
+  onDelete,
+  onDiscard,
 }: {
-  documentId: string;
-  segment: LinguisticSegment;
+  entry: OccurrenceDraftEntry;
   annotation?: TokenLemmaAnnotation;
+  pending: boolean;
+  activeMutationId: string | null;
+  error: unknown;
+  onChange: (value: string) => void;
+  onSave: () => void;
+  onDelete: () => void;
+  onDiscard: () => void;
 }) {
-  const put = usePutTokenLemma(documentId);
-  const remove = useDeleteTokenLemma(documentId);
-  const anyLemmaMutationPending = useLemmaMutationPending(documentId);
-  const savedLemma = annotation?.lemma ?? '';
-  const [draft, setDraft] = useState(savedLemma);
-
-  // Re-adopt the authoritative server value whenever the snapshot changes
-  // (including after a successful mutation or an external refetch).
-  useEffect(() => {
-    setDraft(annotation?.lemma ?? '');
-  }, [annotation?.lemma, annotation?.updated_at, segment.id]);
-
-  // One lemma mutation at a time across the panel: every row locks while any
-  // lemma write is in flight, mirroring the segmentation panel discipline.
-  const pending = put.isPending || remove.isPending || anyLemmaMutationPending;
-  const dirty = draft !== savedLemma;
-  const error = put.error ?? remove.error ?? null;
+  const { segment } = entry;
+  const dirty = entry.draft !== entry.savedValue;
   const hint = dependencyHint(error);
 
   return (
@@ -105,22 +105,20 @@ function LemmaRow({
           Lemma
           <input
             type="text"
-            value={draft}
+            value={entry.draft}
             disabled={pending}
             aria-label={`Lemma for ${segment.exact_text}`}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => onChange(event.target.value)}
           />
         </label>
         <Button
           type="button"
           size="sm"
           variant="primary"
-          disabled={!dirty || pending}
-          onClick={() =>
-            put.mutate({ tokenSegmentId: segment.id, lemma: draft })
-          }
+          disabled={!dirty || pending || entry.conflict || entry.stale}
+          onClick={onSave}
         >
-          {put.isPending ? 'Saving…' : 'Save lemma'}
+          {pending && activeMutationId === segment.id ? 'Saving…' : 'Save lemma'}
         </Button>
         {annotation ? (
           <Button
@@ -128,12 +126,14 @@ function LemmaRow({
             size="sm"
             variant="danger"
             disabled={pending}
-            onClick={() => remove.mutate(segment.id)}
+            onClick={onDelete}
           >
-            {remove.isPending ? 'Deleting…' : 'Delete lemma'}
+            {pending && activeMutationId === segment.id ? 'Deleting…' : 'Delete lemma'}
           </Button>
         ) : null}
+        {dirty ? <Button type="button" size="sm" variant="quiet" disabled={pending} onClick={onDiscard}>Discard draft</Button> : null}
       </div>
+      {entry.conflict ? <p className="lemma-hint" role="alert">This token occurrence changed while the lemma draft was unsaved. Discard the draft to load the current basis; stale targets cannot be submitted.</p> : null}
       {error ? (
         <div className="lemma-row-error">
           <ErrorMessage error={error} />
@@ -154,6 +154,7 @@ export function LemmaAnnotationPanel({
   tokenLayer,
   tokenSegments,
   annotationsByTokenSegmentId,
+  onSessionStateChange,
 }: Props) {
   const eligible = useMemo(
     () =>
@@ -162,6 +163,24 @@ export function LemmaAnnotationPanel({
         .filter((segment) => segment.is_word_like === true),
     [tokenSegments],
   );
+  const savedValues = useMemo(
+    () => Object.fromEntries(Object.entries(annotationsByTokenSegmentId).map(([id, annotation]) => [id, annotation.lemma])),
+    [annotationsByTokenSegmentId],
+  );
+  const drafts = useOccurrenceDrafts(tokenLayer?.id ?? 'none', eligible, savedValues);
+  const put = usePutTokenLemma(documentId);
+  const remove = useDeleteTokenLemma(documentId);
+  const anyLemmaMutationPending = useLemmaMutationPending(documentId);
+  const [activeMutationId, setActiveMutationId] = useState<string | null>(null);
+  const entries = Object.values(drafts.entries);
+  const dirty = entries.some((entry) => entry.draft !== entry.savedValue);
+  const conflict = entries.some((entry) => entry.conflict);
+  const pending = put.isPending || remove.isPending || anyLemmaMutationPending;
+  const mutationError = put.error ?? remove.error ?? null;
+
+  useEffect(() => {
+    onSessionStateChange?.({ dirty, pending, error: mutationError !== null, conflict, dialogOpen: false });
+  }, [dirty, pending, mutationError, conflict, onSessionStateChange]);
 
   if (!tokenLayer) {
     return (
@@ -201,18 +220,32 @@ export function LemmaAnnotationPanel({
         token occurrence
       </p>
 
-      {eligible.length === 0 ? (
+      {entries.length === 0 ? (
         <p className="segmentation-empty">
           No saved word-like tokens are available for lemma annotation.
         </p>
       ) : (
         <ol className="segmentation-list lemma-list">
-          {eligible.map((segment) => (
+          {entries.map((entry) => (
             <LemmaRow
-              key={segment.id}
-              documentId={documentId}
-              segment={segment}
-              annotation={annotationsByTokenSegmentId[segment.id]}
+              key={entry.segment.id}
+              entry={entry}
+              annotation={annotationsByTokenSegmentId[entry.segment.id]}
+              pending={pending}
+              activeMutationId={activeMutationId}
+              error={activeMutationId === entry.segment.id ? mutationError : null}
+              onChange={(value) => drafts.update(entry.segment.id, value)}
+              onSave={() => {
+                setActiveMutationId(entry.segment.id);
+                remove.reset();
+                put.mutate({ tokenSegmentId: entry.segment.id, lemma: entry.draft });
+              }}
+              onDelete={() => {
+                setActiveMutationId(entry.segment.id);
+                put.reset();
+                remove.mutate(entry.segment.id);
+              }}
+              onDiscard={() => drafts.discard(entry.segment.id)}
             />
           ))}
         </ol>

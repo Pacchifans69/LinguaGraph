@@ -1,6 +1,6 @@
 /** Create a TextVersion by paste or strict UTF-8 .txt upload. */
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import {
   useCreateTextVersion,
   useImportTextVersionFile,
@@ -8,8 +8,9 @@ import {
 import { useWorkspaceState } from './state/workspaceContext';
 import { ErrorMessage } from '../../shared/ui/feedback';
 import { Button } from '../../shared/ui/Button';
+import type { EditorSessionStatus } from './workbenchIa';
 
-export function ImportPanel({ documentId }: { documentId: string }) {
+export function ImportPanel({ documentId, onSessionStateChange }: { documentId: string; onSessionStateChange?: (status: EditorSessionStatus) => void }) {
   const createMutation = useCreateTextVersion(documentId);
   const importMutation = useImportTextVersionFile(documentId);
   const { openPanel } = useWorkspaceState();
@@ -21,6 +22,17 @@ export function ImportPanel({ documentId }: { documentId: string }) {
   const [file, setFile] = useState<File | null>(null);
 
   const isPending = createMutation.isPending || importMutation.isPending;
+  const dirty = label !== '' || content !== '' || file !== null || languageTag !== 'en';
+
+  useEffect(() => {
+    onSessionStateChange?.({
+      dirty,
+      pending: isPending,
+      error: createMutation.isError || importMutation.isError,
+      conflict: false,
+      dialogOpen: false,
+    });
+  }, [dirty, isPending, createMutation.isError, importMutation.isError, onSessionStateChange]);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();

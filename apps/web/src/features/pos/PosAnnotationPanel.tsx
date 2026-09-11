@@ -34,6 +34,8 @@ import type {
 } from '../workspace/api';
 import { POS_TAGS } from '../workspace/api';
 import { useDeleteTokenPos, usePosMutationPending, usePutTokenPos } from '../workspace/api';
+import type { EditorSessionStatus } from '../workspace/workbenchIa';
+import { useOccurrenceDrafts, type OccurrenceDraftEntry } from '../workspace/useOccurrenceDrafts';
 
 interface Props {
   documentId: string;
@@ -49,6 +51,7 @@ interface Props {
    * POS never derives, mutates or deletes lemma state.
    */
   lemmaTokenSegmentIds?: ReadonlySet<string>;
+  onSessionStateChange?: (status: EditorSessionStatus) => void;
 }
 
 function targetHint(error: unknown): string | null {
@@ -68,32 +71,29 @@ function targetHint(error: unknown): string | null {
 }
 
 function PosRow({
-  documentId,
-  segment,
+  entry,
   annotation,
+  pending,
+  activeMutationId,
+  error,
+  onChange,
+  onSave,
+  onDelete,
+  onDiscard,
 }: {
-  documentId: string;
-  segment: LinguisticSegment;
+  entry: OccurrenceDraftEntry;
   annotation?: TokenPosAnnotation;
+  pending: boolean;
+  activeMutationId: string | null;
+  error: unknown;
+  onChange: (value: string) => void;
+  onSave: () => void;
+  onDelete: () => void;
+  onDiscard: () => void;
 }) {
-  const put = usePutTokenPos(documentId);
-  const remove = useDeleteTokenPos(documentId);
-  const anyPosMutationPending = usePosMutationPending(documentId);
-  const savedPos = annotation?.pos_tag ?? '';
-  const [draft, setDraft] = useState(savedPos);
-
-  // Re-adopt the authoritative server value whenever the snapshot changes
-  // (including after a successful mutation or an external refetch).
-  useEffect(() => {
-    setDraft(annotation?.pos_tag ?? '');
-  }, [annotation?.pos_tag, annotation?.updated_at, segment.id]);
-
-  // One POS mutation at a time across the panel: every row locks while any
-  // POS write is in flight, mirroring the lemma panel discipline.
-  const pending = put.isPending || remove.isPending || anyPosMutationPending;
+  const { segment } = entry;
   // Logical no-op: selecting the persisted value (or no value) issues no write.
-  const dirty = draft !== '' && draft !== savedPos;
-  const error = put.error ?? remove.error ?? null;
+  const dirty = entry.draft !== entry.savedValue;
   const hint = targetHint(error);
 
   return (
@@ -118,10 +118,10 @@ function PosRow({
         <label>
           Coarse POS
           <select
-            value={draft}
+            value={entry.draft}
             disabled={pending}
             aria-label={`Coarse POS for ${segment.exact_text}`}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => onChange(event.target.value)}
           >
             {/*
               The empty placeholder is not a tag value: it exists only so the
@@ -143,10 +143,10 @@ function PosRow({
           type="button"
           size="sm"
           variant="primary"
-          disabled={!dirty || pending}
-          onClick={() => put.mutate({ tokenSegmentId: segment.id, pos_tag: draft })}
+          disabled={!dirty || entry.draft === '' || pending || entry.conflict || entry.stale}
+          onClick={onSave}
         >
-          {put.isPending ? 'Saving…' : 'Save POS'}
+          {pending && activeMutationId === segment.id ? 'Saving…' : 'Save POS'}
         </Button>
         {annotation ? (
           <Button
@@ -154,12 +154,14 @@ function PosRow({
             size="sm"
             variant="danger"
             disabled={pending}
-            onClick={() => remove.mutate(segment.id)}
+            onClick={onDelete}
           >
-            {remove.isPending ? 'Deleting…' : 'Delete POS'}
+            {pending && activeMutationId === segment.id ? 'Deleting…' : 'Delete POS'}
           </Button>
         ) : null}
+        {dirty ? <Button type="button" size="sm" variant="quiet" disabled={pending} onClick={onDiscard}>Discard draft</Button> : null}
       </div>
+      {entry.conflict ? <p className="pos-hint" role="alert">This token occurrence changed while the POS draft was unsaved. Discard the draft to load the current basis; stale targets cannot be submitted.</p> : null}
       {error ? (
         <div className="pos-row-error">
           <ErrorMessage error={error} />
@@ -181,6 +183,7 @@ export function PosAnnotationPanel({
   tokenSegments,
   posAnnotationsByTokenSegmentId,
   lemmaTokenSegmentIds,
+  onSessionStateChange,
 }: Props) {
   const eligible = useMemo(
     () =>
@@ -189,6 +192,24 @@ export function PosAnnotationPanel({
         .filter((segment) => segment.is_word_like === true),
     [tokenSegments],
   );
+  const savedValues = useMemo(
+    () => Object.fromEntries(Object.entries(posAnnotationsByTokenSegmentId).map(([id, annotation]) => [id, annotation.pos_tag])),
+    [posAnnotationsByTokenSegmentId],
+  );
+  const drafts = useOccurrenceDrafts(tokenLayer?.id ?? 'none', eligible, savedValues);
+  const put = usePutTokenPos(documentId);
+  const remove = useDeleteTokenPos(documentId);
+  const anyPosMutationPending = usePosMutationPending(documentId);
+  const [activeMutationId, setActiveMutationId] = useState<string | null>(null);
+  const entries = Object.values(drafts.entries);
+  const dirty = entries.some((entry) => entry.draft !== entry.savedValue);
+  const conflict = entries.some((entry) => entry.conflict);
+  const pending = put.isPending || remove.isPending || anyPosMutationPending;
+  const mutationError = put.error ?? remove.error ?? null;
+
+  useEffect(() => {
+    onSessionStateChange?.({ dirty, pending, error: mutationError !== null, conflict, dialogOpen: false });
+  }, [dirty, pending, mutationError, conflict, onSessionStateChange]);
 
   if (!tokenLayer) {
     return (
@@ -233,18 +254,32 @@ export function PosAnnotationPanel({
         per token occurrence
       </p>
 
-      {eligible.length === 0 ? (
+      {entries.length === 0 ? (
         <p className="segmentation-empty">
           No saved word-like tokens are available for POS annotation.
         </p>
       ) : (
         <ol className="segmentation-list pos-list">
-          {eligible.map((segment) => (
+          {entries.map((entry) => (
             <PosRow
-              key={segment.id}
-              documentId={documentId}
-              segment={segment}
-              annotation={posAnnotationsByTokenSegmentId[segment.id]}
+              key={entry.segment.id}
+              entry={entry}
+              annotation={posAnnotationsByTokenSegmentId[entry.segment.id]}
+              pending={pending}
+              activeMutationId={activeMutationId}
+              error={activeMutationId === entry.segment.id ? mutationError : null}
+              onChange={(value) => drafts.update(entry.segment.id, value)}
+              onSave={() => {
+                setActiveMutationId(entry.segment.id);
+                remove.reset();
+                put.mutate({ tokenSegmentId: entry.segment.id, pos_tag: entry.draft });
+              }}
+              onDelete={() => {
+                setActiveMutationId(entry.segment.id);
+                put.reset();
+                remove.mutate(entry.segment.id);
+              }}
+              onDiscard={() => drafts.discard(entry.segment.id)}
             />
           ))}
         </ol>

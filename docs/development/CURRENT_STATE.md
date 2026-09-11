@@ -15,9 +15,12 @@ M6 — Mode-Oriented Workbench Information Architecture — now has a
 Human-approved frozen execution contract in
 `docs/development/M6_CONTRACT.md`.
 
-**M6 implementation is NOT STARTED / NOT AUTHORIZED.** No implementation
-branch may be created until the docs-only freeze commit is independently
-verified and the Human separately authorizes bounded implementation.
+**M6 IMPLEMENTATION CANDIDATE IN PROGRESS / NOT MERGED.** The docs-only freeze
+commit was independently verified and the Human authorized bounded
+implementation on
+`m6-mode-oriented-workbench-information-architecture`. Gate 2, Human Static
+Diff Review, Human Runtime Acceptance, PR creation, and merge remain pending
+and unauthorized.
 
 M6 approved pre-freeze coordinates:
 
@@ -152,12 +155,11 @@ Current completed, merged and closed implementation checkpoint: **M5 —
 Human-Reviewed POS Annotation Foundation**.
 
 Current normative checkpoint: **M6 — Mode-Oriented Workbench Information
-Architecture / CONTRACT FROZEN / IMPLEMENTATION NOT AUTHORIZED**.
+Architecture / CONTRACT FROZEN / CANDIDATE IMPLEMENTATION IN PROGRESS**.
 
-M6 is authorized only through the docs-only contract-freeze boundary. Until a
-separate Human authorization is given, do not create the M6 implementation
-branch and do not modify implementation, test, dependency, runtime, ADR,
-architecture-as-built, or workflow files.
+M6 bounded implementation is authorized only on
+`m6-mode-oriented-workbench-information-architecture`. No PR or merge is
+authorized. `HRA-F01` remains open until explicit Human Runtime Acceptance.
 
 The M5 docs-only contract-freeze commit, post-merge durable-state closure, and
 this branch-cleanup durable record remain historical provenance. Resolve the
@@ -180,7 +182,7 @@ embedding a self-referential SHA in this file.
 | M3 Word/Token Segmentation Foundation | #12 | `d4254c1239e649b17dc4ae6d6f995e52bd4635db` | rebase → `fc607b597bee35aff31a06a3945fa7a256f6b5c8` |
 | M4 Human-Reviewed Lemma Annotation Foundation | #13 | `ac1cd40ae190577783453050f2cbc209cd3958a6` | rebase → `4cc435893207cdd32216012ca887d338e1932250` |
 | M5 Human-Reviewed POS Annotation Foundation | #14 | `139f3349b8556f5dd13d5c2d8808fda4a79dc819` | rebase → `49163ee407c0dae7d9e20cc647cabc8ae98f75de`; Gate 3 exact tree identity PASS; branch cleanup PASS |
-| M6 Mode-Oriented Workbench Information Architecture | — | implementation not started | contract frozen only |
+| M6 Mode-Oriented Workbench Information Architecture | — | candidate in progress on named branch | contract frozen; Gate 2 and Human review pending |
 
 M0.5 and M0.6 merge commits preserved exact reviewed trees. M0.7, M1, M2,
 M3, M4 and M5 used repository-permitted rebase merge; their Gate 3 bridges are
@@ -537,7 +539,7 @@ Canonical GitHub Actions workflow:
 The workflow remains canonical despite the current provider/pre-step execution
 blockage.
 
-The current executable verification baseline is M5 / Alembic `0006` and
+The current candidate verification baseline is M6 / Alembic `0006` and
 includes:
 
 ```text
@@ -554,6 +556,7 @@ Playwright M2 sentence segmentation
 Playwright M3 token segmentation
 Playwright M4 lemma annotation
 Playwright M5 POS annotation
+Playwright M6 Workbench information architecture
 cleanup / dependency-hash / final tree integrity
 ```
 
@@ -1473,5 +1476,6 @@ contract input. M6 contract freeze alone does not resolve it.
 
 M5 is **COMPLETE / MERGED / CLOSED**.
 
-M6 is authorized only through docs-only contract freeze. M6 implementation
-remains separately unauthorized.
+M6 bounded candidate implementation is authorized only on
+`m6-mode-oriented-workbench-information-architecture`; no PR or merge is
+authorized.

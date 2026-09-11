@@ -1479,6 +1479,39 @@ describe('WorkspacePage (M0.6 alignment visualization)', () => {
     expect(screen.getByTestId('connector-overlay')).toBeInTheDocument();
   });
 
+  it('clears pointer hover on leaving Alignment while preserving active alignment and Inspector draft', async () => {
+    await renderAlignedWorkspace();
+    const activate = screen.getByRole('button', { name: 'Activate alignment al-1' });
+
+    fireEvent.pointerEnter(activate);
+    expect(screen.getByTestId('connector-overlay')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    expect(screen.queryByTestId('connector-overlay')).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Alignment' }));
+    fireEvent.click(activate);
+    const note = screen.getByRole('textbox', { name: /Note/ });
+    fireEvent.change(note, { target: { value: 'unsaved note' } });
+    fireEvent.click(screen.getByRole('tab', { name: 'Lemma' }));
+    expect(screen.getByTestId('connector-overlay')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /Note/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Alignment' }));
+    expect(screen.getByRole('textbox', { name: /Note/ })).toHaveValue('unsaved note');
+  });
+
+  it('pins an open Alignment destructive dialog by locking task navigation', async () => {
+    await renderAlignedWorkspace();
+    fireEvent.click(screen.getByRole('button', { name: 'Activate alignment al-1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Alignment' }));
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    await waitFor(() => {
+      for (const tab of screen.getAllByRole('tab')) expect(tab).toBeDisabled();
+    });
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('tab', { name: 'Sentence' })).toBeEnabled();
+  });
+
   it('overlay disappears when the hovered/active alignment is cleared by a snapshot without it', async () => {
     let current = alignedSnapshot();
     installFetchMock([
@@ -1821,7 +1854,7 @@ function segmentedSnapshot(
 }
 
 describe('WorkspacePage — M4 lemma annotation', () => {
-  it('composes the lemma panel after the token panel and outside the content root', async () => {
+  it('mounts linguistic sessions in the bounded task deck and outside every canonical panel', async () => {
     installFetchMock([['/workspace', () => json(200, segmentedSnapshot())]]);
     const view = renderPageAt(
       <WorkspacePage />,
@@ -1831,26 +1864,15 @@ describe('WorkspacePage — M4 lemma annotation', () => {
     await openEnglishPanel();
 
     const slot = view.container.querySelector('.panel-slot');
-    const sentence = slot?.querySelector(
-      '.segmentation-panel:not(.token-segmentation-panel):not(.lemma-annotation-panel)',
-    );
-    const token = slot?.querySelector('.token-segmentation-panel');
-    const lemma = slot?.querySelector('.lemma-annotation-panel');
+    const sentence = view.container.querySelector('[data-session-key="tv-en:sentence"] .segmentation-panel');
+    const token = view.container.querySelector('[data-session-key="tv-en:token"] .token-segmentation-panel');
+    const lemma = view.container.querySelector('[data-session-key="tv-en:lemma"] .lemma-annotation-panel');
     expect(sentence).not.toBeNull();
     expect(token).not.toBeNull();
     expect(lemma).not.toBeNull();
-
-    // Conceptual order: TextPanel -> sentence -> token -> lemma.
-    const textPanel = slot?.querySelector('.text-panel');
-    expect(
-      textPanel!.compareDocumentPosition(sentence!) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      sentence!.compareDocumentPosition(token!) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      token!.compareDocumentPosition(lemma!) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(slot?.querySelector('.segmentation-panel')).toBeNull();
+    expect(screen.getAllByRole('tab')).toHaveLength(5);
+    expect(screen.getByRole('tabpanel', { name: 'Alignment task' })).toBeVisible();
 
     // The lemma UI never enters the canonical text root.
     const root = slot?.querySelector('[data-text-content-root]') as HTMLElement;
@@ -1888,8 +1910,8 @@ describe('WorkspacePage — M4 lemma annotation', () => {
     );
     await openEnglishPanel();
 
-    const slot = view.container.querySelector('.panel-slot') as HTMLElement;
-    const lemmaPanel = slot.querySelector('.lemma-annotation-panel') as HTMLElement;
+    fireEvent.click(screen.getByRole('tab', { name: 'Lemma' }));
+    const lemmaPanel = view.container.querySelector('[data-session-key="tv-en:lemma"] .lemma-annotation-panel') as HTMLElement;
     const savedIds = Array.from(
       lemmaPanel.querySelectorAll('.lemma-row'),
     ).map((row) => row.getAttribute('data-token-segment-id'));
@@ -1898,13 +1920,17 @@ describe('WorkspacePage — M4 lemma annotation', () => {
 
     // Build an UNSAVED token preview in the token panel: extra draft rows must
     // never become lemma targets.
-    const tokenPanel = slot.querySelector('.token-segmentation-panel') as HTMLElement;
+    fireEvent.click(screen.getByRole('tab', { name: 'Token' }));
+    const tokenPanel = view.container.querySelector('[data-session-key="tv-en:token"] .token-segmentation-panel') as HTMLElement;
     fireEvent.click(within(tokenPanel).getByRole('button', { name: 'Start manual' }));
     fireEvent.change(within(tokenPanel).getAllByLabelText('Split at')[0]!, {
       target: { value: '1' },
     });
     fireEvent.click(within(tokenPanel).getAllByRole('button', { name: 'Split' })[0]!);
     expect(within(tokenPanel).getByText('Unsaved preview')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Lemma' }));
+    expect(view.container.querySelector('[data-session-key="tv-en:lemma"] .lemma-annotation-panel')).toBe(lemmaPanel);
 
     const afterDraftIds = Array.from(
       lemmaPanel.querySelectorAll('.lemma-row'),
@@ -1920,8 +1946,10 @@ describe('WorkspacePage — M4 lemma annotation', () => {
       '/documents/doc-1/workspace',
     );
     await openEnglishPanel();
+    fireEvent.click(screen.getByRole('tab', { name: 'Lemma' }));
+    const lemmaTask = document.querySelector('[data-session-key="tv-en:lemma"]') as HTMLElement;
     expect(
-      await screen.findByText(
+      await within(lemmaTask).findByText(
         'Save token segmentation before adding lemma annotations.',
       ),
     ).toBeInTheDocument();

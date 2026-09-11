@@ -168,16 +168,20 @@ async function openPanel(page: Page, label: string) {
     await openButton.click();
   }
   await expect(slot).toBeVisible();
+  await page.getByRole('tab', { name: 'Lemma' }).click();
+  await page.getByRole('combobox', { name: 'Active text version' }).selectOption({ label });
 }
 
-function panelSlot(page: Page, label: string) {
+function canonicalPanelSlot(page: Page, label: string) {
   return page.locator('.panel-slot', { hasText: label });
 }
 
+function lemmaPanel(page: Page, label: string) {
+  return page.locator('.lemma-annotation-panel', { hasText: label });
+}
+
 function lemmaRow(page: Page, label: string, tokenSegmentId: string) {
-  return panelSlot(page, label).locator(
-    `.lemma-annotation-panel [data-token-segment-id="${tokenSegmentId}"]`,
-  );
+  return lemmaPanel(page, label).locator(`[data-token-segment-id="${tokenSegmentId}"]`);
 }
 
 async function saveLemma(
@@ -247,7 +251,7 @@ test('M4 lemma annotation persists, edits, deletes, and preserves segmentation +
   await page.goto(`/documents/${document.id}/workspace`);
   await openPanel(page, 'M4 English');
 
-  const lemmaPanel = panelSlot(page, 'M4 English').locator('.lemma-annotation-panel');
+  const lemmaPanel = page.locator('.lemma-annotation-panel', { hasText: 'M4 English' });
   // Only saved word-like tokens are lemma targets; separators are absent.
   await expect(lemmaPanel.locator('.lemma-row')).toHaveCount(3);
   await expect(lemmaPanel).toContainText('0 annotated / 3 word-like');
@@ -287,7 +291,7 @@ test('M4 lemma annotation persists, edits, deletes, and preserves segmentation +
   await saveLemma(page, 'M4 English', bye!.id, 'bye');
   await page.reload();
   await openPanel(page, 'M4 English');
-  const reloadedPanel = panelSlot(page, 'M4 English').locator('.lemma-annotation-panel');
+  const reloadedPanel = page.locator('.lemma-annotation-panel', { hasText: 'M4 English' });
   await expect(reloadedPanel).toContainText('2 annotated / 3 word-like');
   await expect(
     lemmaRow(page, 'M4 English', bye!.id).locator('.lemma-saved-value'),
@@ -309,14 +313,16 @@ test('M4 lemma annotation persists, edits, deletes, and preserves segmentation +
   // Sentence and token segmentation are preserved.
   await page.reload();
   await openPanel(page, 'M4 English');
-  const slot = panelSlot(page, 'M4 English');
-  await expect(slot.locator('.token-segmentation-panel .segmentation-row')).toHaveCount(
+  await page.getByRole('tab', { name: 'Token' }).click();
+  const tokenPanel = page.locator('.token-segmentation-panel', { hasText: 'M4 English' });
+  await expect(tokenPanel.locator('.segmentation-row')).toHaveCount(
     tokens.length,
   );
   await expect(
-    slot.locator('.token-segmentation-panel').getByText('Saved'),
+    tokenPanel.getByText('Saved'),
   ).toBeVisible();
-  await expect(slot.locator('.lemma-annotation-panel .lemma-row')).toHaveCount(3);
+  await page.getByRole('tab', { name: 'Lemma' }).click();
+  await expect(lemmaPanel(page, 'M4 English').locator('.lemma-row')).toHaveCount(3);
 
   // Alignment state is preserved, and canonical text is unchanged.
   const snapshot = await (
@@ -333,7 +339,7 @@ test('M4 lemma annotation persists, edits, deletes, and preserves segmentation +
   expect(
     snapshot.text_versions.find((item) => item.id === version.id)?.content,
   ).toBe(content);
-  const contentRoot = slot.locator('.text-panel [data-text-content-root]');
+  const contentRoot = canonicalPanelSlot(page, 'M4 English').locator('.text-panel [data-text-content-root]');
   await expect(contentRoot).toHaveText(content);
   await expect(contentRoot.locator('.lemma-annotation-panel')).toHaveCount(0);
 });
@@ -365,7 +371,8 @@ test('M4 lemma dependency blocks retokenization until the annotation is deleted'
 
   // Attempt a saved-token replacement from the token panel: the backend
   // dependency block must surface in the UI.
-  const tokenPanel = panelSlot(page, 'M4 Dependency').locator('.token-segmentation-panel');
+  await page.getByRole('tab', { name: 'Token' }).click();
+  const tokenPanel = page.locator('.token-segmentation-panel', { hasText: 'M4 Dependency' });
   await tokenPanel.getByRole('button', { name: 'Start manual' }).click();
   await expect(tokenPanel.getByText('Unsaved preview')).toBeVisible();
   await tokenPanel.getByRole('button', { name: 'Save tokens' }).click();
@@ -393,6 +400,7 @@ test('M4 lemma dependency blocks retokenization until the annotation is deleted'
   expect((await blocked.json()).code).toBe('SEGMENTATION_HAS_DEPENDENTS');
 
   // Explicit lemma deletion unblocks retokenization.
+  await page.getByRole('tab', { name: 'Lemma' }).click();
   await lemmaRow(page, 'M4 Dependency', alpha.id)
     .getByRole('button', { name: 'Delete lemma' })
     .click();
@@ -400,13 +408,13 @@ test('M4 lemma dependency blocks retokenization until the annotation is deleted'
     lemmaRow(page, 'M4 Dependency', alpha.id).locator('.lemma-empty'),
   ).toBeVisible();
 
+  await page.getByRole('tab', { name: 'Token' }).click();
   await tokenPanel.getByRole('button', { name: 'Save tokens' }).click();
   await expect(tokenPanel.getByText('Saved')).toBeVisible();
   await expect(tokenPanel.locator('.segmentation-row')).toHaveCount(1);
   // The new saved token layer has no lemma dependents.
-  const refreshedLemmaPanel = panelSlot(page, 'M4 Dependency').locator(
-    '.lemma-annotation-panel',
-  );
+  await page.getByRole('tab', { name: 'Lemma' }).click();
+  const refreshedLemmaPanel = lemmaPanel(page, 'M4 Dependency');
   await expect(refreshedLemmaPanel.locator('.lemma-row')).toHaveCount(1);
   await expect(refreshedLemmaPanel).toContainText('0 annotated / 1 word-like');
 });
@@ -449,7 +457,7 @@ test('M4 lemma annotation keeps Unicode content and token identity intact', asyn
 
   await page.goto(`/documents/${document.id}/workspace`);
   await openPanel(page, 'M4 Unicode');
-  const panel = panelSlot(page, 'M4 Unicode').locator('.lemma-annotation-panel');
+  const panel = lemmaPanel(page, 'M4 Unicode');
   await expect(panel.locator('.lemma-row')).toHaveCount(4);
 
   // Exact backend-authoritative token previews (canonical NFC text).
@@ -469,7 +477,7 @@ test('M4 lemma annotation keeps Unicode content and token identity intact', asyn
 
   await page.reload();
   await openPanel(page, 'M4 Unicode');
-  const reloaded = panelSlot(page, 'M4 Unicode').locator('.lemma-annotation-panel');
+  const reloaded = lemmaPanel(page, 'M4 Unicode');
   await expect(reloaded).toContainText('4 annotated / 4 word-like');
   await expect(
     lemmaRow(page, 'M4 Unicode', haus.id).locator('.lemma-saved-value'),
@@ -516,6 +524,6 @@ test('M4 lemma annotation keeps Unicode content and token identity intact', asyn
   );
   expect(snapshot.token_lemma_annotations).toHaveLength(4);
   await expect(
-    panelSlot(page, 'M4 Unicode').locator('.text-panel [data-text-content-root]'),
+    canonicalPanelSlot(page, 'M4 Unicode').locator('.text-panel [data-text-content-root]'),
   ).toHaveText(content);
 });

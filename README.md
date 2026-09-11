@@ -20,11 +20,10 @@ base  6adcf78b18349621bb80d6ea35f93308c2f1d42a
 tree  cf32f682539b8bf58f35660809e5f0c120720426
 ```
 
-M6 implementation has **not** started and is **not authorized**. The planned
-implementation branch
-`m6-mode-oriented-workbench-information-architecture` may not be created until
-the docs-only freeze commit is independently verified and the Human separately
-authorizes bounded implementation.
+M6 bounded implementation is **IN PROGRESS / CANDIDATE NOT MERGED** on
+`m6-mode-oriented-workbench-information-architecture`, created from the exact
+independently verified contract-freeze commit. Gate 2, Human review, PR
+creation, and merge remain unauthorized future decisions.
 
 The frozen M6 scope replaces the repeated per-TextVersion linguistic-panel
 stack with a persistent canonical Text Canvas, five-destination task deck,
@@ -182,8 +181,8 @@ Read these when reconstructing project state:
 - `docs/testing/testing-strategy.md` — testing/evidence rules;
 - `docs/testing/manual-acceptance.md` — human M0 walkthrough.
 
-M6 is authorized only through docs-only contract freeze. Bounded
-implementation remains separately unauthorized.
+M6 bounded candidate implementation is authorized only on its named branch.
+No PR or merge is authorized.
 
 ## Repository layout
 
@@ -364,7 +363,7 @@ npm.cmd run lint
 npm.cmd run typecheck
 npm.cmd run test
 npm.cmd run build
-npx.cmd playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmentation.spec.ts e2e/token-segmentation.spec.ts e2e/lemma-annotation.spec.ts e2e/pos-annotation.spec.ts
+npx.cmd playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmentation.spec.ts e2e/token-segmentation.spec.ts e2e/lemma-annotation.spec.ts e2e/pos-annotation.spec.ts e2e/workbench-information-architecture.spec.ts
 ```
 
 A full release-baseline proof requires real PostgreSQL integration tests and a

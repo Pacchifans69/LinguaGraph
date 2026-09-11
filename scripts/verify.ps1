@@ -33,7 +33,7 @@
 #              npm run test
 #              npm run build
 #   e2e      : npx playwright install chromium (no-op when present)
-#              npx playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmentation.spec.ts e2e/token-segmentation.spec.ts e2e/lemma-annotation.spec.ts e2e/pos-annotation.spec.ts
+#              npx playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmentation.spec.ts e2e/token-segmentation.spec.ts e2e/lemma-annotation.spec.ts e2e/pos-annotation.spec.ts e2e/workbench-information-architecture.spec.ts
 #
 # Development data is preserved: no downgrade, no reset, no volume
 # deletion, no .env overwrite. Any destructive migration cycle relies on
@@ -348,7 +348,7 @@ Invoke-VerifyStep 'frontend: npm run build (production build)' $WebRoot @('npm',
 # ---------------------------------------------------------------------------
 
 Invoke-VerifyStep 'e2e: npx playwright install chromium (no-op when present)' $WebRoot @('npx', 'playwright', 'install', 'chromium')
-Invoke-VerifyStep 'e2e: golden path + Unicode + M2/M3/M4/M5 segmentation, lemma and POS (npx playwright test)' $WebRoot @('npx', 'playwright', 'test', 'e2e/golden-path.spec.ts', 'e2e/unicode.spec.ts', 'e2e/segmentation.spec.ts', 'e2e/token-segmentation.spec.ts', 'e2e/lemma-annotation.spec.ts', 'e2e/pos-annotation.spec.ts')
+Invoke-VerifyStep 'e2e: complete M0-M6 surface (npx playwright test)' $WebRoot @('npx', 'playwright', 'test', 'e2e/golden-path.spec.ts', 'e2e/unicode.spec.ts', 'e2e/segmentation.spec.ts', 'e2e/token-segmentation.spec.ts', 'e2e/lemma-annotation.spec.ts', 'e2e/pos-annotation.spec.ts', 'e2e/workbench-information-architecture.spec.ts')
 
 # ---------------------------------------------------------------------------
 # Summary

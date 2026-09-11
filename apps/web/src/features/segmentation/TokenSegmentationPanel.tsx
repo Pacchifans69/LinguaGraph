@@ -16,6 +16,7 @@ import {
   suggestTokens,
   type TokenDraft,
 } from './tokenSuggestion';
+import type { EditorSessionStatus } from '../workspace/workbenchIa';
 
 interface Props {
   documentId: string;
@@ -24,6 +25,7 @@ interface Props {
   sentenceSegments: LinguisticSegment[];
   savedLayer?: SegmentationLayer;
   savedSegments: LinguisticSegment[];
+  onSessionStateChange?: (status: EditorSessionStatus) => void;
 }
 
 function ranges(segments: LinguisticSegment[]): SegmentDraft[] {
@@ -153,6 +155,7 @@ export function TokenSegmentationPanel({
   sentenceSegments,
   savedLayer,
   savedSegments,
+  onSessionStateChange,
 }: Props) {
   const put = usePutTokenSegmentation(documentId);
   const remove = useDeleteTokenSegmentation(documentId);
@@ -169,6 +172,7 @@ export function TokenSegmentationPanel({
   );
   const identity = `${version.content_hash}:${sentenceLayer?.id ?? 'none'}:${savedLayer?.id ?? 'none'}:${savedKey}`;
   const [draft, setDraft] = useState<TokenDraft[]>(authoritative);
+  const [draftContent, setDraftContent] = useState(version.content);
   const [draftIdentity, setDraftIdentity] = useState(identity);
   const [origin, setOrigin] = useState<'manual' | 'intl_segmenter'>(savedLayer?.origin ?? 'manual');
   const [locale, setLocale] = useState(savedLayer?.resolved_locale ?? version.language_tag);
@@ -176,20 +180,52 @@ export function TokenSegmentationPanel({
   const [splits, setSplits] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [conflict, setConflict] = useState(false);
+  const [submittedDraftKey, setSubmittedDraftKey] = useState<string | null>(null);
 
   useEffect(() => {
+    if (draftIdentity === identity) return;
+    if (dirty && submittedDraftKey === savedKey) {
+      setDraft(authoritative);
+      setDraftContent(version.content);
+      setDraftIdentity(identity);
+      setOrigin(savedLayer?.origin ?? 'manual');
+      setLocale(savedLayer?.resolved_locale ?? version.language_tag);
+      setDirty(false);
+      setConflict(false);
+      setSubmittedDraftKey(null);
+      setSplits({});
+      return;
+    }
+    if (dirty) {
+      setConflict(true);
+      setSubmittedDraftKey(null);
+      return;
+    }
     setDraft(authoritative);
+    setDraftContent(version.content);
     setDraftIdentity(identity);
     setOrigin(savedLayer?.origin ?? 'manual');
     setLocale(savedLayer?.resolved_locale ?? version.language_tag);
     setDirty(false);
+    setConflict(false);
     setSplits({});
     setError(null);
-  }, [authoritative, identity, savedLayer?.origin, savedLayer?.resolved_locale, version.language_tag]);
+  }, [authoritative, identity, savedKey, savedLayer?.origin, savedLayer?.resolved_locale, version.language_tag, version.content, draftIdentity, dirty, submittedDraftKey]);
 
-  const current = draftIdentity === identity ? draft : authoritative;
-  const changed = draftIdentity === identity && dirty;
+  const current = draft;
+  const changed = dirty;
   const pending = anySegmentationMutationPending;
+
+  useEffect(() => {
+    onSessionStateChange?.({
+      dirty: changed,
+      pending,
+      error: put.isError || remove.isError || error !== null,
+      conflict,
+      dialogOpen: confirmDelete,
+    });
+  }, [changed, pending, put.isError, remove.isError, error, conflict, confirmDelete, onSessionStateChange]);
 
   // Human-readable cleanup state for a token-layer mutation blocked by saved
   // occurrence annotations. The stable error envelope (code + message) is
@@ -212,9 +248,11 @@ export function TokenSegmentationPanel({
 
   function adopt(next: TokenDraft[]) {
     setDraft(next);
+    setDraftContent(version.content);
     setDraftIdentity(identity);
     setOrigin('manual');
     setDirty(true);
+    setConflict(false);
     setSplits({});
     setError(null);
   }
@@ -232,6 +270,7 @@ export function TokenSegmentationPanel({
       setOrigin('intl_segmenter');
       setLocale(result.resolvedLocale);
       setDirty(true);
+      setConflict(false);
       setSplits({});
       setError(null);
     } catch (reason) {
@@ -267,10 +306,10 @@ export function TokenSegmentationPanel({
         Basis: <code>{sentenceLayer.id.slice(0, 8)}</code> · Resolved: <code>{locale}</code> · Origin: <code>{origin}</code>
       </p>
       <div className="segmentation-actions">
-        <Button type="button" size="sm" variant="secondary" disabled={pending} onClick={manual}>Start manual</Button>
-        <Button type="button" size="sm" variant="secondary" disabled={pending || !hasIntlWordSegmenter()} onClick={suggest}>Generate word suggestion</Button>
+        <Button type="button" size="sm" variant="secondary" disabled={pending || conflict} onClick={manual}>Start manual</Button>
+        <Button type="button" size="sm" variant="secondary" disabled={pending || conflict || !hasIntlWordSegmenter()} onClick={suggest}>Generate word suggestion</Button>
         <Button type="button" size="sm" variant="quiet" disabled={pending || !changed} onClick={() => {
-          setDraft(authoritative); setDraftIdentity(identity); setDirty(false); setError(null);
+          setDraft(authoritative); setDraftContent(version.content); setDraftIdentity(identity); setDirty(false); setConflict(false); setSubmittedDraftKey(null); setError(null);
         }}>Discard preview</Button>
       </div>
       {!hasIntlWordSegmenter() ? <p className="segmentation-warning" role="status">Intl.Segmenter word mode is unavailable. Manual construction remains available.</p> : null}
@@ -282,6 +321,7 @@ export function TokenSegmentationPanel({
           {dependencyGuidance}
         </p>
       ) : null}
+      {conflict ? <p className="segmentation-warning" role="alert">The saved sentence or token basis changed while this preview was unsaved. Discard the preview to load current data; stale tokens cannot be submitted.</p> : null}
 
       {current.length === 0 ? (
         <p className="segmentation-empty">{version.content.length === 0 ? 'Canonical content is empty; the token partition is empty.' : 'No token preview.'}</p>
@@ -294,13 +334,13 @@ export function TokenSegmentationPanel({
               <li className="segmentation-row" key={`${token.start}:${token.end}`}>
                 <div className="segmentation-copy">
                   <span className="segmentation-range">{index + 1}. [{token.start}, {token.end})</span>
-                  <span className="token-preview">{JSON.stringify(sliceByCodePoints(version.content, token.start, token.end))}</span>
+                  <span className="token-preview">{JSON.stringify(sliceByCodePoints(draftContent, token.start, token.end))}</span>
                 </div>
                 <div className="segmentation-row-actions">
-                  <label><input type="checkbox" checked={token.isWordLike} disabled={pending} onChange={() => adopt(current.map((item, itemIndex) => itemIndex === index ? { ...item, isWordLike: !item.isWordLike } : item))} />Word-like</label>
-                  <label>Split at<input type="number" min={token.start + 1} max={token.end - 1} value={splits[index] ?? ''} disabled={pending || token.end - token.start < 2} onChange={(event) => setSplits((value) => ({ ...value, [index]: event.target.value }))} /></label>
-                  <Button type="button" size="sm" variant="secondary" disabled={pending || !Number.isInteger(split) || split <= token.start || split >= token.end} onClick={() => adopt(splitToken(version.content, sentences, current, index, split))}>Split</Button>
-                  {index > 0 ? <Button type="button" size="sm" variant="quiet" disabled={pending || sentenceBoundary} onClick={() => adopt(mergeTokenWithPrevious(version.content, sentences, current, index))}>Merge previous</Button> : null}
+                  <label><input type="checkbox" checked={token.isWordLike} disabled={pending || conflict} onChange={() => adopt(current.map((item, itemIndex) => itemIndex === index ? { ...item, isWordLike: !item.isWordLike } : item))} />Word-like</label>
+                  <label>Split at<input type="number" min={token.start + 1} max={token.end - 1} value={splits[index] ?? ''} disabled={pending || conflict || token.end - token.start < 2} onChange={(event) => setSplits((value) => ({ ...value, [index]: event.target.value }))} /></label>
+                  <Button type="button" size="sm" variant="secondary" disabled={pending || conflict || !Number.isInteger(split) || split <= token.start || split >= token.end} onClick={() => adopt(splitToken(version.content, sentences, current, index, split))}>Split</Button>
+                  {index > 0 ? <Button type="button" size="sm" variant="quiet" disabled={pending || conflict || sentenceBoundary} onClick={() => adopt(mergeTokenWithPrevious(version.content, sentences, current, index))}>Merge previous</Button> : null}
                 </div>
               </li>
             );
@@ -308,11 +348,12 @@ export function TokenSegmentationPanel({
         </ol>
       )}
       <div className="segmentation-footer">
-        <Button type="button" size="sm" variant="primary" disabled={pending || !changed} onClick={() => {
+        <Button type="button" size="sm" variant="primary" disabled={pending || !changed || conflict} onClick={() => {
           // HSDR-F01: a new replacement supersedes any stored deletion
           // outcome before it starts, so only this operation's response can
           // become Human-visible dependency guidance.
           remove.reset();
+          setSubmittedDraftKey(JSON.stringify(current));
           put.mutate({
             textVersionId: version.id,
             content_hash: version.content_hash,
