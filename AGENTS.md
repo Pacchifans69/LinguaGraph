@@ -27,6 +27,10 @@ The completed frozen M5 execution contract is:
 
 `docs/development/M5_CONTRACT.md`
 
+The active frozen M6 execution contract is:
+
+`docs/development/M6_CONTRACT.md`
+
 Before planning, modifying files, installing dependencies, or writing
 implementation code:
 
@@ -44,6 +48,35 @@ implementation code:
    contract.
 
 ## Current phase
+
+M6 — Mode-Oriented Workbench Information Architecture — now has a
+Human-approved frozen execution contract in
+`docs/development/M6_CONTRACT.md`.
+
+**M6 implementation is NOT STARTED / NOT AUTHORIZED.** No M6 implementation
+branch may be created until the docs-only freeze commit is independently
+verified and the Human separately authorizes bounded implementation.
+
+M6 contract-freeze coordinates:
+
+- approved pre-freeze durable base:
+  `6adcf78b18349621bb80d6ea35f93308c2f1d42a`;
+- approved pre-freeze durable tree:
+  `cf32f682539b8bf58f35660809e5f0c120720426`;
+- governing contract: `docs/development/M6_CONTRACT.md`;
+- planned implementation branch:
+  `m6-mode-oriented-workbench-information-architecture`;
+- implementation authorization: **NOT GRANTED**.
+
+M6 is governed by the Human-approved A+ composition, mount-preserved editor
+sessions, and mode-independent connector decision. It must keep the canonical
+Text Canvas persistent, expose exactly one bounded task surface, retain compact
+Alignment Tray status in every mode, and preserve all M0–M5 domain and
+canonical-text invariants.
+
+The M5 External Infrastructure Exception does not carry forward to M6. Any M6
+exception requires new exact-candidate evidence and explicit Human approval at
+M6 Gate 2.
 
 M5 — Human-Reviewed POS Annotation Foundation — has completed its bounded
 implementation, exact-candidate Gate 2, Human Static Diff Review, Human Runtime
@@ -123,9 +156,9 @@ Human Static Diff Review: **PASS**.
 Human Runtime Acceptance: **PASS WITH HUMAN-APPROVED UX DEFERRAL**.
 
 `HRA-F01` — Workbench information architecture / panel density — remains
-**OPEN / DEFERRED**. It is a real Human finding, is not resolved by M5, and must
-be the first contract input of the next Human-authorized Workbench Information
-Architecture checkpoint. M5 closeout does not relabel it as resolved.
+**OPEN / ACTIVE M6 TARGET**. It is a real Human finding, was not resolved by
+M5, and is the first contract input and required Human Runtime Acceptance
+closure target of M6. Contract freeze alone does not resolve it.
 
 M4 — Human-Reviewed Lemma Annotation Foundation — is
 **COMPLETE / MERGED / CLOSED**.
@@ -188,7 +221,7 @@ while `G2-X01` is open.
 
 See `docs/development/M0_7_CLOSEOUT.md` for the full historical ledger.
 
-## Post-M5 boundary
+## Post-M5 / M6 boundary
 
 M5 is complete, merged, durably recorded, and closed. The exact reviewed
 candidate and the post-rebase implementation `main` share tree
@@ -200,11 +233,14 @@ unchanged after deletion.
 
 All proof repositories, successful CircleCI evidence, GitHub Actions
 diagnostics, PR history, and reviewed candidate history remain retained.
-`G2-X01` remains `OPEN / EXTERNAL`; `HRA-F01` remains `OPEN / DEFERRED`.
+`G2-X01` remains `OPEN / EXTERNAL`; `HRA-F01` remains open as the active M6
+Human acceptance target.
 
-No next implementation checkpoint is authorized by this closeout. If/when the
-Human opens the next Workbench Information Architecture checkpoint,
-`HRA-F01` must be its first contract input.
+M6 — Mode-Oriented Workbench Information Architecture — is now the active
+frozen normative checkpoint. It is authorized only to the contract-freeze
+boundary. Until a separate Human authorization is given, do not create the M6
+implementation branch and do not modify implementation, test, dependency,
+runtime, ADR, architecture-as-built, or workflow files.
 
 ## Scope discipline
 
@@ -221,6 +257,8 @@ completed M1 interaction boundary remains defined by `M1_CONTRACT.md`;
 completed M2/M3 segmentation boundaries remain defined by their contracts; the
 completed M4 occurrence-level lemma boundary remains defined by
 `M4_CONTRACT.md` and ADR-012; and the completed M5 coarse-POS boundary remains
-defined by `M5_CONTRACT.md` and ADR-013.
+defined by `M5_CONTRACT.md` and ADR-013. The active M6 information-architecture
+boundary is defined by `M6_CONTRACT.md`; ADR-014 is an implementation
+obligation and is not part of this docs-only freeze.
 
 This file records workflow state and does not replace those authorities.

@@ -11,6 +11,43 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ## 0. Current durable status
 
+M6 — Mode-Oriented Workbench Information Architecture — now has a
+Human-approved frozen execution contract in
+`docs/development/M6_CONTRACT.md`.
+
+**M6 implementation is NOT STARTED / NOT AUTHORIZED.** No implementation
+branch may be created until the docs-only freeze commit is independently
+verified and the Human separately authorizes bounded implementation.
+
+M6 approved pre-freeze coordinates:
+
+- base:
+  `6adcf78b18349621bb80d6ea35f93308c2f1d42a`;
+- tree:
+  `cf32f682539b8bf58f35660809e5f0c120720426`;
+- governing contract:
+  `docs/development/M6_CONTRACT.md`;
+- planned implementation branch:
+  `m6-mode-oriented-workbench-information-architecture`.
+
+The M6 docs-only freeze commit is the commit containing this state update; its
+parent must be exactly `6adcf78b18349621bb80d6ea35f93308c2f1d42a`.
+Resolve the freeze commit/tree directly from Git history rather than embedding
+a self-referential SHA in this file.
+
+The frozen M6 composition is a persistent canonical Text Canvas plus five
+task destinations (`Alignment`, `Sentence`, `Token`, `Lemma`, `POS`), one
+bounded visible task surface, mount-preserved linguistic editor sessions,
+persistent compact Alignment Tray status, and mode-independent connectors.
+
+`HRA-F01` remains **OPEN / ACTIVE M6 TARGET**. Contract freeze alone does not
+close it. M6 Human Runtime Acceptance must explicitly close the finding before
+any M6 merge decision.
+
+The M5 External Infrastructure Exception does not carry forward to M6.
+`G2-X01` remains **OPEN / EXTERNAL**; any M6-specific exception requires new
+exact-candidate evidence and separate Human approval at M6 Gate 2.
+
 M5 — Human-Reviewed POS Annotation Foundation — has completed bounded
 implementation, exact-candidate Gate 2, Human Static Diff Review, Human Runtime
 Acceptance, PR #14, explicit Human Merge Decision, rebase merge, Gate 3 exact
@@ -101,10 +138,9 @@ Human Runtime Acceptance:
 
 **PASS WITH HUMAN-APPROVED UX DEFERRAL.**
 
-`HRA-F01` — Workbench information architecture / panel density — remains
-**OPEN / DEFERRED**. It is a real Human finding, is not resolved by M5, and
-must be the first contract input of the next Human-authorized Workbench
-Information Architecture checkpoint.
+`HRA-F01` — Workbench information architecture / panel density — was not
+resolved by M5. It is now the first frozen input and required Human acceptance
+target of M6.
 
 M4 — Human-Reviewed Lemma Annotation Foundation — is
 **COMPLETE / MERGED / CLOSED**. Its historical durable provenance remains
@@ -115,11 +151,13 @@ recorded in section 13.
 Current completed, merged and closed implementation checkpoint: **M5 —
 Human-Reviewed POS Annotation Foundation**.
 
-Current governance boundary: **POST-M5 / NO NEXT IMPLEMENTATION CHECKPOINT
-AUTHORIZED**.
+Current normative checkpoint: **M6 — Mode-Oriented Workbench Information
+Architecture / CONTRACT FROZEN / IMPLEMENTATION NOT AUTHORIZED**.
 
-If/when the Human opens the next Workbench Information Architecture checkpoint,
-`HRA-F01` must be its first contract input.
+M6 is authorized only through the docs-only contract-freeze boundary. Until a
+separate Human authorization is given, do not create the M6 implementation
+branch and do not modify implementation, test, dependency, runtime, ADR,
+architecture-as-built, or workflow files.
 
 The M5 docs-only contract-freeze commit, post-merge durable-state closure, and
 this branch-cleanup durable record remain historical provenance. Resolve the
@@ -142,6 +180,7 @@ embedding a self-referential SHA in this file.
 | M3 Word/Token Segmentation Foundation | #12 | `d4254c1239e649b17dc4ae6d6f995e52bd4635db` | rebase → `fc607b597bee35aff31a06a3945fa7a256f6b5c8` |
 | M4 Human-Reviewed Lemma Annotation Foundation | #13 | `ac1cd40ae190577783453050f2cbc209cd3958a6` | rebase → `4cc435893207cdd32216012ca887d338e1932250` |
 | M5 Human-Reviewed POS Annotation Foundation | #14 | `139f3349b8556f5dd13d5c2d8808fda4a79dc819` | rebase → `49163ee407c0dae7d9e20cc647cabc8ae98f75de`; Gate 3 exact tree identity PASS; branch cleanup PASS |
+| M6 Mode-Oriented Workbench Information Architecture | — | implementation not started | contract frozen only |
 
 M0.5 and M0.6 merge commits preserved exact reviewed trees. M0.7, M1, M2,
 M3, M4 and M5 used repository-permitted rebase merge; their Gate 3 bridges are
@@ -526,8 +565,7 @@ Open/non-blocking or explicitly deferred items:
 
 - `G2-X01` — GitHub-hosted-runner execution remains `OPEN / EXTERNAL`;
 - `HRA-F01` — Workbench information architecture / panel density remains
-  `OPEN / DEFERRED`; it must be the first contract input of the next
-  Human-authorized Workbench Information Architecture checkpoint;
+  `OPEN / ACTIVE M6 TARGET`; contract freeze does not close it;
 - HRA-F07 — a malformed local `node` command that resolves without version
   stdout can surface a low-level PowerShell/.NET diagnostic;
 - HRA-F09 — inherited connector lines can cross text glyphs under frozen
@@ -1188,7 +1226,8 @@ Completed lifecycle:
 
 `G2-X01` remains **OPEN / EXTERNAL**.
 
-`HRA-F01` remains **OPEN / DEFERRED** and is not resolved by M5 closeout.
+`HRA-F01` remains open, was not resolved by M5 closeout, and is now the active
+M6 Human acceptance target.
 
 ### 14.2 Provenance
 
@@ -1322,12 +1361,13 @@ Accepted runtime behavior covered:
 - Delete Alignment preserves POS;
 - inherited sentence/token/lemma workflows.
 
-`HRA-F01` remains **OPEN / DEFERRED**: the Human judged the vertically stacked
-sentence/token/lemma/POS workspace information architecture and panel density
-NOT ACCEPTABLE. Its root cause spans the overall frontend composition rather
-than M5 POS domain correctness. The Human approved deferral only on the
+`HRA-F01` remains **OPEN / ACTIVE M6 TARGET**: the Human judged the vertically
+stacked sentence/token/lemma/POS workspace information architecture and panel
+density NOT ACCEPTABLE. Its root cause spans the overall frontend composition
+rather than M5 POS domain correctness. The Human approved deferral only on the
 condition that it becomes the first contract input of the next Workbench
-Information Architecture checkpoint and remains unresolved in M5 closeout.
+Information Architecture checkpoint. It is now frozen as the first M6 input
+and remains unresolved until M6 Human Runtime Acceptance explicitly closes it.
 
 ### 14.5 Merge and Gate 3
 
@@ -1428,9 +1468,10 @@ PR history, and reviewed candidate history remain retained.
 
 `G2-X01` remains **OPEN / EXTERNAL**.
 
-`HRA-F01` remains **OPEN / DEFERRED** and must be the first contract input of
-the next Human-authorized Workbench Information Architecture checkpoint.
+`HRA-F01` remains **OPEN / ACTIVE M6 TARGET** and is frozen as the first M6
+contract input. M6 contract freeze alone does not resolve it.
 
 M5 is **COMPLETE / MERGED / CLOSED**.
 
-No next implementation checkpoint is authorized by this closeout.
+M6 is authorized only through docs-only contract freeze. M6 implementation
+remains separately unauthorized.

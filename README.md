@@ -11,6 +11,33 @@ schema structure.
 
 ## Current milestone
 
+M6 — Mode-Oriented Workbench Information Architecture — now has a
+Human-approved frozen execution contract in
+`docs/development/M6_CONTRACT.md` on the approved pre-freeze base:
+
+```text
+base  6adcf78b18349621bb80d6ea35f93308c2f1d42a
+tree  cf32f682539b8bf58f35660809e5f0c120720426
+```
+
+M6 implementation has **not** started and is **not authorized**. The planned
+implementation branch
+`m6-mode-oriented-workbench-information-architecture` may not be created until
+the docs-only freeze commit is independently verified and the Human separately
+authorizes bounded implementation.
+
+The frozen M6 scope replaces the repeated per-TextVersion linguistic-panel
+stack with a persistent canonical Text Canvas, five-destination task deck,
+mount-preserved editor sessions, compact persistent Alignment Tray status, and
+mode-independent connectors. It preserves all backend/API/database semantics,
+canonical text/selection invariants, and M0–M5 workflows.
+
+`HRA-F01` remains **OPEN / ACTIVE M6 TARGET**. Contract freeze alone does not
+resolve it; closure requires successful M6 Gate 2 and explicit Human Runtime
+Acceptance.
+
+### Completed implementation milestone
+
 M5 — Human-Reviewed POS Annotation Foundation — has completed bounded
 implementation, exact-candidate Gate 2, Human Static Diff Review, Human Runtime
 Acceptance, PR #14, explicit Human Merge Decision, rebase merge, Gate 3 exact
@@ -57,12 +84,11 @@ and an empty branch-search result. PR #14 and the reviewed candidate commit
 remain retained as provenance.
 
 Human Runtime Acceptance is **PASS WITH HUMAN-APPROVED UX DEFERRAL**.
-`HRA-F01` — Workbench information architecture / panel density — remains
-**OPEN / DEFERRED** and must be the first contract input of the next
-Human-authorized Workbench Information Architecture checkpoint. It is not
-resolved by M5.
+`HRA-F01` — Workbench information architecture / panel density — was not
+resolved by M5 and is now the first frozen input and Human acceptance target of
+M6.
 
-### Completed previous milestone
+### Earlier completed milestone
 
 M4 — Human-Reviewed Lemma Annotation Foundation — is implemented, Human
 reviewed, merged by rebase through PR #13, durably recorded, and closed after
@@ -124,8 +150,13 @@ Human Static Diff Review: **PASS**.
 
 Human Runtime Acceptance: **PASS WITH HUMAN-APPROVED UX DEFERRAL**.
 
-`G2-X01` remains `OPEN / EXTERNAL`. `HRA-F01` remains `OPEN / DEFERRED`.
+`G2-X01` remains `OPEN / EXTERNAL`. `HRA-F01` remains `OPEN / ACTIVE M6
+TARGET`.
 `HRA-F09` remains inherited non-blocking connector-routing visual debt.
+
+The M5 External Infrastructure Exception does not carry forward to M6. Any M6
+alternative hosted proof path requires new exact-candidate evidence and a
+separate Human-approved M6-specific exception at Gate 2.
 
 ## Authoritative documents
 
@@ -143,6 +174,7 @@ Read these when reconstructing project state:
 - `docs/development/M3_CONTRACT.md` — completed frozen M3 execution contract;
 - `docs/development/M4_CONTRACT.md` — completed frozen M4 execution contract;
 - `docs/development/M5_CONTRACT.md` — completed frozen M5 execution contract;
+- `docs/development/M6_CONTRACT.md` — active frozen M6 execution contract;
 - `docs/development/M0_7_CLOSEOUT.md` — M0.7 Gate 2/Human Review/merge/Gate 3
   evidence ledger;
 - `docs/architecture/ARCHITECTURE.md` — as-built architecture;
@@ -150,7 +182,8 @@ Read these when reconstructing project state:
 - `docs/testing/testing-strategy.md` — testing/evidence rules;
 - `docs/testing/manual-acceptance.md` — human M0 walkthrough.
 
-No next implementation checkpoint is authorized by this closeout.
+M6 is authorized only through docs-only contract freeze. Bounded
+implementation remains separately unauthorized.
 
 ## Repository layout
 
@@ -436,16 +469,16 @@ or automatic re-anchoring.
 
 ## Known limitations / retained debt
 
-These remain accepted at the M5 durable boundary:
+These remain accepted at the M6 contract-freeze boundary:
 
 - `G2-X01` — GitHub-hosted-runner execution remains `OPEN / EXTERNAL`; the
   checkpoint-specific CircleCI proof is retained release evidence, not a
   declaration that GitHub Actions recovered.
 - `HRA-F01` — Workbench information architecture / panel density remains
-  `OPEN / DEFERRED`. Fully expanded sentence/token/lemma/POS panels create
-  excessive page height, scrolling cost and weak visual hierarchy; this must
-  be the first contract input of the next Human-authorized Workbench
-  Information Architecture checkpoint.
+  `OPEN / ACTIVE M6 TARGET`. Fully expanded sentence/token/lemma/POS panels
+  create excessive page height, scrolling cost and weak visual hierarchy; M6
+  freezes this as its first contract input and requires explicit Human Runtime
+  Acceptance before closure.
 - Connector routing uses frozen center-to-hub geometry and can visually cross
   text glyphs while binding correctness remains intact (`HRA-F09`).
 - A malformed/broken local Node command that resolves but emits no version
@@ -581,4 +614,5 @@ result; post-delete `main` remained unchanged. Proof repositories, CircleCI
 records/artifacts, GitHub Actions diagnostics, PR #14, and the reviewed
 candidate commit remain retained.
 
-`G2-X01` remains `OPEN / EXTERNAL`; `HRA-F01` remains `OPEN / DEFERRED`.
+`G2-X01` remains `OPEN / EXTERNAL`; `HRA-F01` remains `OPEN / ACTIVE M6
+TARGET` until M6 Human Runtime Acceptance explicitly closes it.
