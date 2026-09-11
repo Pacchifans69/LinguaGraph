@@ -48,11 +48,8 @@ implementation code:
 M5 — Human-Reviewed POS Annotation Foundation — has completed its bounded
 implementation, exact-candidate Gate 2, Human Static Diff Review, Human Runtime
 Acceptance, PR #14, explicit Human Merge Decision, rebase merge, Gate 3 exact
-tree verification, and post-merge durable-state closure.
-
-The implementation branch remains intentionally retained pending a separate
-Human-authorized exact-guarded cleanup. M5 is therefore **MERGED / DURABLY
-RECORDED / IMPLEMENTATION-BRANCH CLEANUP PENDING**.
+tree verification, post-merge durable-state closure, and exact-guarded
+implementation-branch cleanup. M5 is therefore **COMPLETE / MERGED / CLOSED**.
 
 M5 durable implementation provenance:
 
@@ -64,7 +61,7 @@ M5 durable implementation provenance:
   `11176df91dd9dc3d1169e4bef41808b0abfa8656`;
 - frozen base tree:
   `03b1d0746bb89c5e57fe27e63e417ea274447287`;
-- implementation branch:
+- historical implementation branch:
   `m5-human-reviewed-pos-annotation-foundation`;
 - final reviewed / independently proven candidate:
   `139f3349b8556f5dd13d5c2d8808fda4a79dc819`;
@@ -78,9 +75,23 @@ M5 durable implementation provenance:
   `179aba060d5e798ace46ea6bed0a7c496a50e9ad`;
 - candidate → post-rebase `main` tree identity:
   **PASS / EXACT**;
+- post-merge durable-state closure:
+  `3c02f5fd087edce0f12692f901a697667ecfd31a`;
+- durable closure tree:
+  `40b497d3459113ad66a5fe0800adec95a1bf3479`;
 - governing contract: `docs/development/M5_CONTRACT.md`;
 - decision record:
   `docs/adr/ADR-013-token-occurrence-coarse-pos-annotations.md`.
+
+M5 implementation-branch cleanup is **PASS / EXACT-GUARDED**. The Human guard
+required durable `main@3c02f5fd087edce0f12692f901a697667ecfd31a`
+and exact branch
+`m5-human-reviewed-pos-annotation-foundation@139f3349b8556f5dd13d5c2d8808fda4a79dc819`.
+Both matched before deletion; the remote branch was deleted; the post-delete
+remote `main` remained exactly `3c02f5fd087edce0f12692f901a697667ecfd31a`.
+GitHub independently returned `404 Branch not found` for the branch endpoint
+and an empty branch-search result. The reviewed candidate commit remains
+addressable by SHA and PR #14 remains retained as merged provenance.
 
 M5 Gate 2 passed under the Human-approved M5-specific External Infrastructure
 Exception. The exception waived only successful execution specifically on a
@@ -102,9 +113,10 @@ Accepted independent hosted proof:
 Canonical GitHub Actions run `34564666636` targeted the corrected exact
 candidate and reproduced `G2-X01`: the verification job failed before any
 repository-defined workflow step, with `steps=[]` and unavailable/empty logs.
-PR-event run `34586589640` and post-merge `main` run `34587072906` reproduced
-the same pre-step fingerprint. `G2-X01` therefore remains **OPEN / EXTERNAL**;
-none of these runs constitutes application failure evidence.
+PR-event run `34586589640`, post-merge `main` run `34587072906`, and durable
+closure run `34588391377` reproduced the same pre-step fingerprint. `G2-X01`
+therefore remains **OPEN / EXTERNAL**; none of these runs constitutes
+application failure evidence.
 
 Human Static Diff Review: **PASS**.
 
@@ -113,7 +125,7 @@ Human Runtime Acceptance: **PASS WITH HUMAN-APPROVED UX DEFERRAL**.
 `HRA-F01` — Workbench information architecture / panel density — remains
 **OPEN / DEFERRED**. It is a real Human finding, is not resolved by M5, and must
 be the first contract input of the next Human-authorized Workbench Information
-Architecture checkpoint. M5 closeout must not relabel it as resolved.
+Architecture checkpoint. M5 closeout does not relabel it as resolved.
 
 M4 — Human-Reviewed Lemma Annotation Foundation — is
 **COMPLETE / MERGED / CLOSED**.
@@ -178,19 +190,17 @@ See `docs/development/M0_7_CLOSEOUT.md` for the full historical ledger.
 
 ## Post-M5 boundary
 
-M5 is merged and durably recorded. The exact reviewed candidate and the
-post-rebase implementation `main` share tree
+M5 is complete, merged, durably recorded, and closed. The exact reviewed
+candidate and the post-rebase implementation `main` share tree
 `179aba060d5e798ace46ea6bed0a7c496a50e9ad`, so Gate 3 is **PASS / EXACT**.
-
-The current governance task is only M5 implementation-branch cleanup, and that
-cleanup requires a separate explicit Human authorization with exact guards.
-Do not delete `m5-human-reviewed-pos-annotation-foundation` before that
-authorization.
+The Human-authorized exact-guarded deletion of the historical implementation
+branch is independently verified by GitHub endpoint 404 plus an empty branch
+search, with durable `main@3c02f5fd087edce0f12692f901a697667ecfd31a`
+unchanged after deletion.
 
 All proof repositories, successful CircleCI evidence, GitHub Actions
-diagnostics, PR history, reviewed candidate history, and the M5 implementation
-branch remain retained. `G2-X01` remains `OPEN / EXTERNAL`; `HRA-F01` remains
-`OPEN / DEFERRED`.
+diagnostics, PR history, and reviewed candidate history remain retained.
+`G2-X01` remains `OPEN / EXTERNAL`; `HRA-F01` remains `OPEN / DEFERRED`.
 
 No next implementation checkpoint is authorized by this closeout. If/when the
 Human opens the next Workbench Information Architecture checkpoint,

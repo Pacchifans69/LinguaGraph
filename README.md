@@ -14,7 +14,8 @@ schema structure.
 M5 — Human-Reviewed POS Annotation Foundation — has completed bounded
 implementation, exact-candidate Gate 2, Human Static Diff Review, Human Runtime
 Acceptance, PR #14, explicit Human Merge Decision, rebase merge, Gate 3 exact
-tree verification, and post-merge durable-state closure.
+tree verification, post-merge durable-state closure, and exact-guarded
+implementation-branch cleanup. M5 is **COMPLETE / MERGED / CLOSED**.
 
 Durable M5 coordinates:
 
@@ -36,11 +37,24 @@ rebase
 
 post-rebase implementation main
 49163ee407c0dae7d9e20cc647cabc8ae98f75de
+
+post-merge durable-state closure
+3c02f5fd087edce0f12692f901a697667ecfd31a
+
+closure tree
+40b497d3459113ad66a5fe0800adec95a1bf3479
 ```
 
-Gate 3 candidate-to-main identity is **PASS / EXACT**. The implementation
-branch `m5-human-reviewed-pos-annotation-foundation` remains intentionally
-retained pending separate Human-authorized exact-guarded cleanup.
+Gate 3 candidate-to-main identity is **PASS / EXACT**.
+
+M5 implementation-branch cleanup is **PASS / EXACT-GUARDED**. The Human guard
+required durable `main@3c02f5fd087edce0f12692f901a697667ecfd31a`
+and exact historical branch
+`m5-human-reviewed-pos-annotation-foundation@139f3349b8556f5dd13d5c2d8808fda4a79dc819`.
+Both matched before deletion. After deletion, remote `main` remained unchanged;
+GitHub independently returned `404 Branch not found` for the branch endpoint
+and an empty branch-search result. PR #14 and the reviewed candidate commit
+remain retained as provenance.
 
 Human Runtime Acceptance is **PASS WITH HUMAN-APPROVED UX DEFERRAL**.
 `HRA-F01` — Workbench information architecture / panel density — remains
@@ -84,9 +98,10 @@ Exception for the exact corrected candidate
 
 Canonical GitHub Actions exact-candidate run `34564666636` reproduced
 `G2-X01` before any repository-defined workflow step executed (`steps=[]`,
-logs unavailable / `BlobNotFound`). PR-event run `34586589640` and post-merge
-`main` run `34587072906` reproduced the same pre-step fingerprint. These are
-retained provider diagnostics, not application failures.
+logs unavailable / `BlobNotFound`). PR-event run `34586589640`, post-merge
+`main` run `34587072906`, and durable-closure run `34588391377` reproduced the
+same pre-step fingerprint. These are retained provider diagnostics, not
+application failures.
 
 Independent hosted exact-candidate proof passed:
 
@@ -522,6 +537,9 @@ rebase
 
 post-rebase implementation main
 49163ee407c0dae7d9e20cc647cabc8ae98f75de
+
+post-merge durable-state closure
+3c02f5fd087edce0f12692f901a697667ecfd31a
 ```
 
 Gate 3 confirmed exact candidate-to-main tree identity.
@@ -551,9 +569,16 @@ Delivered additively:
 
 M5 Gate 2 is **PASS WITH M5-SPECIFIC EXTERNAL INFRASTRUCTURE EXCEPTION**;
 Human Static Diff Review is **PASS**; Human Runtime Acceptance is **PASS WITH
-HUMAN-APPROVED UX DEFERRAL**; Gate 3 is **PASS / EXACT**.
+HUMAN-APPROVED UX DEFERRAL**; Gate 3 is **PASS / EXACT**; implementation-branch
+cleanup is **PASS / EXACT-GUARDED**.
 
-The implementation branch
+The historical implementation branch
 `m5-human-reviewed-pos-annotation-foundation@139f3349b8556f5dd13d5c2d8808fda4a79dc819`
-remains retained pending separate Human-authorized exact-guarded cleanup.
+was deleted only after the Human-approved guard verified durable
+`main@3c02f5fd087edce0f12692f901a697667ecfd31a` and the exact branch SHA.
+GitHub independently returns `404 Branch not found` and an empty branch-search
+result; post-delete `main` remained unchanged. Proof repositories, CircleCI
+records/artifacts, GitHub Actions diagnostics, PR #14, and the reviewed
+candidate commit remain retained.
+
 `G2-X01` remains `OPEN / EXTERNAL`; `HRA-F01` remains `OPEN / DEFERRED`.

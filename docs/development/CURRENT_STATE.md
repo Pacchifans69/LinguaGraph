@@ -14,12 +14,10 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 M5 — Human-Reviewed POS Annotation Foundation — has completed bounded
 implementation, exact-candidate Gate 2, Human Static Diff Review, Human Runtime
 Acceptance, PR #14, explicit Human Merge Decision, rebase merge, Gate 3 exact
-candidate-to-main tree verification, and this docs-only post-merge durable-state
-closure.
+candidate-to-main tree verification, docs-only post-merge durable-state
+closure, and exact-guarded implementation-branch cleanup.
 
-M5 is **MERGED / DURABLY RECORDED / IMPLEMENTATION-BRANCH CLEANUP PENDING**.
-The implementation branch remains intentionally retained until a separate
-Human-authorized exact-guarded cleanup.
+M5 is **COMPLETE / MERGED / CLOSED**.
 
 M5 durable implementation coordinates:
 
@@ -31,7 +29,7 @@ M5 durable implementation coordinates:
   `11176df91dd9dc3d1169e4bef41808b0abfa8656`;
 - frozen base tree:
   `03b1d0746bb89c5e57fe27e63e417ea274447287`;
-- implementation branch:
+- historical implementation branch:
   `m5-human-reviewed-pos-annotation-foundation`;
 - final reviewed / independently proven candidate:
   `139f3349b8556f5dd13d5c2d8808fda4a79dc819`;
@@ -45,8 +43,20 @@ M5 durable implementation coordinates:
 - candidate → post-rebase `main` tree identity:
   **PASS / EXACT**;
 - post-merge durable-state closure:
-  resolve the docs-only commit containing this record directly from Git
-  history after it is written.
+  `3c02f5fd087edce0f12692f901a697667ecfd31a`;
+- durable closure tree:
+  `40b497d3459113ad66a5fe0800adec95a1bf3479`;
+- implementation-branch cleanup:
+  **PASS / EXACT-GUARDED**.
+
+The cleanup guard required exact durable
+`main@3c02f5fd087edce0f12692f901a697667ecfd31a` and exact branch
+`m5-human-reviewed-pos-annotation-foundation@139f3349b8556f5dd13d5c2d8808fda4a79dc819`.
+Both matched before deletion. The remote branch was deleted; the post-delete
+remote `main` remained exactly `3c02f5fd087edce0f12692f901a697667ecfd31a`.
+GitHub independently returned `404 Branch not found` for the branch endpoint
+and an empty branch-search result. PR #14 and the reviewed candidate commit
+remain retained as provenance.
 
 M5 Gate 2 result:
 
@@ -73,11 +83,11 @@ backend skips, unchanged dependency hashes, cleanup PASS, and final exact
 application/proof provenance.
 
 Canonical GitHub Actions exact-candidate run `34564666636`, PR-event run
-`34586589640`, and post-merge `main` run `34587072906` all reproduced the
-provider/pre-step `G2-X01` fingerprint: the M5 verification job ended before
-any repository-defined workflow step (`steps=[]`, runner id 0 / unavailable
-runner execution, unusable or empty logs). No application command executed in
-those runs.
+`34586589640`, post-merge `main` run `34587072906`, and durable-closure run
+`34588391377` all reproduced the provider/pre-step `G2-X01` fingerprint: the
+M5 verification job ended before any repository-defined workflow step
+(`steps=[]`, runner id 0 / unavailable runner execution, unusable or empty
+logs). No application command executed in those runs.
 
 `G2-X01` therefore remains **OPEN / EXTERNAL**. The M5-specific exception
 waived only GitHub-hosted runner executability and did not waive any semantic
@@ -102,19 +112,19 @@ recorded in section 13.
 
 ## 1. Repository checkpoint
 
-Current completed, merged implementation checkpoint: **M5 — Human-Reviewed
-POS Annotation Foundation**.
+Current completed, merged and closed implementation checkpoint: **M5 —
+Human-Reviewed POS Annotation Foundation**.
 
-Current governance boundary: **M5 POST-MERGE DURABLE STATE RECORDED /
-IMPLEMENTATION-BRANCH CLEANUP PENDING**.
+Current governance boundary: **POST-M5 / NO NEXT IMPLEMENTATION CHECKPOINT
+AUTHORIZED**.
 
-No next implementation checkpoint is authorized by this closeout. If/when the
-Human opens the next Workbench Information Architecture checkpoint,
+If/when the Human opens the next Workbench Information Architecture checkpoint,
 `HRA-F01` must be its first contract input.
 
-The M5 docs-only contract-freeze commit remains historical provenance. Resolve
-the freeze commit/tree and this durable-state closure commit directly from Git
-history rather than embedding a self-referential closure SHA in this file.
+The M5 docs-only contract-freeze commit, post-merge durable-state closure, and
+this branch-cleanup durable record remain historical provenance. Resolve the
+final branch-cleanup record commit/tree directly from Git history rather than
+embedding a self-referential SHA in this file.
 
 ### Checkpoint ledger
 
@@ -131,7 +141,7 @@ history rather than embedding a self-referential closure SHA in this file.
 | M2 Linguistic Segmentation Foundation | #11 | `7cf756694e429abc50bf604ab2757fb3e44959c6` | rebase → `8972609a86d15d411917aafe6cf02c4577b7176f` |
 | M3 Word/Token Segmentation Foundation | #12 | `d4254c1239e649b17dc4ae6d6f995e52bd4635db` | rebase → `fc607b597bee35aff31a06a3945fa7a256f6b5c8` |
 | M4 Human-Reviewed Lemma Annotation Foundation | #13 | `ac1cd40ae190577783453050f2cbc209cd3958a6` | rebase → `4cc435893207cdd32216012ca887d338e1932250` |
-| M5 Human-Reviewed POS Annotation Foundation | #14 | `139f3349b8556f5dd13d5c2d8808fda4a79dc819` | rebase → `49163ee407c0dae7d9e20cc647cabc8ae98f75de`; Gate 3 exact tree identity PASS |
+| M5 Human-Reviewed POS Annotation Foundation | #14 | `139f3349b8556f5dd13d5c2d8808fda4a79dc819` | rebase → `49163ee407c0dae7d9e20cc647cabc8ae98f75de`; Gate 3 exact tree identity PASS; branch cleanup PASS |
 
 M0.5 and M0.6 merge commits preserved exact reviewed trees. M0.7, M1, M2,
 M3, M4 and M5 used repository-permitted rebase merge; their Gate 3 bridges are
@@ -552,27 +562,46 @@ including historical M0.7 diagnostics and:
   `ci/circleci: m5-exact-candidate-proof` — SUCCESS;
 - exact M5 candidate GitHub Actions diagnostic run `34564666636`;
 - PR-event diagnostic run `34586589640`;
-- post-merge `main` diagnostic run `34587072906`.
+- post-merge `main` diagnostic run `34587072906`;
+- durable-closure diagnostic run `34588391377`.
 
 Successful checkpoint-specific CircleCI proofs do not themselves close
 `G2-X01`; they are accepted semantic evidence under their respective
 Human-approved exceptions.
 
-Proof/diagnostic cleanup remains deferred. Implementation-branch cleanup must
-not delete proof repositories, provider diagnostics, PR history, or reviewed
-candidate commits.
+Proof/diagnostic cleanup remains deferred. Historical implementation-branch
+cleanup does not delete proof repositories, provider diagnostics, PR history,
+or reviewed candidate commits.
 
 ## 10. Cleanup status
 
-M5 implementation-branch cleanup is **NOT STARTED / NOT AUTHORIZED BY THIS
-DURABLE-STATE CLOSURE**.
+**M5 implementation-branch cleanup: PASS / EXACT-GUARDED.**
 
-Required retained branch before any future cleanup authorization:
+Deleted historical implementation ref:
 
 `m5-human-reviewed-pos-annotation-foundation@139f3349b8556f5dd13d5c2d8808fda4a79dc819`
 
-Any future M5 cleanup must fail closed unless the then-current Human-approved
-durable-main guard and the exact implementation-branch SHA both match.
+Cleanup evidence:
+
+1. the Human-run guard fetched remote refs and verified
+   `main@3c02f5fd087edce0f12692f901a697667ecfd31a` exactly;
+2. the same guard verified the implementation branch exactly at
+   `139f3349b8556f5dd13d5c2d8808fda4a79dc819` before deletion;
+3. `git push origin --delete m5-human-reviewed-pos-annotation-foundation`
+   succeeded;
+4. the post-delete guard reported the remote M5 branch as absent;
+5. the post-delete guard re-read remote `main` and confirmed it remained exactly
+   `3c02f5fd087edce0f12692f901a697667ecfd31a`;
+6. GitHub independently returned HTTP 404 `Branch not found` for the branch
+   endpoint and an empty branch-search result;
+7. PR #14 remains merged and the reviewed candidate commit remains directly
+   addressable by SHA;
+8. `Pacchifans69/linguagraph-m5-proof` remains at accepted proof commit
+   `4cf38bc3dee0c312d072ef2cc47ebdb821b32465` / tree
+   `a59a66ec392f418bf7e23d1cab67eae61f4810a4`.
+
+The deleted implementation branch is distinct from retained Gate 2 evidence.
+No proof or diagnostic ref was deleted.
 
 **M1 implementation-branch cleanup: PASS.**
 
@@ -1141,10 +1170,9 @@ M4 is **COMPLETE / MERGED / CLOSED**.
 
 ### 14.1 Final status
 
-**M5 — Human-Reviewed POS Annotation Foundation: MERGED / DURABLY RECORDED /
-IMPLEMENTATION-BRANCH CLEANUP PENDING.**
+**M5 — Human-Reviewed POS Annotation Foundation: COMPLETE / MERGED / CLOSED.**
 
-Completed lifecycle through this closure:
+Completed lifecycle:
 
 - repository reality reconstruction / Gate 1: PASS;
 - Human contract freeze: PASS;
@@ -1155,13 +1183,12 @@ Completed lifecycle through this closure:
 - Human Runtime Acceptance: PASS WITH HUMAN-APPROVED UX DEFERRAL;
 - PR #14: merged by rebase after explicit Human Merge Decision;
 - Gate 3: PASS / EXACT TREE IDENTITY;
-- durable-state closure: recorded by this docs-only commit;
-- implementation-branch cleanup: NOT STARTED / REQUIRES SEPARATE HUMAN AUTHORITY.
+- durable-state closure: PASS;
+- implementation-branch cleanup: PASS / EXACT-GUARDED.
 
 `G2-X01` remains **OPEN / EXTERNAL**.
 
-`HRA-F01` remains **OPEN / DEFERRED** and must not be marked resolved by M5
-closeout.
+`HRA-F01` remains **OPEN / DEFERRED** and is not resolved by M5 closeout.
 
 ### 14.2 Provenance
 
@@ -1173,7 +1200,7 @@ closeout.
   `11176df91dd9dc3d1169e4bef41808b0abfa8656`;
 - frozen base tree:
   `03b1d0746bb89c5e57fe27e63e417ea274447287`;
-- implementation branch:
+- historical implementation branch:
   `m5-human-reviewed-pos-annotation-foundation`;
 - final corrected, reviewed and independently proven candidate:
   `139f3349b8556f5dd13d5c2d8808fda4a79dc819`;
@@ -1190,7 +1217,11 @@ closeout.
 - post-rebase implementation `main`:
   `49163ee407c0dae7d9e20cc647cabc8ae98f75de`;
 - post-rebase implementation tree:
-  `179aba060d5e798ace46ea6bed0a7c496a50e9ad`.
+  `179aba060d5e798ace46ea6bed0a7c496a50e9ad`;
+- post-merge durable-state closure:
+  `3c02f5fd087edce0f12692f901a697667ecfd31a`;
+- durable closure tree:
+  `40b497d3459113ad66a5fe0800adec95a1bf3479`.
 
 The corrected candidate remained frozen through re-established Gate 2, Human
 Static Diff Review, Human Runtime Acceptance, PR creation and Human Merge
@@ -1250,9 +1281,10 @@ Hosted artifact audit:
 - `G2-N02`: retained non-blocking CircleCI bulk-download packaging note for
   omitted zero-byte artifacts.
 
-PR-event run `34586589640` and post-merge `main` run `34587072906` reproduced
-the same `G2-X01` pre-step fingerprint (`steps=[]`, no runner execution). They
-do not constitute application failure evidence.
+PR-event run `34586589640`, post-merge `main` run `34587072906`, and durable
+closure run `34588391377` reproduced the same `G2-X01` pre-step fingerprint
+(`steps=[]`, no runner execution). They do not constitute application failure
+evidence.
 
 `G2-X01` remains **OPEN / EXTERNAL**.
 
@@ -1357,24 +1389,48 @@ M5 durably establishes:
 
 ### 14.7 Cleanup and retention boundary
 
-This docs-only commit is the M5 post-merge durable-state closure. Resolve its
-SHA/tree directly from Git history after the commit is created; do not embed a
-self-referential SHA here.
+Post-merge durable-state closure:
 
-Implementation-branch cleanup is **PENDING / NOT AUTHORIZED BY THIS COMMIT**.
-The branch must remain:
+- commit:
+  `3c02f5fd087edce0f12692f901a697667ecfd31a`;
+- tree:
+  `40b497d3459113ad66a5fe0800adec95a1bf3479`.
 
-`m5-human-reviewed-pos-annotation-foundation@139f3349b8556f5dd13d5c2d8808fda4a79dc819`
+Implementation-branch cleanup is **PASS / EXACT-GUARDED**.
 
-until a separate Human authorization supplies the required exact durable-main
-and branch guards.
+Human-authorized deletion guard:
 
-The reviewed candidate commit, PR #14, proof repository, CircleCI build #2 and
-artifacts, GitHub Actions diagnostics, and historical proof evidence remain
-retained.
+- required durable `main`:
+  `3c02f5fd087edce0f12692f901a697667ecfd31a`;
+- required historical implementation branch:
+  `m5-human-reviewed-pos-annotation-foundation`;
+- required branch SHA:
+  `139f3349b8556f5dd13d5c2d8808fda4a79dc819`.
+
+The Human-run guard verified both exact SHAs, deleted only the remote M5
+implementation branch, fetched/pruned, rechecked that remote `main` remained
+unchanged, and reported:
+
+`PASS: exact-guarded M5 remote implementation-branch cleanup complete.`
+
+GitHub independently verifies the deleted branch with both:
+
+- branch endpoint: `404 Branch not found`;
+- branch search: empty result.
+
+The reviewed candidate commit remains addressable by SHA, PR #14 remains
+merged, and `Pacchifans69/linguagraph-m5-proof` remains at
+`4cf38bc3dee0c312d072ef2cc47ebdb821b32465` with proof tree
+`a59a66ec392f418bf7e23d1cab67eae61f4810a4`.
+
+All proof repositories, CircleCI records/artifacts, GitHub Actions diagnostics,
+PR history, and reviewed candidate history remain retained.
 
 `G2-X01` remains **OPEN / EXTERNAL**.
 
-`HRA-F01` remains **OPEN / DEFERRED**.
+`HRA-F01` remains **OPEN / DEFERRED** and must be the first contract input of
+the next Human-authorized Workbench Information Architecture checkpoint.
+
+M5 is **COMPLETE / MERGED / CLOSED**.
 
 No next implementation checkpoint is authorized by this closeout.
