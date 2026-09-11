@@ -138,10 +138,12 @@ services from a separate local checkout at
 No unresolved M4 product defect is known. `HRA-F09` remains inherited,
 explicitly deferred visual debt.
 
-M5 is authorized only through the docs-only contract-freeze boundary. The M4
-External Infrastructure Exception does not carry forward to M5; any M5
-exception requires new exact-candidate evidence and explicit Human approval at
-M5 Gate 2.
+M5 — Human-Reviewed POS Annotation Foundation — has had bounded implementation
+performed on the authorized `m5-human-reviewed-pos-annotation-foundation` branch
+and remains unmerged with no PR and no Gate 2 decision; it cannot proceed to PR
+or merge without subsequent explicit Human authority. The M4 External
+Infrastructure Exception does not carry forward to M5; any M5 exception requires
+new exact-candidate evidence and explicit Human approval at M5 Gate 2.
 
 ## Historical M0 state
 

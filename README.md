@@ -47,19 +47,19 @@ candidate-to-main identity is **PASS / EXACT**.
 Exact-guarded implementation-branch cleanup has passed. M4 is therefore
 **COMPLETE / MERGED / CLOSED**.
 
-M5 — Human-Reviewed POS Annotation Foundation — now has a Human-approved
-frozen execution contract in `docs/development/M5_CONTRACT.md` on the approved
-pre-freeze base:
+M5 — Human-Reviewed POS Annotation Foundation — was frozen by the Human on the
+approved pre-freeze base:
 
 ```text
 base  68fedc4c8cba80201333e6550231b805e0f0853c
 tree  3bea6efd9662fe746328d2a7814fa65e1efb917f
 ```
 
-M5 implementation has **not** started and is **not authorized**. The planned
-implementation branch `m5-human-reviewed-pos-annotation-foundation` may not be
-created until the freeze commit is independently verified and the Human
-separately authorizes bounded implementation.
+Bounded implementation has since been performed on
+`m5-human-reviewed-pos-annotation-foundation`; see the current milestone status
+above and “M5 implementation boundary” below. The candidate is unmerged and
+awaits Human Static Diff Review, a re-established Gate 2 and Human Runtime
+Acceptance.
 
 The frozen M5 scope is one optional Human-reviewed coarse POS annotation per
 saved `is_word_like = TRUE` token occurrence, using the closed fifteen-value
@@ -306,7 +306,7 @@ npm.cmd run lint
 npm.cmd run typecheck
 npm.cmd run test
 npm.cmd run build
-npx.cmd playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmentation.spec.ts e2e/token-segmentation.spec.ts e2e/lemma-annotation.spec.ts
+npx.cmd playwright test e2e/golden-path.spec.ts e2e/unicode.spec.ts e2e/segmentation.spec.ts e2e/token-segmentation.spec.ts e2e/lemma-annotation.spec.ts e2e/pos-annotation.spec.ts
 ```
 
 A full release-baseline proof requires real PostgreSQL integration tests and a
@@ -506,8 +506,8 @@ Delivered additively:
   ordering;
 - frontend `posAnnotations` / `posAnnotationsById` /
   `posAnnotationByTokenSegmentId` normalization and the bounded
-  `PosAnnotationPanel` outside `[data-text-root]` with an exact fifteen-value
-  controlled selector;
+  `PosAnnotationPanel` outside `[data-text-content-root]` with an exact
+  fifteen-value controlled selector;
 - backend, frontend and Playwright M5 coverage.
 
 M5 is **not merged**, no PR was opened, and no Gate 2 exception decision has

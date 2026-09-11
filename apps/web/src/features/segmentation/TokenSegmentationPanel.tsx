@@ -196,6 +196,16 @@ export function TokenSegmentationPanel({
   // still rendered by ErrorMessage below; this only names the actual
   // dependency set so "lemma only", "POS only" and "lemma + POS" are
   // distinguishable. Malformed/unknown details produce no guidance.
+  //
+  // HSDR-F01: the replacement PUT and the token-layer DELETE are separate
+  // TanStack mutations, so each stores its own error independently. Starting
+  // either operation therefore resets the OTHER mutation's stored state (see
+  // the two mutation handlers below), which is what makes only the latest
+  // backend response authoritative here. Without that reset a stale, larger
+  // dependency set from an earlier failed replacement could outlive a later
+  // failed deletion and keep naming siblings the backend no longer reports.
+  // The backend response stays the sole authority: nothing here infers a
+  // dependency from frontend sibling state.
   const dependencyGuidance =
     tokenAnnotationDependencyGuidance(put.error) ??
     tokenAnnotationDependencyGuidance(remove.error);
@@ -298,15 +308,21 @@ export function TokenSegmentationPanel({
         </ol>
       )}
       <div className="segmentation-footer">
-        <Button type="button" size="sm" variant="primary" disabled={pending || !changed} onClick={() => put.mutate({
-          textVersionId: version.id,
-          content_hash: version.content_hash,
-          basis_sentence_layer_id: sentenceLayer.id,
-          requested_locale: version.language_tag,
-          resolved_locale: locale,
-          origin,
-          segments: current.map((token) => ({ start: token.start, end: token.end, is_word_like: token.isWordLike })),
-        })}>{put.isPending ? 'Saving…' : 'Save tokens'}</Button>
+        <Button type="button" size="sm" variant="primary" disabled={pending || !changed} onClick={() => {
+          // HSDR-F01: a new replacement supersedes any stored deletion
+          // outcome before it starts, so only this operation's response can
+          // become Human-visible dependency guidance.
+          remove.reset();
+          put.mutate({
+            textVersionId: version.id,
+            content_hash: version.content_hash,
+            basis_sentence_layer_id: sentenceLayer.id,
+            requested_locale: version.language_tag,
+            resolved_locale: locale,
+            origin,
+            segments: current.map((token) => ({ start: token.start, end: token.end, is_word_like: token.isWordLike })),
+          });
+        }}>{put.isPending ? 'Saving…' : 'Save tokens'}</Button>
         {savedLayer ? <Button type="button" size="sm" variant="danger" disabled={pending} onClick={() => setConfirmDelete(true)}>Delete tokens</Button> : null}
       </div>
       {confirmDelete ? <ConfirmDialog headingId={`delete-tokens-${version.id}`} onClose={() => setConfirmDelete(false)} closeDisabled={remove.isPending}>
@@ -314,7 +330,13 @@ export function TokenSegmentationPanel({
         <p>The sentence segmentation and all Alignment data are preserved.</p>
         <div className="confirm-dialog-actions">
           <Button type="button" variant="secondary" disabled={remove.isPending} onClick={() => setConfirmDelete(false)}>Cancel</Button>
-          <Button type="button" variant="danger" disabled={remove.isPending} onClick={() => remove.mutate(version.id, { onSettled: () => setConfirmDelete(false) })}>{remove.isPending ? 'Deleting…' : 'Delete tokens'}</Button>
+          <Button type="button" variant="danger" disabled={remove.isPending} onClick={() => {
+            // HSDR-F01: the confirmed deletion supersedes any stored
+            // replacement outcome when it actually starts — opening the
+            // confirmation dialog above deliberately does not.
+            put.reset();
+            remove.mutate(version.id, { onSettled: () => setConfirmDelete(false) });
+          }}>{remove.isPending ? 'Deleting…' : 'Delete tokens'}</Button>
         </div>
       </ConfirmDialog> : null}
     </section>
