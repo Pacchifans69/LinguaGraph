@@ -175,12 +175,16 @@ export function LemmaAnnotationPanel({
   const entries = Object.values(drafts.entries);
   const dirty = entries.some((entry) => entry.draft !== entry.savedValue);
   const conflict = entries.some((entry) => entry.conflict);
-  const pending = put.isPending || remove.isPending || anyLemmaMutationPending;
+  // M6-G2-F12: the session summary reports the LIFE-CYCLE OF THIS SESSION's own
+  // mutation, per TextVersion + layer kind (contract section 11); the
+  // document-wide same-domain signal below only locks the row controls.
+  const sessionPending = put.isPending || remove.isPending;
+  const pending = sessionPending || anyLemmaMutationPending;
   const mutationError = put.error ?? remove.error ?? null;
 
   useEffect(() => {
-    onSessionStateChange?.({ dirty, pending, error: mutationError !== null, conflict, dialogOpen: false });
-  }, [dirty, pending, mutationError, conflict, onSessionStateChange]);
+    onSessionStateChange?.({ dirty, pending: sessionPending, error: mutationError !== null, conflict, dialogOpen: false });
+  }, [dirty, sessionPending, mutationError, conflict, onSessionStateChange]);
 
   const draftRows = entries.map((entry) => (
     <LemmaRow

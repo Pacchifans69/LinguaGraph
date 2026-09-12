@@ -182,22 +182,39 @@ function WorkspaceBody({
   }, [anyDirty]);
 
   /**
-   * M6-G2-F10: every client-side route transition that would leave this
-   * document workspace — `Link`, browser Back/Forward and in-app programmatic
-   * navigation — is blocked by the router itself while a mounted session owns
-   * unsaved work. A `document`-level click handler could not see Back/Forward,
-   * and pairing it with a route blocker would double-prompt the same
-   * navigation.
+   * M6-G2-F10 / M6-G2-F11: every client-side route transition that would leave
+   * this document workspace — `Link`, browser Back/Forward and in-app
+   * programmatic navigation — is blocked by the router itself while a mounted
+   * session owns unsaved work, or while a workspace confirmation is open. A
+   * `document`-level click handler could not see Back/Forward, and pairing it
+   * with a route blocker would double-prompt the same navigation.
    *
    * Ordinary mode/target switches never change the route, and a clean
-   * workspace never blocks.
+   * workspace with no open confirmation never blocks.
    */
   const leaveBlocker = useBlocker(({ currentLocation, nextLocation }) => {
-    if (!anyDirty) {
+    if (currentLocation.pathname === nextLocation.pathname) {
       return false;
     }
-    return currentLocation.pathname !== nextLocation.pathname;
+    return anyDirty || navigationLocked;
   });
+
+  /**
+   * M6-G2-F11: an already-open workspace confirmation (session destructive
+   * dialog, dirty-delete or force-delete dialog) owns the interaction. The
+   * leave is still BLOCKED — never allowed through — but it must not stack a
+   * second `aria-modal` on top of that dialog nor tear down its pending
+   * feedback. The pending navigation is cancelled instead, leaving the route,
+   * the mounted sessions and the original dialog exactly as they were; the
+   * Human must dispose of that dialog before a leave can be confirmed.
+   */
+  const leaveBlocked = leaveBlocker.state === 'blocked';
+  const resetLeaveBlocker = leaveBlocker.reset;
+  useEffect(() => {
+    if (leaveBlocked && navigationLocked) {
+      resetLeaveBlocker?.();
+    }
+  }, [leaveBlocked, navigationLocked, resetLeaveBlocker]);
 
   // Frozen M0.6 precedence: active wins over hovered.
   const effectiveAlignmentId = activeAlignmentId ?? hoveredAlignmentId;
@@ -673,8 +690,10 @@ function WorkspaceBody({
       ) : null}
 
       {/* M6-G2-F10: exactly one confirmation owns dirty in-app route
-          transitions (Link, Back/Forward, programmatic navigation). */}
-      {leaveBlocker.state === 'blocked' ? (
+          transitions (Link, Back/Forward, programmatic navigation).
+          M6-G2-F11: when another workspace confirmation is already open the
+          leave is cancelled instead (see above), so no second modal mounts. */}
+      {leaveBlocker.state === 'blocked' && !navigationLocked ? (
         <ConfirmDialog
           headingId="leave-workspace-heading"
           onClose={() => leaveBlocker.reset()}

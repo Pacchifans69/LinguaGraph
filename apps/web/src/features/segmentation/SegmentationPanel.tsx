@@ -124,18 +124,24 @@ export function SegmentationPanel({
   const activeOrigin = origin;
   const activeResolvedLocale = resolvedLocale;
   const activeDirty = dirty;
+  // Same-domain exclusion (unchanged): any in-flight segmentation mutation in
+  // this document keeps every segmentation control locked.
   const isMutating = anySegmentationMutationPending;
+  // M6-G2-F12: the session summary reports the LIFE-CYCLE OF THIS SESSION's own
+  // mutation, per TextVersion + layer kind (contract section 11) — not the
+  // document-wide exclusion signal above.
+  const sessionMutationPending = putMutation.isPending || deleteMutation.isPending;
   const suggestionSupported = hasIntlSentenceSegmenter();
 
   useEffect(() => {
     onSessionStateChange?.({
       dirty: activeDirty,
-      pending: isMutating,
+      pending: sessionMutationPending,
       error: putMutation.isError || deleteMutation.isError || suggestionError !== null,
       conflict,
       dialogOpen: confirmDelete,
     });
-  }, [activeDirty, isMutating, putMutation.isError, deleteMutation.isError, suggestionError, conflict, confirmDelete, onSessionStateChange]);
+  }, [activeDirty, sessionMutationPending, putMutation.isError, deleteMutation.isError, suggestionError, conflict, confirmDelete, onSessionStateChange]);
 
   function beginManual() {
     setDraft(manualSentencePartition(version.content));

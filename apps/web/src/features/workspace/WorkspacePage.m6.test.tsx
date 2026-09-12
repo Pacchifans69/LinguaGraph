@@ -93,6 +93,36 @@ function alignedSnapshotWithoutEnglish(): WorkspaceSnapshot {
   return snapshotWithoutEnglish();
 }
 
+/**
+ * Both versions carry saved sentence + token layers, so a mutation started by
+ * one `TextVersion`'s session can be observed from every other session.
+ */
+function twoLayerSnapshot(): WorkspaceSnapshot {
+  const data = m6Snapshot();
+  data.segmentation_layers = [
+    ...(data.segmentation_layers ?? []),
+    {
+      id: 'sentence-de', text_version_id: 'tv-de', granularity: 'sentence', basis_layer_id: null,
+      requested_locale: 'de', resolved_locale: 'de', origin: 'manual', content_hash: 'h-de',
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    },
+    {
+      id: 'token-de', text_version_id: 'tv-de', granularity: 'token', basis_layer_id: 'sentence-de',
+      requested_locale: 'de', resolved_locale: 'de', origin: 'manual', content_hash: 'h-de',
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    },
+  ];
+  data.segments = [
+    ...(data.segments ?? []),
+    { id: 'sentence-de-1', segmentation_layer_id: 'sentence-de', ordinal: 0, start_offset: 0, end_offset: 9, exact_text: 'Ein Satz.', is_word_like: null, created_at: '2026-01-01T00:00:00Z' },
+    { id: 'token-ein', segmentation_layer_id: 'token-de', ordinal: 0, start_offset: 0, end_offset: 3, exact_text: 'Ein', is_word_like: true, created_at: '2026-01-01T00:00:00Z' },
+    { id: 'token-space-de', segmentation_layer_id: 'token-de', ordinal: 1, start_offset: 3, end_offset: 4, exact_text: ' ', is_word_like: false, created_at: '2026-01-01T00:00:00Z' },
+    { id: 'token-satz', segmentation_layer_id: 'token-de', ordinal: 2, start_offset: 4, end_offset: 8, exact_text: 'Satz', is_word_like: true, created_at: '2026-01-01T00:00:00Z' },
+    { id: 'token-period-de', segmentation_layer_id: 'token-de', ordinal: 3, start_offset: 8, end_offset: 9, exact_text: '.', is_word_like: false, created_at: '2026-01-01T00:00:00Z' },
+  ];
+  return data;
+}
+
 /** Authoritative result of deleting the saved token layer of `tv-en`. */
 function snapshotWithoutTokenLayer(): WorkspaceSnapshot {
   const data = m6Snapshot();
@@ -719,5 +749,169 @@ describe('WorkspacePage M6 mode-oriented IA', () => {
 
     restoreDataRouterAbortController();
     expect(globalThis.AbortController).toBe(environmentAbortController);
+  });
+
+  // ---- M6-G2-F11: leave confirmation vs an already-open dialog ------------
+
+  it('does not mount a second modal when a dirty leave is attempted while a session dialog is open', async () => {
+    const view = renderWorkspace(m6Snapshot(), [], [
+      { path: '/projects', element: <div>Projects destination</div> },
+    ]);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open English' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    const englishSession = view.container.querySelector('[data-session-key="tv-en:sentence"]') as HTMLElement;
+    fireEvent.click(within(englishSession).getByRole('button', { name: 'Start manual' }));
+    await waitFor(() => expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('Unsaved'));
+
+    // The session's destructive confirmation owns the workspace.
+    fireEvent.click(within(englishSession).getByRole('button', { name: 'Delete segmentation' }));
+    expect(screen.getAllByRole('alertdialog')).toHaveLength(1);
+    const sessionDialog = screen.getByRole('alertdialog');
+
+    // A route leave must neither bypass it nor mount a second modal.
+    fireEvent.click(screen.getByRole('link', { name: 'Projects' }));
+    expect(screen.getAllByRole('alertdialog')).toHaveLength(1);
+    expect(screen.getByRole('alertdialog')).toBe(sessionDialog);
+    expect(screen.getByRole('heading', { name: 'Workspace — M6 document' })).toBeInTheDocument();
+    expect(within(englishSession).getByText('Unsaved preview')).toBeInTheDocument();
+
+    // Closing the original dialog leaves no stale leave confirmation behind.
+    fireEvent.click(within(sessionDialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+
+    // Only now does a leave produce exactly one Leave confirmation.
+    fireEvent.click(screen.getByRole('link', { name: 'Projects' }));
+    const leaveDialog = await screen.findByRole('alertdialog');
+    expect(screen.getAllByRole('alertdialog')).toHaveLength(1);
+    expect(leaveDialog).toHaveTextContent('Leave this document workspace?');
+    fireEvent.click(within(leaveDialog).getByRole('button', { name: 'Stay' }));
+    expect(screen.getByRole('heading', { name: 'Workspace — M6 document' })).toBeInTheDocument();
+    expect(within(englishSession).getByText('Unsaved preview')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('link', { name: 'Projects' }));
+    fireEvent.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Leave' }),
+    );
+    expect(await screen.findByText('Projects destination')).toBeInTheDocument();
+  });
+
+  it('does not let a route leave bypass an open dialog even when nothing is dirty', async () => {
+    const view = renderWorkspace(m6Snapshot(), [], [
+      { path: '/projects', element: <div>Projects destination</div> },
+    ]);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open English' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    const englishSession = view.container.querySelector('[data-session-key="tv-en:sentence"]') as HTMLElement;
+    fireEvent.click(within(englishSession).getByRole('button', { name: 'Delete segmentation' }));
+    expect(screen.getAllByRole('alertdialog')).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('link', { name: 'Projects' }));
+    expect(screen.getAllByRole('alertdialog')).toHaveLength(1);
+    expect(screen.getByRole('heading', { name: 'Workspace — M6 document' })).toBeInTheDocument();
+    expect(screen.queryByText('Projects destination')).toBeNull();
+  });
+
+  it('keeps a pending destructive lock and its feedback when a leave is attempted', async () => {
+    let resolveDelete: ((value: MockResponse) => void) | undefined;
+    const view = renderWorkspace(
+      m6Snapshot(),
+      [['/segmentations/sentence', () => new Promise((resolve) => { resolveDelete = resolve; })]],
+      [{ path: '/projects', element: <div>Projects destination</div> }],
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Open English' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    const englishSession = view.container.querySelector('[data-session-key="tv-en:sentence"]') as HTMLElement;
+    fireEvent.click(within(englishSession).getByRole('button', { name: 'Start manual' }));
+    await waitFor(() => expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('Unsaved'));
+    fireEvent.click(within(englishSession).getByRole('button', { name: 'Delete segmentation' }));
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete segmentation' }),
+    );
+    await screen.findByRole('button', { name: 'Deleting…' });
+
+    // The leave attempt must not release the lock, hide the feedback or add a modal.
+    fireEvent.click(screen.getByRole('link', { name: 'Projects' }));
+    expect(screen.getAllByRole('alertdialog')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Deleting…' })).toBeInTheDocument();
+    expect(screen.queryByText('Projects destination')).toBeNull();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.getAllByRole('alertdialog')).toHaveLength(1);
+
+    resolveDelete?.({ status: 204, body: null });
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(screen.getByRole('heading', { name: 'Workspace — M6 document' })).toBeInTheDocument();
+  });
+
+  // ---- M6-G2-F12: per-session Pending reporting ---------------------------
+
+  it('reports Pending only for the sentence session that started the mutation', async () => {
+    let releaseSentence: ((value: MockResponse) => void) | undefined;
+    let sentenceSaved = false;
+    const base = twoLayerSnapshot();
+    const saved = twoLayerSnapshot();
+    saved.segmentation_layers = (saved.segmentation_layers ?? []).map((layer) =>
+      layer.id === 'sentence-en' ? { ...layer, updated_at: '2026-01-02T00:00:00Z' } : layer,
+    );
+    const view = renderWorkspace(base, [
+      ['/segmentations/sentence', () => new Promise<MockResponse>((resolve) => {
+        releaseSentence = (value) => { sentenceSaved = true; resolve(value); };
+      })],
+      ['/workspace', () => json(200, sentenceSaved ? saved : base)],
+    ]);
+    await openBoth();
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    const englishSentence = view.container.querySelector('[data-session-key="tv-en:sentence"]') as HTMLElement;
+    fireEvent.click(within(englishSentence).getByRole('button', { name: 'Start manual' }));
+    fireEvent.click(within(englishSentence).getByRole('button', { name: 'Save segmentation' }));
+    await screen.findByRole('button', { name: 'Saving…' });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'POS' }));
+    const summary = screen.getByLabelText('Workbench session status');
+    expect(summary).toHaveTextContent('English · SentencePending');
+    expect(summary).not.toHaveTextContent('English · Token');
+    expect(summary).not.toHaveTextContent('German · Sentence');
+    expect(summary).not.toHaveTextContent('German · Token');
+
+    // Settling converges: the whole summary clears because only the real
+    // session had ever reported Pending.
+    await waitFor(() => expect(releaseSentence).toBeTypeOf('function'));
+    releaseSentence?.({ status: 200, body: { layer: {}, segments: [] } });
+    await waitFor(() => expect(screen.queryByLabelText('Workbench session status')).toBeNull());
+  });
+
+  it('reports Pending only for the lemma session that started the mutation', async () => {
+    let releaseLemma: ((value: MockResponse) => void) | undefined;
+    let lemmaSaved = false;
+    const base = twoLayerSnapshot();
+    const saved = twoLayerSnapshot();
+    saved.token_lemma_annotations = [
+      { id: 'l1', token_segment_id: 'token-one', lemma: 'one', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' },
+    ];
+    const view = renderWorkspace(base, [
+      ['/lemma', () => new Promise<MockResponse>((resolve) => {
+        releaseLemma = (value) => { lemmaSaved = true; resolve(value); };
+      })],
+      ['/workspace', () => json(200, lemmaSaved ? saved : base)],
+    ]);
+    await openBoth();
+    fireEvent.click(screen.getByRole('tab', { name: 'Lemma' }));
+    const englishLemma = view.container.querySelector('[data-session-key="tv-en:lemma"]') as HTMLElement;
+    const oneRow = englishLemma.querySelector('[data-token-segment-id="token-one"]') as HTMLElement;
+    fireEvent.change(within(oneRow).getByLabelText('Lemma for One'), { target: { value: 'one' } });
+    fireEvent.click(within(oneRow).getByRole('button', { name: 'Save lemma' }));
+    await screen.findByRole('button', { name: 'Saving…' });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'POS' }));
+    const summary = screen.getByLabelText('Workbench session status');
+    expect(summary).toHaveTextContent('English · LemmaPending');
+    expect(summary).not.toHaveTextContent('English · POS');
+    expect(summary).not.toHaveTextContent('German · Lemma');
+    expect(summary).not.toHaveTextContent('German · POS');
+
+    // Settling converges: the confirmed authoritative value makes the session
+    // clean again, and no other session was ever noteworthy.
+    await waitFor(() => expect(releaseLemma).toBeTypeOf('function'));
+    releaseLemma?.({ status: 200, body: { id: 'l1', token_segment_id: 'token-one', lemma: 'one', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' } });
+    await waitFor(() => expect(screen.queryByLabelText('Workbench session status')).toBeNull());
   });
 });
