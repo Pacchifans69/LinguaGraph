@@ -138,6 +138,22 @@ async function selectAndVerify(
   ).toBeEnabled();
 }
 
+/**
+ * M6 relocated Add TextVersion into an on-demand, mount-preserved Import
+ * surface. Reach it through the user-visible "Add text version" control before
+ * typing. When the surface is already expanded the toggle is named "Close add
+ * text version" and this is a no-op.
+ */
+async function openImportForm(page: Page): Promise<void> {
+  const toggle = page.getByRole('button', { name: 'Add text version' });
+  const form = page.locator('.import-form');
+  await expect(toggle.or(form).first()).toBeVisible();
+  if (await toggle.isVisible()) {
+    await toggle.click();
+  }
+  await expect(form).toBeVisible();
+}
+
 test.describe('M0.7 Unicode release blocker', () => {
   test('Café 🙂 mañana für français survives the full selection → persistence → reload → highlight chain', async ({
     page,
@@ -175,6 +191,7 @@ test.describe('M0.7 Unicode release blocker', () => {
       { tag: 'de', label: 'German', text: DE_TEXT },
       { tag: 'mix', label: 'Unicode', text: UNI_TEXT },
     ];
+    await openImportForm(page);
     for (const { tag, label, text } of versions) {
       await expect(page.getByLabel('Label')).toHaveValue('');
       await page.getByLabel('Language tag (BCP-47)').fill(tag);
