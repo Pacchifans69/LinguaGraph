@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RouteObject } from 'react-router-dom';
-import { renderPageAt } from '../../test/harness';
+import { renderPageAt, restoreDataRouterAbortController } from '../../test/harness';
 import { installFetchMock, json, type Handler, type MockResponse } from '../../test/mockFetch';
 import type { WorkspaceSnapshot } from './api';
 import { WorkspacePage } from './WorkspacePage';
@@ -673,5 +673,51 @@ describe('WorkspacePage M6 mode-oriented IA', () => {
       expect(screen.queryByRole('button', { name: /Activate alignment/ })).toBeNull(),
     );
     expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  // ---- data-router navigation request fidelity (test infrastructure) ------
+
+  it('keeps the router navigation signal native instead of shadowing it on a request built without it', async () => {
+    renderWorkspace();
+    await screen.findByRole('heading', { name: 'Workspace — M6 document' });
+
+    const controller = new AbortController();
+    const request = new Request('http://localhost/navigation', {
+      signal: controller.signal,
+    });
+
+    // The native Request keeps `signal` on its prototype (no own override) and
+    // carries a real, abortable signal. The previous environment-wide
+    // workaround built the native request WITHOUT the signal and then
+    // re-attached it as an own `signal` property, which this rejects.
+    expect(Object.prototype.hasOwnProperty.call(request, 'signal')).toBe(false);
+
+    const requestSignal = request.signal;
+    expect(requestSignal.aborted).toBe(false);
+    let observedAbort = false;
+    requestSignal.addEventListener('abort', () => {
+      observedAbort = true;
+    });
+
+    controller.abort();
+    expect(observedAbort).toBe(true);
+    expect(requestSignal.aborted).toBe(true);
+  });
+
+  it('scopes the native navigation controller to data-router page tests and restores it', async () => {
+    const environmentAbortController = globalThis.AbortController;
+
+    renderWorkspace();
+    await screen.findByRole('heading', { name: 'Workspace — M6 document' });
+
+    expect(globalThis.AbortController).not.toBe(environmentAbortController);
+    expect(() =>
+      new Request('http://localhost/navigation', {
+        signal: new AbortController().signal,
+      }),
+    ).not.toThrow();
+
+    restoreDataRouterAbortController();
+    expect(globalThis.AbortController).toBe(environmentAbortController);
   });
 });

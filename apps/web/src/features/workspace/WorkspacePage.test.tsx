@@ -10,9 +10,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Link, createMemoryRouter, RouterProvider } from 'react-router-dom';
+import { Link, RouterProvider } from 'react-router-dom';
 import { WorkspacePage } from './WorkspacePage';
-import { renderPageAt, createTestQueryClient } from '../../test/harness';
+import { renderPageAt, createPageRouter, createTestQueryClient } from '../../test/harness';
 import { installFetchMock, json, type MockResponse } from '../../test/mockFetch';
 import { preferenceKey } from './state/preferences';
 import type { WorkspaceSnapshot } from './api';
@@ -124,6 +124,35 @@ async function stageEnglishRange(container: HTMLElement, start: number, end: num
     within(englishPanel as HTMLElement).getByRole('button', { name: 'Add to Alignment' }),
   );
   return removeAllRanges;
+}
+
+/**
+ * Render the workspace under a memory DATA router (mirroring the application's
+ * `createBrowserRouter`) with an in-app link to a second document, so
+ * document-change navigation exercises the real router.
+ */
+function renderWorkspaceWithDocumentLink() {
+  const client = createTestQueryClient();
+  const router = createPageRouter(
+    [
+      {
+        path: '/documents/:documentId/workspace',
+        element: (
+          <div>
+            <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
+            <WorkspacePage />
+          </div>
+        ),
+      },
+    ],
+    ['/documents/doc-1/workspace'],
+  );
+  const { container } = render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
+  return { container, client };
 }
 
 describe('WorkspacePage', () => {
@@ -614,26 +643,7 @@ describe('WorkspacePage (M0.4 selection and pending tray)', () => {
       ['/workspace', (url) => (url.includes('doc-2') ? json(200, doc2) : json(200, snapshot()))],
     ]);
 
-    const client = createTestQueryClient();
-    const router = createMemoryRouter(
-      [
-        {
-          path: '/documents/:documentId/workspace',
-          element: (
-            <div>
-              <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
-              <WorkspacePage />
-            </div>
-          ),
-        },
-      ],
-      { initialEntries: ['/documents/doc-1/workspace'] },
-    );
-    const { container } = render(
-      <QueryClientProvider client={client}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>,
-    );
+    const { container } = renderWorkspaceWithDocumentLink();
 
     await openEnglishPanel();
     await screen.findByText('I look forward to seeing you tomorrow.');
@@ -998,26 +1008,7 @@ describe('WorkspacePage (M0.5 alignment persistence)', () => {
       ],
     ]);
 
-    const client = createTestQueryClient();
-    const router = createMemoryRouter(
-      [
-        {
-          path: '/documents/:documentId/workspace',
-          element: (
-            <div>
-              <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
-              <WorkspacePage />
-            </div>
-          ),
-        },
-      ],
-      { initialEntries: ['/documents/doc-1/workspace'] },
-    );
-    const { container } = render(
-      <QueryClientProvider client={client}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>,
-    );
+    const { container, client } = renderWorkspaceWithDocumentLink();
 
     // Stage a valid doc-A alignment (EN + DE) and start the create request.
     await openEnglishPanel();
@@ -1142,26 +1133,7 @@ describe('WorkspacePage (M0.5 alignment persistence)', () => {
       ],
     ]);
 
-    const client = createTestQueryClient();
-    const router = createMemoryRouter(
-      [
-        {
-          path: '/documents/:documentId/workspace',
-          element: (
-            <div>
-              <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
-              <WorkspacePage />
-            </div>
-          ),
-        },
-      ],
-      { initialEntries: ['/documents/doc-1/workspace'] },
-    );
-    const { container } = render(
-      <QueryClientProvider client={client}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>,
-    );
+    const { container } = renderWorkspaceWithDocumentLink();
 
     // Doc A: stage a valid alignment and fail the create request.
     await openEnglishPanel();
