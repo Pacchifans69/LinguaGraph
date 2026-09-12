@@ -284,11 +284,56 @@ export function TokenSegmentationPanel({
     }
   }
 
+  function discardPreview() {
+    setDraft(authoritative);
+    setDraftContent(version.content);
+    setDraftIdentity(identity);
+    setDirty(false);
+    setConflict(false);
+    setSubmittedDraftKey(null);
+    setError(null);
+  }
+
   if (!sentenceLayer) {
     return (
-      <section className="segmentation-panel token-segmentation-panel">
-        <p className="section-kicker">Token segmentation</p>
+      <section className="segmentation-panel token-segmentation-panel" aria-labelledby={`tokens-${version.id}`}>
+        <div className="segmentation-panel-header">
+          <div>
+            <p className="section-kicker">Token segmentation</p>
+            <h4 id={`tokens-${version.id}`}>{version.label}</h4>
+          </div>
+          <span className="segmentation-status">{changed ? 'Unsaved preview' : savedLayer ? 'Saved' : 'Not saved'}</span>
+        </div>
         <p className="segmentation-empty">Save a sentence segmentation first. Tokens require its exact persisted identity.</p>
+        {/* M6-G2-F09: a dirty preview outlives the sentence basis it targeted.
+            It stays visible, cannot be submitted, and can be explicitly
+            discarded instead of disappearing behind the prerequisite notice. */}
+        {changed ? (
+          <>
+            <p className="segmentation-warning" role="alert">
+              The saved sentence basis this preview targeted is gone. The
+              preview is kept below for explicit disposition; stale tokens
+              cannot be submitted.
+            </p>
+            <div className="segmentation-actions">
+              <Button type="button" size="sm" variant="quiet" disabled={pending} onClick={discardPreview}>
+                Discard preview
+              </Button>
+            </div>
+            {current.length === 0 ? null : (
+              <ol className="segmentation-list token-list">
+                {current.map((token, index) => (
+                  <li className="segmentation-row" key={`${token.start}:${token.end}`}>
+                    <div className="segmentation-copy">
+                      <span className="segmentation-range">{index + 1}. [{token.start}, {token.end})</span>
+                      <span className="token-preview">{JSON.stringify(sliceByCodePoints(draftContent, token.start, token.end))}</span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </>
+        ) : null}
       </section>
     );
   }
@@ -308,9 +353,7 @@ export function TokenSegmentationPanel({
       <div className="segmentation-actions">
         <Button type="button" size="sm" variant="secondary" disabled={pending || conflict} onClick={manual}>Start manual</Button>
         <Button type="button" size="sm" variant="secondary" disabled={pending || conflict || !hasIntlWordSegmenter()} onClick={suggest}>Generate word suggestion</Button>
-        <Button type="button" size="sm" variant="quiet" disabled={pending || !changed} onClick={() => {
-          setDraft(authoritative); setDraftContent(version.content); setDraftIdentity(identity); setDirty(false); setConflict(false); setSubmittedDraftKey(null); setError(null);
-        }}>Discard preview</Button>
+        <Button type="button" size="sm" variant="quiet" disabled={pending || !changed} onClick={discardPreview}>Discard preview</Button>
       </div>
       {!hasIntlWordSegmenter() ? <p className="segmentation-warning" role="status">Intl.Segmenter word mode is unavailable. Manual construction remains available.</p> : null}
       {error ? <p className="segmentation-warning" role="alert">{error}</p> : null}

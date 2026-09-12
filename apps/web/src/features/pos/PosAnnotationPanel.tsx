@@ -211,6 +211,29 @@ export function PosAnnotationPanel({
     onSessionStateChange?.({ dirty, pending, error: mutationError !== null, conflict, dialogOpen: false });
   }, [dirty, pending, mutationError, conflict, onSessionStateChange]);
 
+  const draftRows = entries.map((entry) => (
+    <PosRow
+      key={entry.segment.id}
+      entry={entry}
+      annotation={posAnnotationsByTokenSegmentId[entry.segment.id]}
+      pending={pending}
+      activeMutationId={activeMutationId}
+      error={activeMutationId === entry.segment.id ? mutationError : null}
+      onChange={(value) => drafts.update(entry.segment.id, value)}
+      onSave={() => {
+        setActiveMutationId(entry.segment.id);
+        remove.reset();
+        put.mutate({ tokenSegmentId: entry.segment.id, pos_tag: entry.draft });
+      }}
+      onDelete={() => {
+        setActiveMutationId(entry.segment.id);
+        put.reset();
+        remove.mutate(entry.segment.id);
+      }}
+      onDiscard={() => drafts.discard(entry.segment.id)}
+    />
+  ));
+
   if (!tokenLayer) {
     return (
       <section
@@ -222,6 +245,13 @@ export function PosAnnotationPanel({
         <p className="segmentation-empty">
           Save token segmentation before adding POS annotations.
         </p>
+        {/* M6-G2-F09: a dirty draft outlives the token layer it targeted.
+            The preserved rows stay visible (stale, non-submittable and
+            explicitly discardable) instead of disappearing behind the
+            prerequisite notice. */}
+        {entries.length > 0 ? (
+          <ol className="segmentation-list pos-list">{draftRows}</ol>
+        ) : null}
       </section>
     );
   }
@@ -259,30 +289,7 @@ export function PosAnnotationPanel({
           No saved word-like tokens are available for POS annotation.
         </p>
       ) : (
-        <ol className="segmentation-list pos-list">
-          {entries.map((entry) => (
-            <PosRow
-              key={entry.segment.id}
-              entry={entry}
-              annotation={posAnnotationsByTokenSegmentId[entry.segment.id]}
-              pending={pending}
-              activeMutationId={activeMutationId}
-              error={activeMutationId === entry.segment.id ? mutationError : null}
-              onChange={(value) => drafts.update(entry.segment.id, value)}
-              onSave={() => {
-                setActiveMutationId(entry.segment.id);
-                remove.reset();
-                put.mutate({ tokenSegmentId: entry.segment.id, pos_tag: entry.draft });
-              }}
-              onDelete={() => {
-                setActiveMutationId(entry.segment.id);
-                put.reset();
-                remove.mutate(entry.segment.id);
-              }}
-              onDiscard={() => drafts.discard(entry.segment.id)}
-            />
-          ))}
-        </ol>
+        <ol className="segmentation-list pos-list">{draftRows}</ol>
       )}
 
       {siblingBlocked.length > 0 ? (

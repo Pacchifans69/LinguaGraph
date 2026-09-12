@@ -122,6 +122,58 @@ describe('TokenSegmentationPanel', () => {
     expect(screen.getByText(/Save a sentence segmentation first/)).toBeInTheDocument();
   });
 
+  // M6-G2-F09: the prerequisite sentence basis can disappear through an
+  // authoritative change. A dirty token preview must stay visible,
+  // unsubmittable and explicitly discardable instead of hiding behind the
+  // prerequisite notice.
+  it('keeps a dirty preview discoverable and discardable when the sentence basis disappears (M6-G2-F09)', async () => {
+    const view = renderWithProviders(
+      <TokenSegmentationPanel
+        documentId="doc-1"
+        version={version}
+        sentenceLayer={sentenceLayer}
+        sentenceSegments={sentenceSegments}
+        savedSegments={[]}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Start manual' }));
+    expect(screen.getByText('Unsaved preview')).toBeInTheDocument();
+    const rowCount = view.container.querySelectorAll('.token-list .segmentation-row').length;
+    expect(rowCount).toBeGreaterThan(0);
+
+    view.rerender(
+      <TokenSegmentationPanel
+        documentId="doc-1"
+        version={version}
+        sentenceSegments={[]}
+        savedSegments={[]}
+      />,
+    );
+
+    // The prerequisite notice is still shown ...
+    expect(screen.getByText(/Save a sentence segmentation first/)).toBeInTheDocument();
+    // ... and the preview is visible, explained, unsaved and unsubmittable.
+    expect(screen.getByText('Unsaved preview')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'The saved sentence basis this preview targeted is gone.',
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('stale tokens cannot be submitted');
+    expect(screen.queryByRole('button', { name: 'Save tokens' })).not.toBeInTheDocument();
+    expect(
+      view.container.querySelectorAll('.token-list .segmentation-row'),
+    ).toHaveLength(rowCount);
+
+    // Explicit disposition clears the preview and the conflict.
+    fireEvent.click(screen.getByRole('button', { name: 'Discard preview' }));
+    await waitFor(() =>
+      expect(screen.queryByText(/this preview targeted is gone/)).not.toBeInTheDocument(),
+    );
+    expect(
+      view.container.querySelectorAll('.token-list .segmentation-row'),
+    ).toHaveLength(0);
+    expect(screen.queryByText('Unsaved preview')).not.toBeInTheDocument();
+  });
+
   it('constructs, classifies, splits, and sends an exact-basis token replacement', async () => {
     const { calls } = installFetchMock([['/segmentations/token', async () => json(200, { layer: {}, segments: [] })]]);
     renderWithProviders(<TokenSegmentationPanel documentId="doc-1" version={version} sentenceLayer={sentenceLayer} sentenceSegments={sentenceSegments} savedSegments={[]} />);

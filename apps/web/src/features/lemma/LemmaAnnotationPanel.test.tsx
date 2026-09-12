@@ -427,4 +427,47 @@ describe('LemmaAnnotationPanel', () => {
     );
     expect(screen.getByLabelText('Lemma for world')).toBeInTheDocument();
   });
+
+  // M6-G2-F09: the prerequisite token layer can disappear through an
+  // authoritative change (for example deleting the saved token layer). The
+  // dirty draft must stay visible, conflicted, unsubmittable and explicitly
+  // discardable instead of hiding behind the prerequisite notice.
+  it('keeps a stale lemma draft discoverable and discardable when the token layer disappears (M6-G2-F09)', async () => {
+    const { calls } = installFetchMock([['/lemma', async () => json(200, annotation)]]);
+    const { rerender } = renderPanel();
+    fireEvent.change(screen.getByLabelText('Lemma for Hello'), {
+      target: { value: 'house' },
+    });
+
+    rerender(
+      <LemmaAnnotationPanel
+        documentId="doc-1"
+        version={version}
+        tokenLayer={undefined}
+        tokenSegments={[]}
+        annotationsByTokenSegmentId={{}}
+      />,
+    );
+
+    // The prerequisite notice is still shown ...
+    expect(
+      screen.getByText('Save token segmentation before adding lemma annotations.'),
+    ).toBeInTheDocument();
+    // ... and the preserved draft is visible, explained and unsubmittable.
+    expect(screen.getByLabelText('Lemma for Hello')).toHaveValue('house');
+    expect(screen.getByRole('button', { name: 'Save lemma' })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'stale targets cannot be submitted',
+    );
+    expect(calls).toHaveLength(0);
+
+    // Explicit disposition clears it; no stale occurrence became a target.
+    fireEvent.click(screen.getByRole('button', { name: 'Discard draft' }));
+    await waitFor(() =>
+      expect(screen.queryByLabelText('Lemma for Hello')).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByText('Save token segmentation before adding lemma annotations.'),
+    ).toBeInTheDocument();
+  });
 });

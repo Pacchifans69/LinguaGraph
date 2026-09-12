@@ -708,3 +708,96 @@ test('M6 keeps connectors bound across mode, reorder and hide/reopen', async ({ 
   await expect(page.getByTestId('connector-overlay')).toBeVisible();
   await expect(session(page, english.id, 'lemma')).toContainText('Hello');
 });
+
+test('M6 keeps a dirty downstream draft explicitly discardable after its upstream layer is deleted', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const document = await createDocument(request, 'M6 F09');
+  const version = await createVersion(request, document.id, 'M6 F09 English', 'en', 'Hello world.');
+  await saveWordLikeToken(request, version, 'Hello');
+
+  await page.goto(`/documents/${document.id}/workspace`);
+  await openVersion(page, 'M6 F09 English');
+  const lemma = session(page, version.id, 'lemma');
+  const token = session(page, version.id, 'token');
+
+  // A lemma draft against the saved token layer, deliberately never saved.
+  await page.getByRole('tab', { name: 'Lemma' }).click();
+  await lemma.getByLabel('Lemma for Hello').fill('house');
+  await expect(page.getByLabel('Workbench session status')).toContainText('Unsaved');
+
+  // Delete the saved token layer through the real confirmed UI flow. The
+  // backend only guards PERSISTED occurrence annotations, so this succeeds.
+  await page.getByRole('tab', { name: 'Token' }).click();
+  await token.getByRole('button', { name: 'Delete tokens' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete tokens' }).click();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+
+  // The authoritative refetch removed the prerequisite. The draft stays
+  // visible and conflicted, cannot be submitted, and can be explicitly
+  // discarded — it is no longer hidden behind the prerequisite notice.
+  await page.getByRole('tab', { name: 'Lemma' }).click();
+  await expect(lemma.getByText('Save token segmentation before adding lemma annotations.')).toBeVisible();
+  await expect(lemma.getByLabel('Lemma for Hello')).toHaveValue('house');
+  await expect(lemma.getByRole('button', { name: 'Save lemma' })).toBeDisabled();
+  await expect(lemma.getByRole('alert')).toContainText('stale targets cannot be submitted');
+  await expect(page.getByLabel('Workbench session status')).toContainText('Conflict');
+
+  await lemma.getByRole('button', { name: 'Discard draft' }).click();
+  await expect(lemma.getByLabel('Lemma for Hello')).toHaveCount(0);
+  await expect(lemma.getByText('Save token segmentation before adding lemma annotations.')).toBeVisible();
+
+  // No stale token occurrence reached the API as a mutation target.
+  const snapshot = await (await request.get(`/api/v1/documents/${document.id}/workspace`)).json() as {
+    segmentation_layers: Array<{ granularity: string }>;
+    token_lemma_annotations: unknown[];
+  };
+  expect(snapshot.segmentation_layers.map((layer) => layer.granularity)).toEqual(['sentence']);
+  expect(snapshot.token_lemma_annotations).toEqual([]);
+});
+
+test('M6 blocks dirty browser Back/Forward with exactly one in-app confirmation', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const document = await createDocument(request, 'M6 F10');
+  const version = await createVersion(request, document.id, 'M6 F10 English', 'en', 'Hello world.');
+
+  // Build a real IN-APP history stack (/projects -> documents -> workspace)
+  // through SPA links, so Back/Forward are client-side route transitions
+  // handled by the router rather than full document unloads.
+  await page.goto('/projects');
+  await expect(page).toHaveURL(/\/projects$/);
+  await page.getByRole('link', { name: /M6 F10 project/ }).click();
+  await expect(page).toHaveURL(/\/projects\/[^/]+\/documents$/);
+  await page.getByRole('link', { name: /^M6 F10\b/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/documents/${document.id}/workspace$`));
+  await openVersion(page, 'M6 F10 English');
+  await page.getByRole('tab', { name: 'Sentence' }).click();
+  const sentence = session(page, version.id, 'sentence');
+  await sentence.getByRole('button', { name: 'Start manual' }).click();
+  await expect(page.getByLabel('Workbench session status')).toContainText('Unsaved');
+
+  const workspaceUrl = new RegExp(`/documents/${document.id}/workspace$`);
+
+  // Back is blocked by exactly one in-app confirmation; staying keeps the
+  // route, the mounted session and the draft.
+  await page.goBack();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toHaveCount(1);
+  await expect(dialog).toContainText('Leave this document workspace?');
+  await expect(page).toHaveURL(workspaceUrl);
+  await dialog.getByRole('button', { name: 'Stay' }).click();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await expect(page).toHaveURL(workspaceUrl);
+  await expect(sentence.getByText('Unsaved preview')).toBeVisible();
+
+  // Confirming performs that one pending history navigation.
+  await page.goBack();
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Leave' }).click();
+  await expect(page).toHaveURL(/\/projects\/[^/]+\/documents$/);
+
+  // Forward returns to a freshly mounted (clean) workspace with no prompt.
+  await page.goForward();
+  await expect(page).toHaveURL(workspaceUrl);
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await expect(page.getByLabel('Workbench session status')).toHaveCount(0);
+});

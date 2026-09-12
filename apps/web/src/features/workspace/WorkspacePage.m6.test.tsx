@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { RouteObject } from 'react-router-dom';
 import { renderPageAt } from '../../test/harness';
 import { installFetchMock, json, type Handler, type MockResponse } from '../../test/mockFetch';
 import type { WorkspaceSnapshot } from './api';
@@ -92,12 +93,32 @@ function alignedSnapshotWithoutEnglish(): WorkspaceSnapshot {
   return snapshotWithoutEnglish();
 }
 
-function renderWorkspace(snapshot = m6Snapshot(), handlers: Array<[string, Handler]> = []) {
+/** Authoritative result of deleting the saved token layer of `tv-en`. */
+function snapshotWithoutTokenLayer(): WorkspaceSnapshot {
+  const data = m6Snapshot();
+  data.segmentation_layers = (data.segmentation_layers ?? []).filter(
+    (layer) => layer.id !== 'token-en',
+  );
+  data.segments = (data.segments ?? []).filter(
+    (segment) => segment.segmentation_layer_id !== 'token-en',
+  );
+  data.token_lemma_annotations = [];
+  data.token_pos_annotations = [];
+  return data;
+}
+
+function renderWorkspace(
+  snapshot = m6Snapshot(),
+  handlers: Array<[string, Handler]> = [],
+  extraRoutes: RouteObject[] = [],
+) {
   installFetchMock([...handlers, ['/workspace', () => json(200, snapshot)]]);
   return renderPageAt(
     <WorkspacePage />,
     '/documents/:documentId/workspace',
     '/documents/doc-1/workspace',
+    undefined,
+    extraRoutes,
   );
 }
 
@@ -265,23 +286,148 @@ describe('WorkspacePage M6 mode-oriented IA', () => {
     expect(screen.getAllByRole('tab').every((tab) => !(tab as HTMLButtonElement).disabled)).toBe(true);
   });
 
-  it('registers native leave protection and requires disposition for document links', async () => {
-    const view = renderWorkspace();
+  // M6-G2-F10: a dirty in-app route transition (Link click here; Back/Forward
+  // is covered by the Playwright path) is blocked by the router itself with
+  // exactly one in-app confirmation.
+  it('blocks a dirty in-app route transition and keeps route, session and draft on cancel', async () => {
+    const view = renderWorkspace(m6Snapshot(), [], [
+      { path: '/projects', element: <div>Projects destination</div> },
+    ]);
     fireEvent.click(await screen.findByRole('button', { name: 'Open English' }));
     fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
     const englishSession = view.container.querySelector('[data-session-key="tv-en:sentence"]') as HTMLElement;
     fireEvent.click(within(englishSession).getByRole('button', { name: 'Start manual' }));
     await waitFor(() => expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('Unsaved'));
 
-    const confirm = vi.fn(() => false);
-    vi.stubGlobal('confirm', confirm);
     fireEvent.click(screen.getByRole('link', { name: 'Projects' }));
-    expect(confirm).toHaveBeenCalledOnce();
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent('Leave this document workspace?');
     expect(screen.getByRole('heading', { name: 'Workspace — M6 document' })).toBeInTheDocument();
 
-    const beforeUnload = new Event('beforeunload', { cancelable: true });
-    window.dispatchEvent(beforeUnload);
-    expect(beforeUnload.defaultPrevented).toBe(true);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Stay' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Workspace — M6 document' })).toBeInTheDocument();
+    expect(within(englishSession).getByText('Unsaved preview')).toBeInTheDocument();
+
+    // The single confirmation performs the pending navigation.
+    fireEvent.click(screen.getByRole('link', { name: 'Projects' }));
+    const confirmed = await screen.findByRole('alertdialog');
+    fireEvent.click(within(confirmed).getByRole('button', { name: 'Leave' }));
+    expect(await screen.findByText('Projects destination')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Workspace — M6 document' })).toBeNull();
+  });
+
+  it('does not prompt for a clean in-app route transition', async () => {
+    renderWorkspace(m6Snapshot(), [], [
+      { path: '/projects', element: <div>Projects destination</div> },
+    ]);
+    fireEvent.click(await screen.findByRole('button', { name: 'Open English' }));
+
+    fireEvent.click(screen.getByRole('link', { name: 'Projects' }));
+    expect(await screen.findByText('Projects destination')).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('registers and cleans up the native refresh/close warning for dirty work', async () => {
+    const view = renderWorkspace();
+    fireEvent.click(await screen.findByRole('button', { name: 'Open English' }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    const englishSession = view.container.querySelector('[data-session-key="tv-en:sentence"]') as HTMLElement;
+
+    // A clean workspace installs no native unload warning.
+    const cleanUnload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(cleanUnload);
+    expect(cleanUnload.defaultPrevented).toBe(false);
+
+    fireEvent.click(within(englishSession).getByRole('button', { name: 'Start manual' }));
+    await waitFor(() => expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('Unsaved'));
+    const dirtyUnload = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(dirtyUnload);
+    expect(dirtyUnload.defaultPrevented).toBe(true);
+
+    // Leaving the workspace removes the native listener.
+    view.unmount();
+    const afterUnmount = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(afterUnmount);
+    expect(afterUnmount.defaultPrevented).toBe(false);
+  });
+
+  // M6-G2-F09: deleting the saved token layer through the real UI removes the
+  // lemma draft's prerequisite. The draft must remain discoverable, conflicted
+  // and explicitly discardable, and no stale token may become a mutation
+  // target.
+  it('keeps a dirty lemma draft discoverable and discardable after its token layer is deleted through the UI', async () => {
+    let tokenLayerDeleted = false;
+    installFetchMock([
+      [
+        '/segmentations/token',
+        async (_url, init) => {
+          if (init?.method === 'DELETE') {
+            tokenLayerDeleted = true;
+            return json(204, null);
+          }
+          return json(200, { layer: { id: 'token-en' }, segments: [] });
+        },
+      ],
+      ['/workspace', async () => json(200, tokenLayerDeleted ? snapshotWithoutTokenLayer() : m6Snapshot())],
+    ]);
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Open English' }));
+    const englishLemma = () =>
+      view.container.querySelector('[data-session-key="tv-en:lemma"]') as HTMLElement;
+
+    // Dirty lemma draft over the SAVED token layer; never saved.
+    fireEvent.click(screen.getByRole('tab', { name: 'Lemma' }));
+    fireEvent.change(screen.getByLabelText('Lemma for One'), { target: { value: 'house' } });
+    await waitFor(() => expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('Unsaved'));
+
+    // Delete the saved token layer through the confirmed UI flow.
+    fireEvent.click(screen.getByRole('tab', { name: 'Token' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete tokens' }));
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete tokens' }),
+    );
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    await waitFor(() =>
+      expect(
+        within(englishLemma()).getByText(
+          'Save token segmentation before adding lemma annotations.',
+        ),
+      ).toBeInTheDocument(),
+    );
+
+    // The authoritative refetch removed the prerequisite; the draft is still
+    // visible, conflicted, unsubmittable and discoverable while inactive.
+    fireEvent.click(screen.getByRole('tab', { name: 'Lemma' }));
+    expect(within(englishLemma()).getByLabelText('Lemma for One')).toHaveValue('house');
+    expect(within(englishLemma()).getByRole('button', { name: 'Save lemma' })).toBeDisabled();
+    expect(within(englishLemma()).getByRole('alert')).toHaveTextContent(
+      'stale targets cannot be submitted',
+    );
+    expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('Conflict');
+
+    // Explicit discard clears the orphaned draft.
+    fireEvent.click(within(englishLemma()).getByRole('button', { name: 'Discard draft' }));
+    await waitFor(() =>
+      expect(
+        within(englishLemma()).queryByLabelText('Lemma for One'),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      within(englishLemma()).getByText(
+        'Save token segmentation before adding lemma annotations.',
+      ),
+    ).toBeInTheDocument();
+
+    // The sentence layer is untouched and no stale token was submitted.
+    const snapshotResponse = await fetch('/api/v1/documents/doc-1/workspace');
+    const snapshot = (await snapshotResponse.json()) as WorkspaceSnapshot;
+    expect((snapshot.segmentation_layers ?? []).map((layer) => layer.granularity)).toEqual(['sentence']);
+    expect(snapshot.token_lemma_annotations).toEqual([]);
   });
 
   it('preserves a dirty Alignment Inspector note across mounted task sessions', async () => {
