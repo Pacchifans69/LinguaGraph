@@ -914,4 +914,69 @@ describe('WorkspacePage M6 mode-oriented IA', () => {
     releaseLemma?.({ status: 200, body: { id: 'l1', token_segment_id: 'token-one', lemma: 'one', created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z' } });
     await waitFor(() => expect(screen.queryByLabelText('Workbench session status')).toBeNull());
   });
+
+  it('reports a token mutation only for its owning session while other segmentation controls stay locked', async () => {
+    let releaseToken: ((value: MockResponse) => void) | undefined;
+    const view = renderWorkspace(twoLayerSnapshot(), [
+      ['/segmentations/token', () => new Promise<MockResponse>((resolve) => {
+        releaseToken = resolve;
+      })],
+    ]);
+    await openBoth();
+    fireEvent.click(screen.getByRole('tab', { name: 'Token' }));
+    const englishToken = view.container.querySelector('[data-session-key="tv-en:token"]') as HTMLElement;
+    fireEvent.click(within(englishToken).getByRole('button', { name: 'Start manual' }));
+    fireEvent.click(within(englishToken).getByRole('button', { name: 'Save tokens' }));
+    await within(englishToken).findByRole('button', { name: 'Saving…' });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Lemma' }));
+    const summary = screen.getByLabelText('Workbench session status');
+    expect(summary).toHaveTextContent('English · TokenPending');
+    expect(summary).not.toHaveTextContent('English · Sentence');
+    expect(summary).not.toHaveTextContent('German · Token');
+    expect(summary).not.toHaveTextContent('German · Sentence');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Token' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Active text version' }), { target: { value: 'tv-de' } });
+    const germanToken = view.container.querySelector('[data-session-key="tv-de:token"]') as HTMLElement;
+    expect(within(germanToken).getByRole('button', { name: 'Start manual' })).toBeDisabled();
+
+    await waitFor(() => expect(releaseToken).toBeTypeOf('function'));
+    releaseToken?.({ status: 500, body: { code: 'INTERNAL_ERROR', message: 'token save failed', details: {} } });
+    await waitFor(() => expect(summary).toHaveTextContent('English · TokenError'));
+    expect(summary).not.toHaveTextContent('German · Token');
+  });
+
+  it('reports a POS mutation only for its owning session while other POS controls stay locked', async () => {
+    let releasePos: ((value: MockResponse) => void) | undefined;
+    const view = renderWorkspace(twoLayerSnapshot(), [
+      ['/pos', () => new Promise<MockResponse>((resolve) => {
+        releasePos = resolve;
+      })],
+    ]);
+    await openBoth();
+    fireEvent.click(screen.getByRole('tab', { name: 'POS' }));
+    const englishPos = view.container.querySelector('[data-session-key="tv-en:pos"]') as HTMLElement;
+    const oneRow = englishPos.querySelector('[data-token-segment-id="token-one"]') as HTMLElement;
+    fireEvent.change(within(oneRow).getByLabelText('Coarse POS for One'), { target: { value: 'NOUN' } });
+    fireEvent.click(within(oneRow).getByRole('button', { name: 'Save POS' }));
+    await within(oneRow).findByRole('button', { name: 'Saving…' });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Lemma' }));
+    const summary = screen.getByLabelText('Workbench session status');
+    expect(summary).toHaveTextContent('English · POSPending');
+    expect(summary).not.toHaveTextContent('English · Lemma');
+    expect(summary).not.toHaveTextContent('German · POS');
+    expect(summary).not.toHaveTextContent('German · Lemma');
+
+    fireEvent.click(screen.getByRole('tab', { name: 'POS' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Active text version' }), { target: { value: 'tv-de' } });
+    const germanPos = view.container.querySelector('[data-session-key="tv-de:pos"]') as HTMLElement;
+    expect(within(germanPos).getByLabelText('Coarse POS for Ein')).toBeDisabled();
+
+    await waitFor(() => expect(releasePos).toBeTypeOf('function'));
+    releasePos?.({ status: 500, body: { code: 'INTERNAL_ERROR', message: 'POS save failed', details: {} } });
+    await waitFor(() => expect(summary).toHaveTextContent('English · POSError'));
+    expect(summary).not.toHaveTextContent('German · POS');
+  });
 });
