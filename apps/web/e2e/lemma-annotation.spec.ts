@@ -251,21 +251,23 @@ test('M4 lemma annotation persists, edits, deletes, and preserves segmentation +
   await page.goto(`/documents/${document.id}/workspace`);
   await openPanel(page, 'M4 English');
 
-  const lemmaPanel = page.locator('.lemma-annotation-panel', { hasText: 'M4 English' });
+  // Named distinctly from the module-level `lemmaPanel(page, label)` helper:
+  // a function-scoped `const lemmaPanel` would shadow it for the whole test.
+  const englishLemmaPanel = page.locator('.lemma-annotation-panel', { hasText: 'M4 English' });
   // Only saved word-like tokens are lemma targets; separators are absent.
-  await expect(lemmaPanel.locator('.lemma-row')).toHaveCount(3);
-  await expect(lemmaPanel).toContainText('0 annotated / 3 word-like');
+  await expect(englishLemmaPanel.locator('.lemma-row')).toHaveCount(3);
+  await expect(englishLemmaPanel).toContainText('0 annotated / 3 word-like');
   await expect(
-    lemmaPanel.locator('.lemma-row', { hasText: JSON.stringify(' ') }),
+    englishLemmaPanel.locator('.lemma-row', { hasText: JSON.stringify(' ') }),
   ).toHaveCount(0);
   await expect(
-    lemmaPanel.locator('.lemma-row', { hasText: JSON.stringify('🙂') }),
+    englishLemmaPanel.locator('.lemma-row', { hasText: JSON.stringify('🙂') }),
   ).toHaveCount(0);
 
   // Create.
   await saveLemma(page, 'M4 English', hello!.id, 'house');
-  await expect(lemmaPanel).toContainText('1 annotated / 3 word-like');
-  await expect(lemmaPanel).toContainText(
+  await expect(englishLemmaPanel).toContainText('1 annotated / 3 word-like');
+  await expect(englishLemmaPanel).toContainText(
     'Saved tokens with lemma annotations cannot be replaced or deleted until those annotations are removed.',
   );
 

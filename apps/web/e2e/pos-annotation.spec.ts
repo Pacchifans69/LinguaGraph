@@ -184,7 +184,7 @@ async function saveTokenLayer(
  * preference, so after a reload the panel is usually already open and there is
  * no "Open …" button.
  */
-async function openPanel(page: Page, label: string) {
+async function openPanel(page: Page, label: string, textVersionId: string) {
   const openButton = page.getByRole('button', { name: `Open ${label}` });
   const slot = page.locator('.panel-slot', { hasText: label });
   await expect(openButton.or(slot).first()).toBeVisible();
@@ -192,12 +192,22 @@ async function openPanel(page: Page, label: string) {
     await openButton.click();
   }
   await expect(slot).toBeVisible();
-  await activateMode(page, 'POS', label);
+  await activateMode(page, 'POS', textVersionId);
 }
 
-async function activateMode(page: Page, mode: 'Token' | 'Lemma' | 'POS', label: string) {
+/**
+ * Select the active linguistic target by its STABLE TextVersion id.
+ *
+ * The `<option>` value is the TextVersion id; its display text is the label
+ * plus an optional mounted-session status suffix (" — Error", " — Conflict",
+ * " — Unsaved", " — Pending"), so selecting by label is not stable across
+ * session state.
+ */
+async function activateMode(page: Page, mode: 'Token' | 'Lemma' | 'POS', textVersionId: string) {
   await page.getByRole('tab', { name: mode }).click();
-  await page.getByRole('combobox', { name: 'Active text version' }).selectOption({ label });
+  await page
+    .getByRole('combobox', { name: 'Active text version' })
+    .selectOption({ value: textVersionId });
 }
 
 function panelSlot(page: Page, label: string) {
@@ -229,8 +239,9 @@ async function savePos(
   label: string,
   tokenSegmentId: string,
   tag: string,
+  textVersionId: string,
 ) {
-  await activateMode(page, 'POS', label);
+  await activateMode(page, 'POS', textVersionId);
   const row = posRow(page, label, tokenSegmentId);
   await row.getByLabel(/^Coarse POS for /).selectOption(tag);
   await row.getByRole('button', { name: 'Save POS' }).click();
@@ -242,8 +253,9 @@ async function saveLemma(
   label: string,
   tokenSegmentId: string,
   lemma: string,
+  textVersionId: string,
 ) {
-  await activateMode(page, 'Lemma', label);
+  await activateMode(page, 'Lemma', textVersionId);
   const row = lemmaRow(page, label, tokenSegmentId);
   await row.getByLabel(/^Lemma for /).fill(lemma);
   await row.getByRole('button', { name: 'Save lemma' }).click();
@@ -319,7 +331,7 @@ test('M5 POS annotation persists, edits, deletes, and preserves segmentation + l
   const groupId = (await alignment.json()).id as string;
 
   await page.goto(`/documents/${document.id}/workspace`);
-  await openPanel(page, 'M5 English');
+  await openPanel(page, 'M5 English', version.id);
 
   const panel = posPanel(page, 'M5 English');
   // Only saved word-like tokens are POS targets; separators are absent.
@@ -348,12 +360,12 @@ test('M5 POS annotation persists, edits, deletes, and preserves segmentation + l
   await expect(selector.locator('option[value="SYM"]')).toHaveCount(0);
 
   // Create (POS without lemma is also legal; here the sibling lemma already exists).
-  await savePos(page, 'M5 English', hello!.id, 'NOUN');
+  await savePos(page, 'M5 English', hello!.id, 'NOUN', version.id);
   await expect(panel).toContainText('1 annotated / 3 word-like');
 
   // Reload -> exact persisted value in both the display and the control.
   await page.reload();
-  await openPanel(page, 'M5 English');
+  await openPanel(page, 'M5 English', version.id);
   await expect(
     posRow(page, 'M5 English', hello!.id).locator('.pos-saved-value'),
   ).toHaveText('NOUN');
@@ -362,17 +374,17 @@ test('M5 POS annotation persists, edits, deletes, and preserves segmentation + l
   ).toHaveValue('NOUN');
 
   // Edit.
-  await savePos(page, 'M5 English', hello!.id, 'VERB');
+  await savePos(page, 'M5 English', hello!.id, 'VERB', version.id);
   await page.reload();
-  await openPanel(page, 'M5 English');
+  await openPanel(page, 'M5 English', version.id);
   await expect(
     posRow(page, 'M5 English', hello!.id).locator('.pos-saved-value'),
   ).toHaveText('VERB');
 
   // A second, independent occurrence keeps its own identity and value.
-  await savePos(page, 'M5 English', bye!.id, 'INTJ');
+  await savePos(page, 'M5 English', bye!.id, 'INTJ', version.id);
   await page.reload();
-  await openPanel(page, 'M5 English');
+  await openPanel(page, 'M5 English', version.id);
   const reloadedPanel = posPanel(page, 'M5 English');
   await expect(reloadedPanel).toContainText('2 annotated / 3 word-like');
   await expect(
@@ -393,16 +405,16 @@ test('M5 POS annotation persists, edits, deletes, and preserves segmentation + l
   await expect(reloadedPanel).not.toContainText('Saved POS');
 
   // The sibling lemma survived both POS writes and deletions.
-  await activateMode(page, 'Lemma', 'M5 English');
+  await activateMode(page, 'Lemma', version.id);
   await expect(
     lemmaRow(page, 'M5 English', hello!.id).locator('.lemma-saved-value'),
   ).toHaveText('house');
 
   // Sentence and token segmentation are preserved.
   await page.reload();
-  await openPanel(page, 'M5 English');
+  await openPanel(page, 'M5 English', version.id);
   const slot = panelSlot(page, 'M5 English');
-  await activateMode(page, 'Token', 'M5 English');
+  await activateMode(page, 'Token', version.id);
   const preservedTokenPanel = page.locator('.token-segmentation-panel', { hasText: 'M5 English' });
   await expect(preservedTokenPanel.locator('.segmentation-row')).toHaveCount(
     tokens.length,
@@ -410,7 +422,7 @@ test('M5 POS annotation persists, edits, deletes, and preserves segmentation + l
   await expect(
     preservedTokenPanel.getByText('Saved'),
   ).toBeVisible();
-  await activateMode(page, 'POS', 'M5 English');
+  await activateMode(page, 'POS', version.id);
   await expect(posPanel(page, 'M5 English').locator('.pos-row')).toHaveCount(3);
 
   // Alignment state is preserved, and canonical text is unchanged.
@@ -459,9 +471,9 @@ test('M5 multi-dependent block reports both types and unblocks only after both s
   const alpha = tokenLayer.segments.find((segment) => segment.exact_text === 'Alpha')!;
 
   await page.goto(`/documents/${document.id}/workspace`);
-  await openPanel(page, 'M5 Dependency A');
-  await saveLemma(page, 'M5 Dependency A', alpha.id, 'alpha');
-  await savePos(page, 'M5 Dependency A', alpha.id, 'NOUN');
+  await openPanel(page, 'M5 Dependency A', version.id);
+  await saveLemma(page, 'M5 Dependency A', alpha.id, 'alpha', version.id);
+  await savePos(page, 'M5 Dependency A', alpha.id, 'NOUN', version.id);
 
   // The backend reports BOTH dependency types in canonical order.
   const both = await request.put(
@@ -484,7 +496,7 @@ test('M5 multi-dependent block reports both types and unblocks only after both s
 
   // The token panel surfaces the same stable conflict AND names both
   // remaining annotation dependencies for the Human.
-  await activateMode(page, 'Token', 'M5 Dependency A');
+  await activateMode(page, 'Token', version.id);
   const tokenPanel = page.locator('.token-segmentation-panel', { hasText: 'M5 Dependency A' });
   await tokenPanel.getByRole('button', { name: 'Start manual' }).click();
   await expect(tokenPanel.getByText('Unsaved preview')).toBeVisible();
@@ -498,7 +510,7 @@ test('M5 multi-dependent block reports both types and unblocks only after both s
   );
 
   // Delete the LEMMA first: the POS dependent still blocks the parent.
-  await activateMode(page, 'Lemma', 'M5 Dependency A');
+  await activateMode(page, 'Lemma', version.id);
   await lemmaRow(page, 'M5 Dependency A', alpha.id)
     .getByRole('button', { name: 'Delete lemma' })
     .click();
@@ -519,21 +531,21 @@ test('M5 multi-dependent block reports both types and unblocks only after both s
   expect(posOnlyBody.details.dependency_type).toBe('pos_annotations');
 
   // Retrying from the panel shows the REMAINING cleanup state: POS only.
-  await activateMode(page, 'Token', 'M5 Dependency A');
+  await activateMode(page, 'Token', version.id);
   await tokenPanel.getByRole('button', { name: 'Save tokens' }).click();
   await expect(tokenPanel.locator('.token-annotation-dependency')).toHaveText(
     'Delete the dependent POS annotations before changing token segmentation.',
   );
 
   // Delete the remaining POS: token replacement now succeeds.
-  await activateMode(page, 'POS', 'M5 Dependency A');
+  await activateMode(page, 'POS', version.id);
   await posRow(page, 'M5 Dependency A', alpha.id)
     .getByRole('button', { name: 'Delete POS' })
     .click();
   await expect(
     posRow(page, 'M5 Dependency A', alpha.id).locator('.pos-empty'),
   ).toBeVisible();
-  await activateMode(page, 'Token', 'M5 Dependency A');
+  await activateMode(page, 'Token', version.id);
   await tokenPanel.getByRole('button', { name: 'Save tokens' }).click();
   await expect(tokenPanel.getByText('Saved')).toBeVisible();
   await expect(tokenPanel.locator('.token-annotation-dependency')).toHaveCount(0);
@@ -566,12 +578,12 @@ test('M5 multi-dependent block unblocks only after both siblings are deleted (PO
   const alpha = tokenLayer.segments.find((segment) => segment.exact_text === 'Alpha')!;
 
   await page.goto(`/documents/${document.id}/workspace`);
-  await openPanel(page, 'M5 Dependency B');
-  await savePos(page, 'M5 Dependency B', alpha.id, 'VERB');
-  await saveLemma(page, 'M5 Dependency B', alpha.id, 'alpha');
+  await openPanel(page, 'M5 Dependency B', version.id);
+  await savePos(page, 'M5 Dependency B', alpha.id, 'VERB', version.id);
+  await saveLemma(page, 'M5 Dependency B', alpha.id, 'alpha', version.id);
 
   // The Human-visible panel starts from the complete dependency set.
-  await activateMode(page, 'Token', 'M5 Dependency B');
+  await activateMode(page, 'Token', version.id);
   const tokenPanel = page.locator('.token-segmentation-panel', { hasText: 'M5 Dependency B' });
   await tokenPanel.getByRole('button', { name: 'Start manual' }).click();
   await tokenPanel.getByRole('button', { name: 'Save tokens' }).click();
@@ -580,7 +592,7 @@ test('M5 multi-dependent block unblocks only after both siblings are deleted (PO
   );
 
   // Delete the POS first: the lemma dependent still blocks the parent.
-  await activateMode(page, 'POS', 'M5 Dependency B');
+  await activateMode(page, 'POS', version.id);
   await posRow(page, 'M5 Dependency B', alpha.id)
     .getByRole('button', { name: 'Delete POS' })
     .click();
@@ -601,14 +613,14 @@ test('M5 multi-dependent block unblocks only after both siblings are deleted (PO
   expect(lemmaOnlyBody.details.dependency_type).toBe('lemma_annotations');
 
   // Retrying from the panel now identifies the LEMMA as the remaining cleanup.
-  await activateMode(page, 'Token', 'M5 Dependency B');
+  await activateMode(page, 'Token', version.id);
   await tokenPanel.getByRole('button', { name: 'Save tokens' }).click();
   await expect(tokenPanel.locator('.token-annotation-dependency')).toHaveText(
     'Delete the dependent lemma annotations before changing token segmentation.',
   );
 
   // Delete the remaining lemma: token replacement now succeeds.
-  await activateMode(page, 'Lemma', 'M5 Dependency B');
+  await activateMode(page, 'Lemma', version.id);
   await lemmaRow(page, 'M5 Dependency B', alpha.id)
     .getByRole('button', { name: 'Delete lemma' })
     .click();
@@ -653,11 +665,11 @@ test('M5 cross-operation block reports only the remaining dependency for a token
   const alpha = tokenLayer.segments.find((segment) => segment.exact_text === 'Alpha')!;
 
   await page.goto(`/documents/${document.id}/workspace`);
-  await openPanel(page, 'M5 Dependency C');
-  await saveLemma(page, 'M5 Dependency C', alpha.id, 'alpha');
-  await savePos(page, 'M5 Dependency C', alpha.id, 'NOUN');
+  await openPanel(page, 'M5 Dependency C', version.id);
+  await saveLemma(page, 'M5 Dependency C', alpha.id, 'alpha', version.id);
+  await savePos(page, 'M5 Dependency C', alpha.id, 'NOUN', version.id);
 
-  await activateMode(page, 'Token', 'M5 Dependency C');
+  await activateMode(page, 'Token', version.id);
   const tokenPanel = page.locator('.token-segmentation-panel', { hasText: 'M5 Dependency C' });
 
   // 1. The replacement PUT is blocked with BOTH types, and the panel says so.
@@ -672,7 +684,7 @@ test('M5 cross-operation block reports only the remaining dependency for a token
   );
 
   // 2. One sibling is cleaned up, so ONLY the POS dependent remains.
-  await activateMode(page, 'Lemma', 'M5 Dependency C');
+  await activateMode(page, 'Lemma', version.id);
   await lemmaRow(page, 'M5 Dependency C', alpha.id)
     .getByRole('button', { name: 'Delete lemma' })
     .click();
@@ -694,7 +706,7 @@ test('M5 cross-operation block reports only the remaining dependency for a token
   // 4. A real confirmed token-layer DELETE must surface ONLY the remaining POS
   //    cleanup: the earlier replacement PUT guidance must not remain
   //    authoritative merely because it is stored in the other mutation.
-  await activateMode(page, 'Token', 'M5 Dependency C');
+  await activateMode(page, 'Token', version.id);
   await tokenPanel.getByRole('button', { name: 'Delete tokens' }).click();
   await page
     .getByRole('alertdialog')
@@ -705,14 +717,14 @@ test('M5 cross-operation block reports only the remaining dependency for a token
   );
 
   // 5. Removing the remaining sibling lets the token-layer DELETE succeed.
-  await activateMode(page, 'POS', 'M5 Dependency C');
+  await activateMode(page, 'POS', version.id);
   await posRow(page, 'M5 Dependency C', alpha.id)
     .getByRole('button', { name: 'Delete POS' })
     .click();
   await expect(
     posRow(page, 'M5 Dependency C', alpha.id).locator('.pos-empty'),
   ).toBeVisible();
-  await activateMode(page, 'Token', 'M5 Dependency C');
+  await activateMode(page, 'Token', version.id);
   await tokenPanel.getByRole('button', { name: 'Delete tokens' }).click();
   await page
     .getByRole('alertdialog')
@@ -761,7 +773,7 @@ test('M5 POS annotation keeps Unicode content and token identity intact', async 
   expect(byText('🙂').is_word_like).toBe(false);
 
   await page.goto(`/documents/${document.id}/workspace`);
-  await openPanel(page, 'M5 Unicode');
+  await openPanel(page, 'M5 Unicode', version.id);
   const panel = posPanel(page, 'M5 Unicode');
   await expect(panel.locator('.pos-row')).toHaveCount(4);
 
@@ -786,13 +798,13 @@ test('M5 POS annotation keeps Unicode content and token identity intact', async 
     );
   expect(selectable).toEqual(FROZEN_TAGS);
 
-  await savePos(page, 'M5 Unicode', haus.id, 'NOUN');
-  await savePos(page, 'M5 Unicode', haeuser.id, 'NOUN');
-  await savePos(page, 'M5 Unicode', etat.id, 'VERB');
-  await savePos(page, 'M5 Unicode', astral.id, 'X');
+  await savePos(page, 'M5 Unicode', haus.id, 'NOUN', version.id);
+  await savePos(page, 'M5 Unicode', haeuser.id, 'NOUN', version.id);
+  await savePos(page, 'M5 Unicode', etat.id, 'VERB', version.id);
+  await savePos(page, 'M5 Unicode', astral.id, 'X', version.id);
 
   await page.reload();
-  await openPanel(page, 'M5 Unicode');
+  await openPanel(page, 'M5 Unicode', version.id);
   const reloaded = posPanel(page, 'M5 Unicode');
   await expect(reloaded).toContainText('4 annotated / 4 word-like');
   await expect(
