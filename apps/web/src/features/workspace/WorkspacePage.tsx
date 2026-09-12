@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useBlocker } from 'react-router-dom';
 import { useDeleteTextVersion, useWorkspace, type TextVersion } from './api';
 import { normalizeWorkspace } from './normalize';
 import { segmentText } from '../../shared/text/segmentation';
@@ -166,30 +166,38 @@ function WorkspaceBody({
   const anySessionDialogOpen = Object.values(sessionStatuses).some((status) => status.dialogOpen);
   const navigationLocked = anySessionDialogOpen || pendingDirtyDelete !== null || pendingForceDelete !== null;
 
+  // Full page unload (refresh / close / external navigation) keeps using the
+  // native browser warning; client-side route transitions are handled by the
+  // router blocker below.
   useEffect(() => {
     if (!anyDirty) return;
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = '';
     };
-    const handleDocumentNavigation = (event: MouseEvent) => {
-      const target = event.target;
-      const anchor = target instanceof Element ? target.closest('a[href]') : null;
-      if (!(anchor instanceof HTMLAnchorElement) || anchor.target === '_blank') return;
-      const destination = new URL(anchor.href, window.location.href);
-      if (destination.origin !== window.location.origin || destination.href === window.location.href) return;
-      if (!window.confirm('Leave this document workspace? Unsaved editor drafts will be discarded.')) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    };
     window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('click', handleDocumentNavigation, true);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('click', handleDocumentNavigation, true);
     };
   }, [anyDirty]);
+
+  /**
+   * M6-G2-F10: every client-side route transition that would leave this
+   * document workspace — `Link`, browser Back/Forward and in-app programmatic
+   * navigation — is blocked by the router itself while a mounted session owns
+   * unsaved work. A `document`-level click handler could not see Back/Forward,
+   * and pairing it with a route blocker would double-prompt the same
+   * navigation.
+   *
+   * Ordinary mode/target switches never change the route, and a clean
+   * workspace never blocks.
+   */
+  const leaveBlocker = useBlocker(({ currentLocation, nextLocation }) => {
+    if (!anyDirty) {
+      return false;
+    }
+    return currentLocation.pathname !== nextLocation.pathname;
+  });
 
   // Frozen M0.6 precedence: active wins over hovered.
   const effectiveAlignmentId = activeAlignmentId ?? hoveredAlignmentId;
@@ -659,6 +667,37 @@ function WorkspaceBody({
               onClick={confirmForceDelete}
             >
               {deleteMutation.isPending ? 'Deleting…' : 'Delete permanently'}
+            </Button>
+          </div>
+        </ConfirmDialog>
+      ) : null}
+
+      {/* M6-G2-F10: exactly one confirmation owns dirty in-app route
+          transitions (Link, Back/Forward, programmatic navigation). */}
+      {leaveBlocker.state === 'blocked' ? (
+        <ConfirmDialog
+          headingId="leave-workspace-heading"
+          onClose={() => leaveBlocker.reset()}
+        >
+          <h3 id="leave-workspace-heading">Leave this document workspace?</h3>
+          <p>
+            Unsaved editor drafts in this workspace will be discarded when you
+            leave.
+          </p>
+          <div className="confirm-dialog-actions">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => leaveBlocker.reset()}
+            >
+              Stay
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={() => leaveBlocker.proceed()}
+            >
+              Leave
             </Button>
           </div>
         </ConfirmDialog>

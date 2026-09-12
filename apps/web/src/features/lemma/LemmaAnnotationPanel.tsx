@@ -182,6 +182,29 @@ export function LemmaAnnotationPanel({
     onSessionStateChange?.({ dirty, pending, error: mutationError !== null, conflict, dialogOpen: false });
   }, [dirty, pending, mutationError, conflict, onSessionStateChange]);
 
+  const draftRows = entries.map((entry) => (
+    <LemmaRow
+      key={entry.segment.id}
+      entry={entry}
+      annotation={annotationsByTokenSegmentId[entry.segment.id]}
+      pending={pending}
+      activeMutationId={activeMutationId}
+      error={activeMutationId === entry.segment.id ? mutationError : null}
+      onChange={(value) => drafts.update(entry.segment.id, value)}
+      onSave={() => {
+        setActiveMutationId(entry.segment.id);
+        remove.reset();
+        put.mutate({ tokenSegmentId: entry.segment.id, lemma: entry.draft });
+      }}
+      onDelete={() => {
+        setActiveMutationId(entry.segment.id);
+        put.reset();
+        remove.mutate(entry.segment.id);
+      }}
+      onDiscard={() => drafts.discard(entry.segment.id)}
+    />
+  ));
+
   if (!tokenLayer) {
     return (
       <section
@@ -193,6 +216,13 @@ export function LemmaAnnotationPanel({
         <p className="segmentation-empty">
           Save token segmentation before adding lemma annotations.
         </p>
+        {/* M6-G2-F09: a dirty draft outlives the token layer it targeted.
+            The preserved rows stay visible (stale, non-submittable and
+            explicitly discardable) instead of disappearing behind the
+            prerequisite notice. */}
+        {entries.length > 0 ? (
+          <ol className="segmentation-list lemma-list">{draftRows}</ol>
+        ) : null}
       </section>
     );
   }
@@ -225,30 +255,7 @@ export function LemmaAnnotationPanel({
           No saved word-like tokens are available for lemma annotation.
         </p>
       ) : (
-        <ol className="segmentation-list lemma-list">
-          {entries.map((entry) => (
-            <LemmaRow
-              key={entry.segment.id}
-              entry={entry}
-              annotation={annotationsByTokenSegmentId[entry.segment.id]}
-              pending={pending}
-              activeMutationId={activeMutationId}
-              error={activeMutationId === entry.segment.id ? mutationError : null}
-              onChange={(value) => drafts.update(entry.segment.id, value)}
-              onSave={() => {
-                setActiveMutationId(entry.segment.id);
-                remove.reset();
-                put.mutate({ tokenSegmentId: entry.segment.id, lemma: entry.draft });
-              }}
-              onDelete={() => {
-                setActiveMutationId(entry.segment.id);
-                put.reset();
-                remove.mutate(entry.segment.id);
-              }}
-              onDiscard={() => drafts.discard(entry.segment.id)}
-            />
-          ))}
-        </ol>
+        <ol className="segmentation-list lemma-list">{draftRows}</ol>
       )}
 
       {annotated.length > 0 ? (

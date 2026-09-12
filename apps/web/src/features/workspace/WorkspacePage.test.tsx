@@ -10,7 +10,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
+import { Link, createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { WorkspacePage } from './WorkspacePage';
 import { renderPageAt, createTestQueryClient } from '../../test/harness';
 import { installFetchMock, json, type MockResponse } from '../../test/mockFetch';
@@ -614,22 +614,24 @@ describe('WorkspacePage (M0.4 selection and pending tray)', () => {
       ['/workspace', (url) => (url.includes('doc-2') ? json(200, doc2) : json(200, snapshot()))],
     ]);
 
-    function Harness() {
-      return (
-        <div>
-          <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
-          <Routes>
-            <Route path="/documents/:documentId/workspace" element={<WorkspacePage />} />
-          </Routes>
-        </div>
-      );
-    }
     const client = createTestQueryClient();
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/documents/:documentId/workspace',
+          element: (
+            <div>
+              <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
+              <WorkspacePage />
+            </div>
+          ),
+        },
+      ],
+      { initialEntries: ['/documents/doc-1/workspace'] },
+    );
     const { container } = render(
       <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={['/documents/doc-1/workspace']}>
-          <Harness />
-        </MemoryRouter>
+        <RouterProvider router={router} />
       </QueryClientProvider>,
     );
 
@@ -996,22 +998,24 @@ describe('WorkspacePage (M0.5 alignment persistence)', () => {
       ],
     ]);
 
-    function Harness() {
-      return (
-        <div>
-          <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
-          <Routes>
-            <Route path="/documents/:documentId/workspace" element={<WorkspacePage />} />
-          </Routes>
-        </div>
-      );
-    }
     const client = createTestQueryClient();
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/documents/:documentId/workspace',
+          element: (
+            <div>
+              <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
+              <WorkspacePage />
+            </div>
+          ),
+        },
+      ],
+      { initialEntries: ['/documents/doc-1/workspace'] },
+    );
     const { container } = render(
       <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={['/documents/doc-1/workspace']}>
-          <Harness />
-        </MemoryRouter>
+        <RouterProvider router={router} />
       </QueryClientProvider>,
     );
 
@@ -1138,22 +1142,24 @@ describe('WorkspacePage (M0.5 alignment persistence)', () => {
       ],
     ]);
 
-    function Harness() {
-      return (
-        <div>
-          <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
-          <Routes>
-            <Route path="/documents/:documentId/workspace" element={<WorkspacePage />} />
-          </Routes>
-        </div>
-      );
-    }
     const client = createTestQueryClient();
+    const router = createMemoryRouter(
+      [
+        {
+          path: '/documents/:documentId/workspace',
+          element: (
+            <div>
+              <Link to="/documents/doc-2/workspace">Go to doc 2</Link>
+              <WorkspacePage />
+            </div>
+          ),
+        },
+      ],
+      { initialEntries: ['/documents/doc-1/workspace'] },
+    );
     const { container } = render(
       <QueryClientProvider client={client}>
-        <MemoryRouter initialEntries={['/documents/doc-1/workspace']}>
-          <Harness />
-        </MemoryRouter>
+        <RouterProvider router={router} />
       </QueryClientProvider>,
     );
 
