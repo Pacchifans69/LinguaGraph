@@ -215,17 +215,23 @@ export function TokenSegmentationPanel({
 
   const current = draft;
   const changed = dirty;
+  // Same-domain exclusion (unchanged): any in-flight segmentation mutation in
+  // this document keeps every segmentation control locked.
   const pending = anySegmentationMutationPending;
+  // M6-G2-F12: the session summary reports the LIFE-CYCLE OF THIS SESSION's own
+  // mutation, per TextVersion + layer kind (contract section 11) — not the
+  // document-wide exclusion signal above.
+  const sessionPending = put.isPending || remove.isPending;
 
   useEffect(() => {
     onSessionStateChange?.({
       dirty: changed,
-      pending,
+      pending: sessionPending,
       error: put.isError || remove.isError || error !== null,
       conflict,
       dialogOpen: confirmDelete,
     });
-  }, [changed, pending, put.isError, remove.isError, error, conflict, confirmDelete, onSessionStateChange]);
+  }, [changed, sessionPending, put.isError, remove.isError, error, conflict, confirmDelete, onSessionStateChange]);
 
   // Human-readable cleanup state for a token-layer mutation blocked by saved
   // occurrence annotations. The stable error envelope (code + message) is

@@ -801,3 +801,104 @@ test('M6 blocks dirty browser Back/Forward with exactly one in-app confirmation'
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
   await expect(page.getByLabel('Workbench session status')).toHaveCount(0);
 });
+
+test('M6 keeps one modal and a stable route when a leave is attempted with an open dialog', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const document = await createDocument(request, 'M6 F11');
+  const version = await createVersion(request, document.id, 'M6 F11 English', 'en', 'Hello world.');
+  await saveSentenceLayer(request, version, [{ start: 0, end: 12 }]);
+
+  // Real in-app history stack so Back is a client-side route transition.
+  await page.goto('/projects');
+  await page.getByRole('link', { name: /M6 F11 project/ }).click();
+  await expect(page).toHaveURL(/\/projects\/[^/]+\/documents$/);
+  await page.getByRole('link', { name: /^M6 F11\b/ }).click();
+  const workspaceUrl = new RegExp(`/documents/${document.id}/workspace$`);
+  await expect(page).toHaveURL(workspaceUrl);
+  await openVersion(page, 'M6 F11 English');
+  await page.getByRole('tab', { name: 'Sentence' }).click();
+  const sentence = session(page, version.id, 'sentence');
+  await sentence.getByRole('button', { name: 'Start manual' }).click();
+  await expect(page.getByLabel('Workbench session status')).toContainText('Unsaved');
+
+  // The session's destructive confirmation owns the workspace.
+  await sentence.getByRole('button', { name: 'Delete segmentation' }).click();
+  await expect(page.getByRole('alertdialog')).toHaveCount(1);
+
+  // Back must not bypass it, must not stack a second modal, and must leave the
+  // route, the dialog and the draft untouched.
+  await page.goBack();
+  await expect(page.getByRole('alertdialog')).toHaveCount(1);
+  await expect(page.getByRole('alertdialog')).toContainText('Delete saved sentence segmentation?');
+  await expect(page).toHaveURL(workspaceUrl);
+  await expect(sentence.getByText('Unsaved preview')).toBeVisible();
+
+  // Once the dialog is disposed of, Back yields exactly one Leave confirmation.
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await page.goBack();
+  const leave = page.getByRole('alertdialog');
+  await expect(leave).toHaveCount(1);
+  await expect(leave).toContainText('Leave this document workspace?');
+  await leave.getByRole('button', { name: 'Stay' }).click();
+  await expect(page).toHaveURL(workspaceUrl);
+  await expect(sentence.getByText('Unsaved preview')).toBeVisible();
+
+  await page.goBack();
+  await expect(page.getByRole('alertdialog')).toHaveCount(1);
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Leave' }).click();
+  await expect(page).toHaveURL(/\/projects\/[^/]+\/documents$/);
+});
+
+test('M6 reports Pending only for the session that is actually saving', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 720 });
+  const document = await createDocument(request, 'M6 F12');
+  const english = await createVersion(request, document.id, 'M6 F12 English', 'en', 'Hello world.');
+  const german = await createVersion(request, document.id, 'M6 F12 German', 'de', 'Hallo Welt.');
+  // Sentence layers only: a saved TOKEN layer would (correctly) block the
+  // ordinary sentence replacement with SEGMENTATION_HAS_DEPENDENTS.
+  await saveSentenceLayer(request, english, [{ start: 0, end: 12 }]);
+  await saveSentenceLayer(request, german, [{ start: 0, end: 11 }], 'de');
+
+  // Browser-level latency on the REAL sentence PUT.
+  let gate: 'hold' | 'pass' = 'hold';
+  let releaseSentence: (() => void) | undefined;
+  const held = new Promise<void>((resolve) => {
+    releaseSentence = resolve;
+  });
+  await page.route('**/segmentations/sentence', async (route) => {
+    if (route.request().method() === 'PUT' && gate === 'hold') {
+      await held;
+    }
+    await route.continue();
+  });
+
+  await page.goto(`/documents/${document.id}/workspace`);
+  await openVersion(page, 'M6 F12 English');
+  await openVersion(page, 'M6 F12 German');
+  await page.getByRole('tab', { name: 'Sentence' }).click();
+  const englishSentence = session(page, english.id, 'sentence');
+  await englishSentence.getByRole('button', { name: 'Start manual' }).click();
+  await englishSentence.getByRole('button', { name: 'Save segmentation' }).click();
+
+  // Only the submitting session reports Pending; the same-version token
+  // session and both German sessions stay out of the summary.
+  await page.getByRole('tab', { name: 'POS' }).click();
+  const summary = page.getByLabel('Workbench session status');
+  await expect(summary).toContainText('M6 F12 English · SentencePending');
+  await expect(summary).not.toContainText('M6 F12 English · Token');
+  await expect(summary).not.toContainText('M6 F12 German · Sentence');
+  await expect(summary).not.toContainText('M6 F12 German · Token');
+
+  // The document-wide exclusion still locks the other segmentation controls
+  // while this save is in flight.
+  await page.getByRole('tab', { name: 'Token' }).click();
+  await page.getByRole('combobox', { name: 'Active text version' }).selectOption(german.id);
+  await expect(
+    session(page, german.id, 'token').getByRole('button', { name: 'Start manual' }),
+  ).toBeDisabled();
+
+  gate = 'pass';
+  releaseSentence?.();
+  await expect(summary).toHaveCount(0);
+});
