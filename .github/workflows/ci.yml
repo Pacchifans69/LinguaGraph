@@ -9,7 +9,7 @@
 #                                              tests (never SQLite)
 #   - backend pytest suite                   - migration safety (0006 head)
 #   - frontend lint / typecheck / test       - production build
-#   - Playwright E2E (golden path + Unicode release blocker + M2/M3/M4/M5 paths)
+#   - Playwright E2E (golden path + Unicode release blocker + M2/M3/M4/M5/M6 paths)
 #
 # Fail-closed rules (a skipped-integration run must NEVER count as
 # evidence):
@@ -98,7 +98,7 @@ jobs:
       - name: Backend — fail closed if any test skipped (integration must really run)
         run: |
           if grep -q "skipped" /tmp/backend-tests.log; then
-            echo "::error::backend suite reported skipped tests — PostgreSQL integration coverage did NOT run; this run cannot count as M5 CI evidence"
+            echo "::error::backend suite reported skipped tests — PostgreSQL integration coverage did NOT run; this run cannot count as M6 CI evidence"
             exit 1
           fi
           tail -5 /tmp/backend-tests.log

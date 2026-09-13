@@ -73,6 +73,11 @@ export function ImportPanel({ documentId, onSessionStateChange }: { documentId: 
     setLabel('');
     setContent('');
     setFile(null);
+    // M6-HSDR-F02: the dirty definition below includes `languageTag !== 'en'`,
+    // so a successful non-English import must restore the language field too.
+    // Leaving it behind kept the completed form reporting Unsaved and blocked
+    // an otherwise clean route leave.
+    setLanguageTag('en');
   }
 
   return (

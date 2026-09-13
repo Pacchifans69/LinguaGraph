@@ -77,12 +77,24 @@ export function SegmentationPanel({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [submittedDraftKey, setSubmittedDraftKey] = useState<string | null>(null);
+  // M6-HSDR-F01: the partition this session currently holds. Own-save
+  // reconciliation is only lossless when the authoritative result, the
+  // snapshot that was submitted, AND the current local preview are the same
+  // partition. Without the third comparison a newer local edit made after the
+  // PUT succeeded would be silently overwritten and marked clean by the older
+  // submitted result once the refetch landed.
+  const currentDraftKey = JSON.stringify(draft);
 
   useEffect(() => {
     if (draftIdentity === authoritativeIdentity) {
       return;
     }
-    if (dirty && submittedDraftKey === authoritativeRangeKey) {
+    if (
+      dirty &&
+      submittedDraftKey !== null &&
+      submittedDraftKey === authoritativeRangeKey &&
+      submittedDraftKey === currentDraftKey
+    ) {
       setDraft(authoritativeRanges);
       setDraftContent(version.content);
       setDraftIdentity(authoritativeIdentity);
@@ -118,6 +130,7 @@ export function SegmentationPanel({
     draftIdentity,
     dirty,
     submittedDraftKey,
+    currentDraftKey,
   ]);
 
   const activeDraft = draft;

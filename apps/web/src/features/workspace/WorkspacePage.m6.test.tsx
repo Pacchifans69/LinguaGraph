@@ -79,6 +79,20 @@ function alignedM6SnapshotWithThird(): WorkspaceSnapshot {
   return data;
 }
 
+/** Authoritative workspace after a successful Italian import. */
+function snapshotWithItalian(): WorkspaceSnapshot {
+  const data = m6Snapshot();
+  data.text_versions = [
+    ...data.text_versions,
+    {
+      id: 'tv-it', document_id: 'doc-1', language_tag: 'it', label: 'Italian',
+      content: 'Ciao mondo.', content_hash: 'h-it', sort_order: 2,
+      created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+    },
+  ];
+  return data;
+}
+
 /** Authoritative result of a successful force deletion of `tv-en`. */
 function snapshotWithoutEnglish(): WorkspaceSnapshot {
   const data = m6Snapshot();
@@ -217,6 +231,64 @@ describe('WorkspacePage M6 mode-oriented IA', () => {
     expect(screen.queryByRole('textbox', { name: 'Label' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Add text version' }));
     expect(screen.getByRole('textbox', { name: 'Label' })).toHaveValue('Italian');
+  });
+
+  // M6-HSDR-F02: a successful NON-English import must return the Import session
+  // to a clean state. The dirty definition includes `languageTag !== 'en'`, so
+  // a `resetForm()` that restored only label/content/file left the completed
+  // form reporting Unsaved and blocked an otherwise clean route leave.
+  it('returns a successful non-English import to clean state without blocking a clean route leave', async () => {
+    let imported = false;
+    installFetchMock([
+      [
+        '/api/v1/documents/doc-1/text-versions',
+        async () => {
+          imported = true;
+          return json(201, {
+            id: 'tv-it', document_id: 'doc-1', language_tag: 'it', label: 'Italian',
+            content: 'Ciao mondo.', content_hash: 'h-it', sort_order: 2,
+            created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
+          });
+        },
+      ],
+      ['/workspace', async () => json(200, imported ? snapshotWithItalian() : m6Snapshot())],
+    ]);
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+      undefined,
+      [{ path: '/projects', element: <div>Projects destination</div> }],
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Open English' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add text version' }));
+
+    fireEvent.change(screen.getByRole('textbox', { name: 'Label' }), { target: { value: 'Italian' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Language tag (BCP-47)' }), { target: { value: 'it' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Text' }), { target: { value: 'Ciao mondo.' } });
+
+    // The pending non-English form is genuinely dirty before the import lands.
+    await waitFor(() =>
+      expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('Add text versionUnsaved'),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Add version' }));
+
+    // Authoritative success reconciles the new TextVersion into the canvas...
+    await waitFor(() =>
+      expect(
+        view.container.querySelector('[data-text-content-root][data-text-version-id="tv-it"]'),
+      ).not.toBeNull(),
+    );
+    // ...the completed form is clean (including the restored language field)...
+    expect(screen.getByRole('textbox', { name: 'Label' })).toHaveValue('');
+    expect(screen.getByRole('textbox', { name: 'Language tag (BCP-47)' })).toHaveValue('en');
+    // ...no stale Unsaved summary remains from the successful Import session...
+    expect(screen.queryByLabelText('Workbench session status')).toBeNull();
+
+    // ...so an otherwise-clean route leave is NOT blocked by that import.
+    fireEvent.click(screen.getByRole('link', { name: 'Projects' }));
+    expect(await screen.findByText('Projects destination')).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
   });
 
   it('preserves independent token, lemma and POS drafts across ordinary navigation', async () => {
