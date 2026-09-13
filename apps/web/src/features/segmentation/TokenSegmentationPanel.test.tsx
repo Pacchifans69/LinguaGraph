@@ -797,11 +797,23 @@ describe('TokenSegmentationPanel', () => {
     );
     expect(screen.getByRole('button', { name: 'Save tokens' })).toBeDisabled();
 
-    // Explicit disposition clears the conflict and restores a Saved session.
+    // Explicit Discard must restore the COMPLETE authoritative semantic state —
+    // authoritative rows AND authoritative provenance — not only the rows.
     fireEvent.click(screen.getByRole('button', { name: 'Discard preview' }));
-    expect(screen.queryByText('Unsaved preview')).not.toBeInTheDocument();
     expect(screen.getByText('Saved')).toBeInTheDocument();
+    expect(screen.queryByText('Unsaved preview')).not.toBeInTheDocument();
+    expect(provenance()).toHaveTextContent('Origin: manual');
+    expect(provenance()).toHaveTextContent('Resolved: en');
+    // `Resolved: en` must be EXACTLY the authoritative locale, not "en-US":
+    // the basis, resolved locale and origin codes are read verbatim.
+    expect(
+      Array.from(
+        view.container.querySelectorAll('.segmentation-provenance code'),
+      ).map((node) => node.textContent),
+    ).toEqual(['sentence', 'en', 'manual']);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save tokens' })).toBeDisabled();
+    expect(screen.getAllByLabelText('Word-like')[0]).toBeChecked();
   });
 
   // M6-HSDR-F01: the ordinary own-save path must still reconcile normally. An

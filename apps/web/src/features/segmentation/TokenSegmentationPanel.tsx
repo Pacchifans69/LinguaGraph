@@ -360,6 +360,13 @@ export function TokenSegmentationPanel({
     setDraft(authoritative);
     setDraftContent(version.content);
     setDraftIdentity(identity);
+    // M6-HSDR-F01: an explicit discard abandons the ENTIRE local semantic
+    // draft, so it restores the authoritative provenance (origin + resolved
+    // locale) together with the authoritative token rows. Restoring only the
+    // rows let a clean "Saved" session keep displaying the provenance that was
+    // just discarded.
+    setOrigin(savedLayer?.origin ?? 'manual');
+    setLocale(savedLayer?.resolved_locale ?? version.language_tag);
     setDirty(false);
     setConflict(false);
     setSubmittedSemanticFingerprint(null);
