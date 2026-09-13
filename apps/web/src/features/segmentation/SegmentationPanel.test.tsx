@@ -316,4 +316,206 @@ describe('SegmentationPanel', () => {
     expect(screen.getByText('Saved')).toBeInTheDocument();
   });
 
+  // M6-HSDR-F01 follow-up: identical ranges are NOT sufficient for own-save
+  // reconciliation. A suggestion that produces exactly the submitted partition
+  // but a different origin / resolved locale is a semantically different
+  // draft and must not be silently reconciled away.
+  it('preserves a same-ranges draft whose origin and resolved locale differ (M6-HSDR-F01)', async () => {
+    class WholeTextSentenceSegmenter {
+      segment(text: string) {
+        return text.length === 0 ? [] : [{ segment: text, index: 0 }];
+      }
+      resolvedOptions() {
+        return { locale: 'en-US' };
+      }
+    }
+    // Local, deterministic sentence runtime: the suggestion tiles the whole
+    // canonical text as ONE span — exactly the manual partition — while
+    // reporting different provenance. `afterEach`'s `vi.unstubAllGlobals()`
+    // restores the real Intl; no shared harness is touched.
+    vi.stubGlobal(
+      'Intl',
+      Object.assign(Object.create(Intl), {
+        Segmenter: WholeTextSentenceSegmenter,
+      }),
+    );
+
+    const savedLayer: SegmentationLayer = {
+      id: 'layer-1',
+      text_version_id: version.id,
+      granularity: 'sentence',
+      basis_layer_id: null,
+      requested_locale: 'en',
+      resolved_locale: 'en',
+      origin: 'manual',
+      content_hash: version.content_hash,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-02T00:00:00Z',
+    };
+    const { calls } = installFetchMock([
+      [
+        '/segmentations/sentence',
+        async (_url, init) => {
+          const payload = JSON.parse(String(init?.body));
+          return json(200, {
+            layer: {
+              ...savedLayer,
+              requested_locale: payload.requested_locale,
+              resolved_locale: payload.resolved_locale,
+              origin: payload.origin,
+              content_hash: payload.content_hash,
+            },
+            segments: [],
+          });
+        },
+      ],
+    ]);
+    const view = renderWithProviders(
+      <SegmentationPanel
+        documentId="doc-1"
+        version={version}
+        savedSegments={[]}
+      />,
+    );
+
+    // D1: manual partition [0, 9), origin "manual", resolved locale "en".
+    fireEvent.click(screen.getByRole('button', { name: 'Start manual' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save segmentation' }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(JSON.parse(String(calls[0]?.init?.body))).toMatchObject({
+      origin: 'manual',
+      resolved_locale: 'en',
+      segments: [{ start: 0, end: 9 }],
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Generate suggestion' }),
+      ).toBeEnabled(),
+    );
+
+    // D2: EXACTLY the same ranges, different provenance.
+    fireEvent.click(screen.getByRole('button', { name: 'Generate suggestion' }));
+    expect(screen.getByText('1. [0, 9)')).toBeInTheDocument();
+    const provenance = () =>
+      view.container.querySelector('.segmentation-provenance');
+    expect(provenance()).toHaveTextContent('Origin: intl_segmenter');
+    expect(provenance()).toHaveTextContent('Resolved: en-US');
+
+    // The authoritative refetch returns the submitted D1 (manual / en).
+    view.rerender(
+      <SegmentationPanel
+        documentId="doc-1"
+        version={version}
+        savedLayer={savedLayer}
+        savedSegments={[
+          {
+            id: 'segment-1',
+            segmentation_layer_id: savedLayer.id,
+            ordinal: 0,
+            start_offset: 0,
+            end_offset: 9,
+            exact_text: 'One. Two.',
+            is_word_like: null,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ]}
+      />,
+    );
+
+    // D2 survives: its provenance was NOT overwritten by the older submission,
+    // the session stays unsaved and the stale basis stays fail-closed.
+    expect(screen.getByText('1. [0, 9)')).toBeInTheDocument();
+    expect(provenance()).toHaveTextContent('Origin: intl_segmenter');
+    expect(provenance()).toHaveTextContent('Resolved: en-US');
+    expect(screen.getByText('Unsaved preview')).toBeInTheDocument();
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'stale boundaries cannot be submitted',
+    );
+    expect(
+      screen.getByRole('button', { name: 'Save segmentation' }),
+    ).toBeDisabled();
+
+    // Explicit Discard loads the authoritative D1 and its provenance.
+    fireEvent.click(screen.getByRole('button', { name: 'Discard preview' }));
+    expect(screen.getByText('Saved')).toBeInTheDocument();
+    expect(provenance()).toHaveTextContent('Origin: manual');
+    expect(provenance()).toHaveTextContent('Resolved: en');
+  });
+
+  // M6-HSDR-F01: the ordinary own-save path must still reconcile normally. An
+  // unedited successful save whose authoritative result carries the same full
+  // semantics (hash, locales, origin and partition) becomes clean.
+  it('reconciles an unedited successful own-save to a clean Saved state (M6-HSDR-F01)', async () => {
+    const savedLayer: SegmentationLayer = {
+      id: 'layer-1',
+      text_version_id: version.id,
+      granularity: 'sentence',
+      basis_layer_id: null,
+      requested_locale: 'en',
+      resolved_locale: 'en',
+      origin: 'manual',
+      content_hash: version.content_hash,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-02T00:00:00Z',
+    };
+    const { calls } = installFetchMock([
+      [
+        '/segmentations/sentence',
+        async (_url, init) => {
+          const payload = JSON.parse(String(init?.body));
+          return json(200, {
+            layer: {
+              ...savedLayer,
+              requested_locale: payload.requested_locale,
+              resolved_locale: payload.resolved_locale,
+              origin: payload.origin,
+              content_hash: payload.content_hash,
+            },
+            segments: [],
+          });
+        },
+      ],
+    ]);
+    const view = renderWithProviders(
+      <SegmentationPanel
+        documentId="doc-1"
+        version={version}
+        savedSegments={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start manual' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save segmentation' }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+
+    // No local edit: the authoritative result is the submitted semantics.
+    view.rerender(
+      <SegmentationPanel
+        documentId="doc-1"
+        version={version}
+        savedLayer={savedLayer}
+        savedSegments={[
+          {
+            id: 'segment-1',
+            segmentation_layer_id: savedLayer.id,
+            ordinal: 0,
+            start_offset: 0,
+            end_offset: 9,
+            exact_text: 'One. Two.',
+            is_word_like: null,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Saved')).toBeInTheDocument();
+    expect(screen.queryByText('Unsaved preview')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Save segmentation' }),
+    ).toBeDisabled();
+  });
+
 });

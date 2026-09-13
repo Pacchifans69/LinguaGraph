@@ -684,4 +684,184 @@ describe('TokenSegmentationPanel', () => {
     expect(screen.getByText('Saved')).toBeInTheDocument();
   });
 
+  // M6-HSDR-F01 follow-up: identical token coordinates and classification are
+  // NOT sufficient for own-save reconciliation. A suggestion producing exactly
+  // the submitted tokens but a different origin / resolved locale is a
+  // semantically different draft and must not be silently reconciled away.
+  it('preserves a same-tokens draft whose origin and resolved locale differ (M6-HSDR-F01)', async () => {
+    class WholeSentenceWordSegmenter {
+      segment(text: string) {
+        return text.length === 0
+          ? []
+          : [{ segment: text, index: 0, isWordLike: true }];
+      }
+      resolvedOptions() {
+        return { locale: 'en-US' };
+      }
+    }
+    // Local, deterministic word runtime: each sentence is suggested as ONE
+    // word-like token — exactly the manual partition — while reporting
+    // different provenance. `afterEach`'s `vi.unstubAllGlobals()` restores the
+    // real Intl; no shared harness is touched.
+    vi.stubGlobal(
+      'Intl',
+      Object.assign(Object.create(Intl), {
+        Segmenter: WholeSentenceWordSegmenter,
+      }),
+    );
+
+    const { calls } = installFetchMock([
+      ['/segmentations/token', async () => json(200, { layer: {}, segments: [] })],
+    ]);
+    const view = renderWithProviders(
+      <TokenSegmentationPanel
+        documentId="doc-1"
+        version={version}
+        sentenceLayer={sentenceLayer}
+        sentenceSegments={sentenceSegments}
+        savedSegments={[]}
+      />,
+    );
+
+    // D1: one manual token per sentence, both word-like, origin "manual".
+    fireEvent.click(screen.getByRole('button', { name: 'Start manual' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save tokens' }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(JSON.parse(String(calls[0]?.init?.body))).toMatchObject({
+      origin: 'manual',
+      resolved_locale: 'en',
+      segments: [
+        { start: 0, end: 5, is_word_like: true },
+        { start: 5, end: 9, is_word_like: true },
+      ],
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Generate word suggestion' }),
+      ).toBeEnabled(),
+    );
+
+    // D2: EXACTLY the same tokens, different provenance.
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Generate word suggestion' }),
+    );
+    expect(screen.getByText('1. [0, 5)')).toBeInTheDocument();
+    expect(screen.getByText('2. [5, 9)')).toBeInTheDocument();
+    const provenance = () =>
+      view.container.querySelector('.segmentation-provenance');
+    expect(provenance()).toHaveTextContent('Origin: intl_segmenter');
+    expect(provenance()).toHaveTextContent('Resolved: en-US');
+
+    // The authoritative refetch returns the submitted D1 (manual / en).
+    view.rerender(
+      <TokenSegmentationPanel
+        documentId="doc-1"
+        version={version}
+        sentenceLayer={sentenceLayer}
+        sentenceSegments={sentenceSegments}
+        savedLayer={savedTokenLayer}
+        savedSegments={[
+          {
+            id: 'token-segment-1',
+            segmentation_layer_id: savedTokenLayer.id,
+            ordinal: 0,
+            start_offset: 0,
+            end_offset: 5,
+            exact_text: 'One. ',
+            is_word_like: true,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+          {
+            id: 'token-segment-2',
+            segmentation_layer_id: savedTokenLayer.id,
+            ordinal: 1,
+            start_offset: 5,
+            end_offset: 9,
+            exact_text: 'Two.',
+            is_word_like: true,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ]}
+      />,
+    );
+
+    // D2 survives: its provenance was NOT overwritten by the older submission,
+    // the session stays unsaved and the stale basis stays fail-closed.
+    expect(screen.getAllByLabelText('Word-like')).toHaveLength(2);
+    expect(provenance()).toHaveTextContent('Origin: intl_segmenter');
+    expect(provenance()).toHaveTextContent('Resolved: en-US');
+    expect(screen.getByText('Unsaved preview')).toBeInTheDocument();
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'stale tokens cannot be submitted',
+    );
+    expect(screen.getByRole('button', { name: 'Save tokens' })).toBeDisabled();
+
+    // Explicit disposition clears the conflict and restores a Saved session.
+    fireEvent.click(screen.getByRole('button', { name: 'Discard preview' }));
+    expect(screen.queryByText('Unsaved preview')).not.toBeInTheDocument();
+    expect(screen.getByText('Saved')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save tokens' })).toBeDisabled();
+  });
+
+  // M6-HSDR-F01: the ordinary own-save path must still reconcile normally. An
+  // unedited successful save whose authoritative result carries the same full
+  // semantics (hash, basis layer, locales, origin and tokens) becomes clean.
+  it('reconciles an unedited successful own-save to a clean Saved state (M6-HSDR-F01)', async () => {
+    const { calls } = installFetchMock([
+      ['/segmentations/token', async () => json(200, { layer: {}, segments: [] })],
+    ]);
+    const view = renderWithProviders(
+      <TokenSegmentationPanel
+        documentId="doc-1"
+        version={version}
+        sentenceLayer={sentenceLayer}
+        sentenceSegments={sentenceSegments}
+        savedSegments={[]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start manual' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save tokens' }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+
+    // No local edit: the authoritative result is the submitted semantics.
+    view.rerender(
+      <TokenSegmentationPanel
+        documentId="doc-1"
+        version={version}
+        sentenceLayer={sentenceLayer}
+        sentenceSegments={sentenceSegments}
+        savedLayer={savedTokenLayer}
+        savedSegments={[
+          {
+            id: 'token-segment-1',
+            segmentation_layer_id: savedTokenLayer.id,
+            ordinal: 0,
+            start_offset: 0,
+            end_offset: 5,
+            exact_text: 'One. ',
+            is_word_like: true,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+          {
+            id: 'token-segment-2',
+            segmentation_layer_id: savedTokenLayer.id,
+            ordinal: 1,
+            start_offset: 5,
+            end_offset: 9,
+            exact_text: 'Two.',
+            is_word_like: true,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Saved')).toBeInTheDocument();
+    expect(screen.queryByText('Unsaved preview')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save tokens' })).toBeDisabled();
+  });
+
 });

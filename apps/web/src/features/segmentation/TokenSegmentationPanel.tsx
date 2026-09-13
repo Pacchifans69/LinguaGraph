@@ -45,6 +45,39 @@ function tokenRanges(segments: LinguisticSegment[]): TokenDraft[] {
 }
 
 /**
+ * M6-HSDR-F01: the COMPLETE persisted semantics of this editor's token PUT.
+ *
+ * Own-save reconciliation must compare the whole mutation, not just the token
+ * coordinates, because the same partition and classification can carry
+ * different provenance: a manual token partition and an Intl.Segmenter word
+ * suggestion can produce identical tokens while sending a different `origin` /
+ * `resolved_locale`. The basis sentence layer and content hash are part of the
+ * persisted identity too. Property construction order is fixed so the
+ * serialized form is deterministic.
+ */
+function tokenSemanticFingerprint(input: {
+  contentHash: string;
+  basisSentenceLayerId: string | null;
+  requestedLocale: string;
+  resolvedLocale: string;
+  origin: 'manual' | 'intl_segmenter';
+  segments: TokenDraft[];
+}): string {
+  return JSON.stringify({
+    content_hash: input.contentHash,
+    basis_sentence_layer_id: input.basisSentenceLayerId,
+    requested_locale: input.requestedLocale,
+    resolved_locale: input.resolvedLocale,
+    origin: input.origin,
+    segments: input.segments.map((token) => ({
+      start: token.start,
+      end: token.end,
+      is_word_like: token.isWordLike,
+    })),
+  });
+}
+
+/**
  * M4/M5 token-occurrence annotation dependency identifiers and their
  * Human-readable names. This is the complete recognized set — there is no
  * generic dependency ontology here: an occurrence annotation is either a lemma
@@ -181,22 +214,43 @@ export function TokenSegmentationPanel({
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [conflict, setConflict] = useState(false);
-  const [submittedDraftKey, setSubmittedDraftKey] = useState<string | null>(null);
-  // M6-HSDR-F01: the token partition this session currently holds. Own-save
-  // reconciliation is only lossless when the authoritative result, the
-  // snapshot that was submitted, AND the current local preview are the same
-  // partition. Without the third comparison a newer local edit made after the
-  // PUT succeeded would be silently overwritten and marked clean by the older
-  // submitted result once the refetch landed.
-  const currentDraftKey = JSON.stringify(draft);
+  const [submittedSemanticFingerprint, setSubmittedSemanticFingerprint] =
+    useState<string | null>(null);
+  // M6-HSDR-F01: the complete persisted semantics this session currently
+  // holds. Own-save reconciliation is only lossless when the CURRENT local
+  // draft, the snapshot that was SUBMITTED, and the AUTHORITATIVE state carry
+  // the same semantics — content hash, basis sentence layer, requested/resolved
+  // locale, origin and the exact token coordinates/classification. Comparing
+  // only the token coordinates let a newer draft with identical tokens but
+  // different provenance be silently overwritten and marked clean.
+  const currentSemanticFingerprint = tokenSemanticFingerprint({
+    contentHash: version.content_hash,
+    basisSentenceLayerId: sentenceLayer?.id ?? null,
+    requestedLocale: version.language_tag,
+    resolvedLocale: locale,
+    origin,
+    segments: draft,
+  });
+  // Without a saved layer there is no authoritative semantic state to adopt,
+  // so the fingerprint is null and the own-save branch can never match.
+  const authoritativeSemanticFingerprint = savedLayer
+    ? tokenSemanticFingerprint({
+        contentHash: savedLayer.content_hash,
+        basisSentenceLayerId: savedLayer.basis_layer_id,
+        requestedLocale: savedLayer.requested_locale,
+        resolvedLocale: savedLayer.resolved_locale,
+        origin: savedLayer.origin,
+        segments: authoritative,
+      })
+    : null;
 
   useEffect(() => {
     if (draftIdentity === identity) return;
     if (
       dirty &&
-      submittedDraftKey !== null &&
-      submittedDraftKey === savedKey &&
-      submittedDraftKey === currentDraftKey
+      submittedSemanticFingerprint !== null &&
+      submittedSemanticFingerprint === authoritativeSemanticFingerprint &&
+      submittedSemanticFingerprint === currentSemanticFingerprint
     ) {
       setDraft(authoritative);
       setDraftContent(version.content);
@@ -205,13 +259,13 @@ export function TokenSegmentationPanel({
       setLocale(savedLayer?.resolved_locale ?? version.language_tag);
       setDirty(false);
       setConflict(false);
-      setSubmittedDraftKey(null);
+      setSubmittedSemanticFingerprint(null);
       setSplits({});
       return;
     }
     if (dirty) {
       setConflict(true);
-      setSubmittedDraftKey(null);
+      setSubmittedSemanticFingerprint(null);
       return;
     }
     setDraft(authoritative);
@@ -223,7 +277,7 @@ export function TokenSegmentationPanel({
     setConflict(false);
     setSplits({});
     setError(null);
-  }, [authoritative, identity, savedKey, savedLayer?.origin, savedLayer?.resolved_locale, version.language_tag, version.content, draftIdentity, dirty, submittedDraftKey, currentDraftKey]);
+  }, [authoritative, identity, savedKey, savedLayer?.origin, savedLayer?.resolved_locale, version.language_tag, version.content, draftIdentity, dirty, submittedSemanticFingerprint, currentSemanticFingerprint, authoritativeSemanticFingerprint]);
 
   const current = draft;
   const changed = dirty;
@@ -308,7 +362,7 @@ export function TokenSegmentationPanel({
     setDraftIdentity(identity);
     setDirty(false);
     setConflict(false);
-    setSubmittedDraftKey(null);
+    setSubmittedSemanticFingerprint(null);
     setError(null);
   }
 
@@ -414,7 +468,16 @@ export function TokenSegmentationPanel({
           // outcome before it starts, so only this operation's response can
           // become Human-visible dependency guidance.
           remove.reset();
-          setSubmittedDraftKey(JSON.stringify(current));
+          setSubmittedSemanticFingerprint(
+            tokenSemanticFingerprint({
+              contentHash: version.content_hash,
+              basisSentenceLayerId: sentenceLayer.id,
+              requestedLocale: version.language_tag,
+              resolvedLocale: locale,
+              origin,
+              segments: current,
+            }),
+          );
           put.mutate({
             textVersionId: version.id,
             content_hash: version.content_hash,
