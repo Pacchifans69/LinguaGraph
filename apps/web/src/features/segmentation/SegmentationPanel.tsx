@@ -41,6 +41,31 @@ function savedRanges(segments: LinguisticSegment[]): SegmentDraft[] {
     }));
 }
 
+/**
+ * M6-HSDR-F01: the COMPLETE persisted semantics of this editor's sentence PUT.
+ *
+ * Own-save reconciliation must compare the whole mutation, not just the
+ * segment coordinates, because the same partition can carry different
+ * provenance: a manual partition and an Intl.Segmenter suggestion can produce
+ * identical ranges while sending a different `origin` / `resolved_locale`.
+ * Property construction order is fixed so the serialized form is deterministic.
+ */
+function sentenceSemanticFingerprint(input: {
+  contentHash: string;
+  requestedLocale: string;
+  resolvedLocale: string;
+  origin: 'manual' | 'intl_segmenter';
+  segments: SegmentDraft[];
+}): string {
+  return JSON.stringify({
+    content_hash: input.contentHash,
+    requested_locale: input.requestedLocale,
+    resolved_locale: input.resolvedLocale,
+    origin: input.origin,
+    segments: input.segments,
+  });
+}
+
 export function SegmentationPanel({
   documentId,
   version,
@@ -76,14 +101,33 @@ export function SegmentationPanel({
   const [suggestionError, setSuggestionError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [conflict, setConflict] = useState(false);
-  const [submittedDraftKey, setSubmittedDraftKey] = useState<string | null>(null);
-  // M6-HSDR-F01: the partition this session currently holds. Own-save
-  // reconciliation is only lossless when the authoritative result, the
-  // snapshot that was submitted, AND the current local preview are the same
-  // partition. Without the third comparison a newer local edit made after the
-  // PUT succeeded would be silently overwritten and marked clean by the older
-  // submitted result once the refetch landed.
-  const currentDraftKey = JSON.stringify(draft);
+  const [submittedSemanticFingerprint, setSubmittedSemanticFingerprint] =
+    useState<string | null>(null);
+  // M6-HSDR-F01: the complete persisted semantics this session currently
+  // holds. Own-save reconciliation is only lossless when the CURRENT local
+  // draft, the snapshot that was SUBMITTED, and the AUTHORITATIVE state carry
+  // the same semantics — content hash, requested/resolved locale, origin and
+  // the exact partition. Comparing only the segment coordinates let a newer
+  // draft with identical ranges but different provenance be silently
+  // overwritten and marked clean once the refetch landed.
+  const currentSemanticFingerprint = sentenceSemanticFingerprint({
+    contentHash: version.content_hash,
+    requestedLocale: version.language_tag,
+    resolvedLocale,
+    origin,
+    segments: draft,
+  });
+  // Without a saved layer there is no authoritative semantic state to adopt,
+  // so the fingerprint is null and the own-save branch can never match.
+  const authoritativeSemanticFingerprint = savedLayer
+    ? sentenceSemanticFingerprint({
+        contentHash: savedLayer.content_hash,
+        requestedLocale: savedLayer.requested_locale,
+        resolvedLocale: savedLayer.resolved_locale,
+        origin: savedLayer.origin,
+        segments: authoritativeRanges,
+      })
+    : null;
 
   useEffect(() => {
     if (draftIdentity === authoritativeIdentity) {
@@ -91,9 +135,9 @@ export function SegmentationPanel({
     }
     if (
       dirty &&
-      submittedDraftKey !== null &&
-      submittedDraftKey === authoritativeRangeKey &&
-      submittedDraftKey === currentDraftKey
+      submittedSemanticFingerprint !== null &&
+      submittedSemanticFingerprint === authoritativeSemanticFingerprint &&
+      submittedSemanticFingerprint === currentSemanticFingerprint
     ) {
       setDraft(authoritativeRanges);
       setDraftContent(version.content);
@@ -102,13 +146,13 @@ export function SegmentationPanel({
       setResolvedLocale(savedLayer?.resolved_locale ?? version.language_tag);
       setDirty(false);
       setConflict(false);
-      setSubmittedDraftKey(null);
+      setSubmittedSemanticFingerprint(null);
       setSplitInputs({});
       return;
     }
     if (dirty) {
       setConflict(true);
-      setSubmittedDraftKey(null);
+      setSubmittedSemanticFingerprint(null);
       return;
     }
     setDraft(authoritativeRanges);
@@ -123,14 +167,15 @@ export function SegmentationPanel({
     authoritativeRanges,
     authoritativeIdentity,
     authoritativeRangeKey,
+    authoritativeSemanticFingerprint,
     savedLayer?.origin,
     savedLayer?.resolved_locale,
     version.language_tag,
     version.content,
     draftIdentity,
     dirty,
-    submittedDraftKey,
-    currentDraftKey,
+    submittedSemanticFingerprint,
+    currentSemanticFingerprint,
   ]);
 
   const activeDraft = draft;
@@ -237,7 +282,7 @@ export function SegmentationPanel({
     setResolvedLocale(savedLayer?.resolved_locale ?? version.language_tag);
     setDirty(false);
     setConflict(false);
-    setSubmittedDraftKey(null);
+    setSubmittedSemanticFingerprint(null);
     setSplitInputs({});
     setSuggestionError(null);
   }
@@ -246,7 +291,15 @@ export function SegmentationPanel({
     if (!activeDirty || isMutating || conflict) {
       return;
     }
-    setSubmittedDraftKey(JSON.stringify(activeDraft));
+    setSubmittedSemanticFingerprint(
+      sentenceSemanticFingerprint({
+        contentHash: version.content_hash,
+        requestedLocale: version.language_tag,
+        resolvedLocale: activeResolvedLocale,
+        origin: activeOrigin,
+        segments: activeDraft,
+      }),
+    );
     putMutation.mutate({
       textVersionId: version.id,
       content_hash: version.content_hash,
