@@ -637,7 +637,14 @@ test('M6 imports a text version on demand without adding a sixth task destinatio
   const document = await createDocument(request, 'M6 import');
   await createVersion(request, document.id, 'M6 I English', 'en', 'Hello world.');
 
-  await page.goto(`/documents/${document.id}/workspace`);
+  // A real in-app history stack, so the final route leave is a client-side
+  // transition that the workspace's own blocker would have to allow.
+  await page.goto('/projects');
+  await page.getByRole('link', { name: /M6 import project/ }).click();
+  await expect(page).toHaveURL(/\/projects\/[^/]+\/documents$/);
+  await page.getByRole('link', { name: /^M6 import\b/ }).click();
+  const workspaceUrl = new RegExp(`/documents/${document.id}/workspace$`);
+  await expect(page).toHaveURL(workspaceUrl);
   await openVersion(page, 'M6 I English');
   await expect(page.getByRole('tab')).toHaveCount(5);
 
@@ -646,6 +653,11 @@ test('M6 imports a text version on demand without adding a sixth task destinatio
   await form.getByLabel('Label').fill('M6 I Italian');
   await form.getByLabel('Language tag (BCP-47)').fill('it');
   await form.getByLabel('Text').fill('Ciao mondo.');
+
+  // M6-HSDR-F02: the NON-English draft is genuinely dirty while it is pending.
+  await expect(page.getByLabel('Workbench session status')).toContainText(
+    'Add text versionUnsaved',
+  );
 
   // An unrelated task-mode switch does not clear the import draft.
   await page.getByRole('tab', { name: 'POS' }).click();
@@ -663,6 +675,19 @@ test('M6 imports a text version on demand without adding a sixth task destinatio
   await expect(page.getByRole('tab')).toHaveCount(5);
   await page.getByRole('tab', { name: 'Lemma' }).click();
   await expect(page.getByRole('option', { name: /M6 I Italian/ })).toHaveCount(1);
+
+  // M6-HSDR-F02: the successful non-English import returns to a CLEAN state —
+  // the form (including its language field) is reset, the Import session no
+  // longer reports Unsaved, and no stale dirty summary survives.
+  await expect(form.getByLabel('Language tag (BCP-47)')).toHaveValue('en');
+  await expect(form.getByLabel('Label')).toHaveValue('');
+  await expect(page.getByLabel('Workbench session status')).toHaveCount(0);
+
+  // A subsequent, otherwise-clean route leave is therefore NOT blocked by the
+  // completed import.
+  await page.goBack();
+  await expect(page).toHaveURL(/\/projects\/[^/]+\/documents$/);
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
 });
 
 test('M6 keeps connectors bound across mode, reorder and hide/reopen', async ({ page, request }) => {

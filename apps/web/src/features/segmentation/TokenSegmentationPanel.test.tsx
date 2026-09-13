@@ -601,4 +601,87 @@ describe('TokenSegmentationPanel', () => {
     );
   });
 
+  // M6-HSDR-F01: the token session carries the same own-save invariant. An
+  // older successfully submitted token snapshot must never erase a newer local
+  // edit made after the PUT succeeded but before the authoritative refetch is
+  // applied.
+  it('preserves a newer local token preview when the authoritative refetch returns the previously submitted partition (M6-HSDR-F01)', async () => {
+    const { calls } = installFetchMock([
+      ['/segmentations/token', async () => json(200, { layer: {}, segments: [] })],
+    ]);
+    const view = renderWithProviders(
+      <TokenSegmentationPanel
+        documentId="doc-1"
+        version={version}
+        sentenceLayer={sentenceLayer}
+        sentenceSegments={sentenceSegments}
+        savedSegments={[]}
+      />,
+    );
+
+    // D1: one manual token per sentence, both word-like.
+    fireEvent.click(screen.getByRole('button', { name: 'Start manual' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save tokens' }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(JSON.parse(String(calls[0]?.init?.body)).segments).toEqual([
+      { start: 0, end: 5, is_word_like: true },
+      { start: 5, end: 9, is_word_like: true },
+    ]);
+
+    // The PUT settled: the Human edits the local preview to D2.
+    await waitFor(() =>
+      expect(screen.getAllByLabelText('Word-like')[0]).toBeEnabled(),
+    );
+    fireEvent.click(screen.getAllByLabelText('Word-like')[0]!);
+    expect(screen.getAllByLabelText('Word-like')[0]).not.toBeChecked();
+
+    // The refetch returns exactly the submitted partition (D1).
+    view.rerender(
+      <TokenSegmentationPanel
+        documentId="doc-1"
+        version={version}
+        sentenceLayer={sentenceLayer}
+        sentenceSegments={sentenceSegments}
+        savedLayer={savedTokenLayer}
+        savedSegments={[
+          {
+            id: 'token-segment-1',
+            segmentation_layer_id: savedTokenLayer.id,
+            ordinal: 0,
+            start_offset: 0,
+            end_offset: 5,
+            exact_text: 'One. ',
+            is_word_like: true,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+          {
+            id: 'token-segment-2',
+            segmentation_layer_id: savedTokenLayer.id,
+            ordinal: 1,
+            start_offset: 5,
+            end_offset: 9,
+            exact_text: 'Two.',
+            is_word_like: true,
+            created_at: '2026-01-01T00:00:00Z',
+          },
+        ]}
+      />,
+    );
+
+    // D2 survives and is NOT treated as already persisted: the stale basis is
+    // fail-closed until an explicit disposition.
+    expect(screen.getAllByLabelText('Word-like')[0]).not.toBeChecked();
+    expect(screen.getByText('Unsaved preview')).toBeInTheDocument();
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'stale tokens cannot be submitted',
+    );
+    expect(screen.getByRole('button', { name: 'Save tokens' })).toBeDisabled();
+
+    // Explicit disposition loads the authoritative D1 and returns to Saved.
+    fireEvent.click(screen.getByRole('button', { name: 'Discard preview' }));
+    expect(screen.getAllByLabelText('Word-like')[0]).toBeChecked();
+    expect(screen.getByText('Saved')).toBeInTheDocument();
+  });
+
 });

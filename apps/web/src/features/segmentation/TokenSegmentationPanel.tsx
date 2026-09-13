@@ -182,10 +182,22 @@ export function TokenSegmentationPanel({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [submittedDraftKey, setSubmittedDraftKey] = useState<string | null>(null);
+  // M6-HSDR-F01: the token partition this session currently holds. Own-save
+  // reconciliation is only lossless when the authoritative result, the
+  // snapshot that was submitted, AND the current local preview are the same
+  // partition. Without the third comparison a newer local edit made after the
+  // PUT succeeded would be silently overwritten and marked clean by the older
+  // submitted result once the refetch landed.
+  const currentDraftKey = JSON.stringify(draft);
 
   useEffect(() => {
     if (draftIdentity === identity) return;
-    if (dirty && submittedDraftKey === savedKey) {
+    if (
+      dirty &&
+      submittedDraftKey !== null &&
+      submittedDraftKey === savedKey &&
+      submittedDraftKey === currentDraftKey
+    ) {
       setDraft(authoritative);
       setDraftContent(version.content);
       setDraftIdentity(identity);
@@ -211,7 +223,7 @@ export function TokenSegmentationPanel({
     setConflict(false);
     setSplits({});
     setError(null);
-  }, [authoritative, identity, savedKey, savedLayer?.origin, savedLayer?.resolved_locale, version.language_tag, version.content, draftIdentity, dirty, submittedDraftKey]);
+  }, [authoritative, identity, savedKey, savedLayer?.origin, savedLayer?.resolved_locale, version.language_tag, version.content, draftIdentity, dirty, submittedDraftKey, currentDraftKey]);
 
   const current = draft;
   const changed = dirty;
