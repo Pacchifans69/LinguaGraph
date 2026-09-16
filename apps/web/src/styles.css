@@ -646,18 +646,38 @@ button.danger:hover:not(:disabled) {
   margin-top: calc(var(--space-3) * -1);
 }
 
+/*
+ * M6-HRA-D01 — bounded canonical panel density.
+ *
+ * The canonical canvas keeps its mode-oriented architecture; only the
+ * canonical TRACKS and panel HEIGHTS change. Residual-space-driven
+ * `flex: 1 1 18rem` growth is replaced by count-derived grid tracks, so a
+ * panel that happens to be alone on the final row can no longer expand
+ * across the whole row, and the geometry of a comparison stops shifting
+ * with the container's leftover space.
+ *
+ * `data-visible-panel-count` is a PURE derived presentation hook:
+ * `visible.length`, computed on every render from the already-existing
+ * `visible` collection. It carries no state, no preference, no persistence
+ * and no domain meaning — it only makes the track count deterministic in
+ * CSS (auto-fill/auto-fit cannot express "1 panel full width but 2 panels
+ * split evenly", because they derive tracks from available width alone).
+ *
+ * `align-items: start` keeps every panel at its intrinsic, content-driven
+ * height: a short panel is never stretched to an unrelated taller neighbour
+ * merely for visual symmetry (section C).
+ */
 .panels-container {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
-  flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: start;
   margin-bottom: var(--space-6);
 }
 
 .panel-slot {
-  min-width: 17.5rem;
-  flex: 1 1 18rem;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -665,6 +685,50 @@ button.danger:hover:not(:disabled) {
   border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
+}
+
+/*
+ * Narrow viewports keep the single bounded track above: every count stacks
+ * one canonical panel per row, which is the readable arrangement and can
+ * never produce a horizontal overflow.
+ */
+@media (min-width: 48rem) {
+  /* Two bounded tracks from tablet width upward. */
+  .panels-container {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  /* One TextVersion (or the empty state) keeps the natural canvas width. */
+  .panels-container[data-visible-panel-count='0'],
+  .panels-container[data-visible-panel-count='1'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 64rem) {
+  /*
+   * Desktop default: three bounded tracks (3, 5, 6, 7 … visible
+   * TextVersions). A final-row orphan therefore owns exactly ONE track
+   * instead of the whole row.
+   */
+  .panels-container {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .panels-container[data-visible-panel-count='0'],
+  .panels-container[data-visible-panel-count='1'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /*
+   * 2 visible TextVersions: stable, balanced side-by-side comparison.
+   * 4 visible TextVersions: the preferred 2×2 baseline at 1280×720 and
+   * 1440×900.
+   */
+  .panels-container[data-visible-panel-count='2'],
+  .panels-container[data-visible-panel-count='4'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .panel-controls {
@@ -683,7 +747,13 @@ button.danger:hover:not(:disabled) {
 .text-panel {
   display: flex;
   flex-direction: column;
-  min-height: 16rem;
+  /*
+   * M6-HRA-D01: deliberately NO `min-height` floor. The removed
+   * `min-height: 16rem` reserved ~16rem of empty canonical body for a short
+   * TextVersion, which both wasted vertical space and pushed the Task Deck
+   * downward without presenting useful text. Panel height is now
+   * content-driven; the canonical body bounds itself instead.
+   */
 }
 
 .text-panel-header {
@@ -730,10 +800,21 @@ button.danger:hover:not(:disabled) {
 }
 
 .text-panel-body {
-  flex: 1;
+  /*
+   * M6-HRA-D01 content-adaptive bounded height:
+   *   short canonical text  -> the modest selectable floor below;
+   *   medium canonical text -> grows naturally with the text;
+   *   long canonical text   -> stops at the bound and scrolls
+   *                            INDEPENDENTLY here.
+   * The former `flex: 1` existed only to absorb the removed 16rem parent
+   * floor, which is why a one-line TextVersion rendered as a tall empty box.
+   * This remains the canonical content root and the scroll container that
+   * connector geometry clips to.
+   */
+  min-height: 6rem;
+  max-height: 24rem;
   padding: 0.85rem;
   overflow-y: auto;
-  max-height: 24rem;
   background: #fff;
   color: #253142;
   white-space: pre-wrap;
