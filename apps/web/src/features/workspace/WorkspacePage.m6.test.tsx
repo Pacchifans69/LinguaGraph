@@ -79,6 +79,47 @@ function alignedM6SnapshotWithThird(): WorkspaceSnapshot {
   return data;
 }
 
+/**
+ * M6-HSDR-F03: ONE active alignment containing a member from each of three
+ * TextVersions (English, German, French).
+ */
+function alignedM6SnapshotWithThreeMembers(): WorkspaceSnapshot {
+  const data = alignedM6SnapshotWithThird();
+  data.spans = [
+    ...data.spans,
+    { id: 'span-fr', text_version_id: 'tv-fr', start_offset: 0, end_offset: 5, exact_text: 'Trois', prefix: '', suffix: '.', created_at: '2026-01-01T00:00:00Z' },
+  ];
+  data.alignment_members = [
+    ...data.alignment_members,
+    { id: 'member-fr', alignment_group_id: 'alignment-1', span_id: 'span-fr', created_at: '2026-01-01T00:00:00Z' },
+  ];
+  return data;
+}
+
+/**
+ * M6-HSDR-F03: authoritative result of force-deleting `tv-en` from the
+ * three-member alignment. Only English's own span/member disappear; the SAME
+ * `alignment-1` survives with the German + French members (2 members across 2
+ * distinct TextVersions), so it is NOT cascade-deleted.
+ */
+function alignedSnapshotWithoutEnglishSurvivingGroup(): WorkspaceSnapshot {
+  const data = alignedM6SnapshotWithThreeMembers();
+  data.text_versions = data.text_versions.filter((version) => version.id !== 'tv-en');
+  data.spans = data.spans.filter((span) => span.text_version_id !== 'tv-en');
+  data.alignment_members = data.alignment_members.filter(
+    (member) => member.span_id !== 'span-en',
+  );
+  data.segmentation_layers = (data.segmentation_layers ?? []).filter(
+    (layer) => layer.text_version_id !== 'tv-en',
+  );
+  data.segments = (data.segments ?? []).filter(
+    (segment) => segment.segmentation_layer_id !== 'token-en' && segment.segmentation_layer_id !== 'sentence-en',
+  );
+  data.token_lemma_annotations = [];
+  data.token_pos_annotations = [];
+  return data;
+}
+
 /** Authoritative workspace after a successful Italian import. */
 function snapshotWithItalian(): WorkspaceSnapshot {
   const data = m6Snapshot();
@@ -699,6 +740,117 @@ describe('WorkspacePage M6 mode-oriented IA', () => {
 
     fireEvent.click(within(forceDialog).getByRole('button', { name: 'Cancel' }));
     expect(screen.getByRole('textbox', { name: /Note/ })).toHaveValue('unrelated draft');
+  });
+
+  // ---- M6-HSDR-F03: surviving active alignment is not destructive loss -----
+
+  it('keeps the dirty Alignment note when deleting one member leaves the active group valid', async () => {
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    let snapshot = alignedM6SnapshotWithThreeMembers();
+    let resolveForce: ((value: MockResponse) => void) | undefined;
+    installFetchMock([
+      [
+        '/api/v1/text-versions/',
+        async (url, init) => {
+          if (init?.method === 'DELETE' && String(url).includes('force=true')) {
+            return new Promise((resolve) => {
+              resolveForce = resolve;
+            });
+          }
+          return json(409, {
+            code: 'TEXT_HAS_ANNOTATIONS',
+            message: 'text version has annotations',
+            details: {},
+          });
+        },
+      ],
+      ['/workspace', async () => json(200, snapshot)],
+    ]);
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    await openBoth();
+    fireEvent.click(screen.getByRole('button', { name: /Activate alignment/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: /Note/ }), {
+      target: { value: 'surviving draft' },
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('AlignmentUnsaved'),
+    );
+
+    const inspector = screen.getByRole('region', { name: 'Alignment inspector' });
+    expect(within(inspector).getByText('Members (3)')).toBeInTheDocument();
+    const activeGroupHeading = inspector.querySelector('h3')?.textContent;
+    expect(view.container.querySelector('[data-session-key="tv-en:lemma"]')).not.toBeNull();
+
+    // English is one of THREE members. German + French remain and span two
+    // distinct TextVersions, so the authoritative group survives the cascade.
+    // The mounted Inspector draft is therefore NOT at risk and the deletion
+    // must not be described as discarding unsaved Alignment-note work.
+    fireEvent.click(screen.getByRole('button', { name: 'Delete English' }));
+    const forceDialog = await screen.findByRole('alertdialog');
+    expect(forceDialog).toHaveTextContent('persisted annotations');
+    expect(forceDialog).not.toHaveTextContent('Alignment note');
+    expect(forceDialog).not.toHaveTextContent('Unsaved work in this text version');
+
+    // The ordinary DELETE still returns TEXT_HAS_ANNOTATIONS; force is confirmed.
+    fireEvent.click(within(forceDialog).getByRole('button', { name: 'Delete permanently' }));
+    await screen.findByRole('button', { name: 'Deleting…' });
+
+    // Authoritative refetch: English is gone, but the SAME alignment group
+    // survives with the German + French members.
+    snapshot = alignedSnapshotWithoutEnglishSurvivingGroup();
+    resolveForce?.({ status: 204, body: null });
+
+    await waitFor(() =>
+      expect(view.container.querySelector('[data-session-key="tv-en:lemma"]')).toBeNull(),
+    );
+    expect(screen.queryByRole('button', { name: 'Delete English' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Delete German' })).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+
+    // The SAME active group is still inspectable, and the unsaved note draft
+    // survived the authoritative refetch instead of being reset to persisted.
+    const survivingInspector = screen.getByRole('region', { name: 'Alignment inspector' });
+    expect(survivingInspector.querySelector('h3')?.textContent).toBe(activeGroupHeading);
+    expect(within(survivingInspector).getByText('Members (2)')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /Note/ })).toHaveValue('surviving draft');
+    expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('AlignmentUnsaved');
+  });
+
+  it('keeps the dirty Alignment note at risk when authoritative member identity is unresolved', async () => {
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    // A member references a span that is absent from authoritative data, so the
+    // post-deletion survival of the group cannot be proven: the correction must
+    // fail conservative and keep reporting the dirty note as potentially lost.
+    const malformed = alignedM6SnapshotWithThreeMembers();
+    malformed.spans = malformed.spans.filter((span) => span.id !== 'span-fr');
+    renderWorkspace(malformed);
+    await openBoth();
+    fireEvent.click(screen.getByRole('button', { name: /Activate alignment/ }));
+    fireEvent.change(screen.getByRole('textbox', { name: /Note/ }), {
+      target: { value: 'malformed draft' },
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText('Workbench session status')).toHaveTextContent('AlignmentUnsaved'),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete English' }));
+    const dirtyDialog = screen.getByRole('alertdialog');
+    expect(dirtyDialog).toHaveTextContent('Alignment note');
+    fireEvent.click(within(dirtyDialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.getByRole('textbox', { name: /Note/ })).toHaveValue('malformed draft');
   });
 
   it('carries unsaved-work context into the force confirmation and removes sessions only after authoritative success', async () => {
