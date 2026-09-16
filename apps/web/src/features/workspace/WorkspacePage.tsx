@@ -254,21 +254,49 @@ function WorkspaceBody({
   const layoutKey = `${panelOrder.join('|')}#${visiblePanels.join('|')}`;
 
   /**
-   * M6-G2-F04: authoritative deletion (`force=true`) cascades the
-   * TextVersion's layers, segments and occurrence annotations, and removes
-   * any AlignmentGroup that becomes invalid. The active Alignment Inspector's
-   * unsaved note draft is mounted state, not persisted authority, so a
-   * deletion that can cascade the active group would silently destroy it.
+   * M6-G2-F04 / M6-HSDR-F03: authoritative deletion (`force=true`) removes the
+   * TextVersion's alignment members and retains the affected AlignmentGroup
+   * whenever its REMAINING members still satisfy the frozen M0 alignment
+   * invariants. The active Alignment Inspector's unsaved note draft is mounted
+   * state, not persisted authority, so it is only at risk when the deletion
+   * would actually invalidate (cascade-delete) the active group.
+   *
+   * The active group is already authoritative and valid, so removing members
+   * cannot newly introduce duplicate span membership, cross-document
+   * membership or same-TextVersion overlap. The post-deletion survival
+   * conditions are therefore exactly: >= 2 surviving members spanning >= 2
+   * distinct TextVersions.
+   *
+   * This is deliberately NOT a re-implementation of the backend validator. When
+   * authoritative member or span identity cannot be resolved it fails
+   * conservative: the dirty note stays classified as potentially affected
+   * instead of being falsely assured safe.
    */
-  function versionParticipatesInActiveAlignment(versionId: string): boolean {
+  function activeAlignmentWouldBeDeletedWithVersion(versionId: string): boolean {
     if (activeAlignmentId === null) {
       return false;
     }
     const members = savedAlignments.membersByGroup[activeAlignmentId] ?? [];
-    return members.some(
-      (member) =>
-        savedAlignments.spansById[member.span_id]?.text_version_id === versionId,
-    );
+    if (members.length === 0) {
+      // No authoritative membership for the active group: it cannot be proven
+      // to survive, so the dirty note stays classified as at risk.
+      return true;
+    }
+    const survivingTextVersionIds = new Set<string>();
+    let survivingMemberCount = 0;
+    for (const member of members) {
+      const span = savedAlignments.spansById[member.span_id];
+      if (!span) {
+        // Unresolved member/span identity: fail conservative.
+        return true;
+      }
+      if (span.text_version_id === versionId) {
+        continue;
+      }
+      survivingMemberCount += 1;
+      survivingTextVersionIds.add(span.text_version_id);
+    }
+    return survivingMemberCount < 2 || survivingTextVersionIds.size < 2;
   }
 
   /**
@@ -286,7 +314,7 @@ function WorkspaceBody({
     }
     if (
       sessionStatuses.alignment?.dirty &&
-      versionParticipatesInActiveAlignment(versionId)
+      activeAlignmentWouldBeDeletedWithVersion(versionId)
     ) {
       categories.push(ALIGNMENT_NOTE_CATEGORY);
     }
