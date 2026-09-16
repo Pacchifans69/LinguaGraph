@@ -433,7 +433,14 @@ function WorkspaceBody({
         </span>
       </div>
 
-      <div className="panels-container">
+      {/*
+        M6-HRA-D01: `data-visible-panel-count` is a PURE derived
+        presentation hook. It is computed directly from the existing
+        `visible` collection and lets CSS choose a deterministic canonical
+        track count; it adds no state, no layout preference, no
+        persistence, no toggle and no domain meaning.
+      */}
+      <div className="panels-container" data-visible-panel-count={visible.length}>
         {visible.length === 0 ? (
           <EmptyState>
             No panels open. Add a text version or open one from the hidden list.
