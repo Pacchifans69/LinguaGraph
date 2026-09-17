@@ -199,7 +199,9 @@ Workflow configuration by itself is not execution evidence.
 
 At M0.7 closeout, GitHub-hosted-runner execution is **BLOCKED / EXTERNAL**.
 
-`G2-X01` remains **OPEN / EXTERNAL**.
+`G2-X01` remained **OPEN / EXTERNAL** through M0.7 and M5. It is
+**CLOSED / PASS** for the exact current M6 application epoch
+`a5a981db77e33905f2c71c234616c6779e3ebc6c`; see section 8.
 
 The failure pattern is provider/pre-step: the hosted job fails before checkout
 or any other workflow step begins. This was reproduced across the candidate
@@ -335,7 +337,103 @@ Manual browser/runtime verification of the user-facing flows documented in
 `docs/testing/manual-acceptance.md`. M0.7 HRA completed PASS. Human acceptance
 supplements automated proof; it does not replace the automated semantic gates.
 
-## 8. Evidence retention
+## 8. Current M6 exact-candidate evidence (M6-EXI-03 Run #4)
+
+The current M6 evidence epoch is the HRA-approved application candidate:
+
+```text
+candidate_sha    a5a981db77e33905f2c71c234616c6779e3ebc6c
+candidate_tree   3859d5a1055a8670c6e02e4cd82201244a2f27da
+candidate_parent 253637810455c6fcb490f9f6401b3009c8dcd1d5
+frozen_main      cb61725fe9f05c704a6f80b67c6343f49ade9234
+```
+
+Accepted independent hosted proof:
+
+```text
+proof repository  Pacchifans69/linguagraph-m6-proof
+proof_sha         68227e1bafe1423260879788d127ec1f5d055682
+proof_tree        c3eb74c02cbb81e2cfdf564ec773ba2ceca4cc53
+proof_parent      7315b612aaad60296f4236f77894abbe44a8b068
+provider          Alibaba ECS
+instance          i-j6c13vpnkuq6xbbhyxzw
+run               M6-EXI-03 Run #4
+authorization     SPENT / MUST NOT REUSE
+adapter rc        0
+formal outcome    PASS
+```
+
+Required proof stages (all `exit=0`):
+
+```text
+guard_core        exit=0
+guard_remote      exit=0
+fetch_candidate   exit=0
+deps_pre          exit=0
+install_runtimes  exit=0
+backend           exit=0
+frontend          exit=0
+playwright        exit=0
+integrity         exit=0
+```
+
+Established proof baseline (per the retained Run #4 evidence):
+
+```text
+Python 3.13 / Node 24 / PostgreSQL 18       PASS
+exact SHA/tree/frozen-base guard            PASS
+Alembic empty → 0006 / current / check      PASS (head 0006)
+backend pytest (real PostgreSQL)            PASS (587 passed)
+Vitest                                      PASS (504 passed)
+Playwright                                  PASS (32 passed)
+semantic-stage failures                     NONE
+disposable database cleanup                 PASS
+dependency/tree/provenance integrity        PASS
+host-side artifact manifest                 PASS (45 entries, ALL OK)
+off-host archive SHA-256 verification       PASS / exact match
+off-host extracted artifact manifest        PASS (45 entries checked)
+```
+
+Deterministic proof archive SHA-256:
+
+```text
+9d4d88164a8faef2b3557f3bef866c34246cf81e659b9f03968531fc31adc126
+```
+
+Run #4 disposition: **PASS / COMPLETE / independently verified off-host**.
+
+For this exact epoch:
+
+- `G2-X01`: **CLOSED / PASS**;
+- M6 Gate 2: **PASS / ESTABLISHED**;
+- Fresh M6 Human Runtime Acceptance: **PASS / COMPLETE**;
+- `HRA-F01`: **CLOSED / HUMAN ACCEPTED**;
+- Static Human Diff Review: **PASS**, including the Human-accepted supplemental
+  review `253637810455c6fcb490f9f6401b3009c8dcd1d5` →
+  `a5a981db77e33905f2c71c234616c6779e3ebc6c` with zero blocking findings.
+
+### 8.1 No automatic evidence transfer
+
+Two rules govern current M6 evidence:
+
+1. **Workflow configuration alone is not evidence.** The presence of the
+   `.github/workflows/ci.yml` semantic gates listed in section 2 does not prove
+   that any of them executed. Only an actually executed run with retained,
+   exact-candidate provenance is evidence.
+2. **Exact-candidate proof does not automatically transfer to a successor
+   commit**, including a docs-only successor. Run #4 is bound only to
+   `a5a981db77e33905f2c71c234616c6779e3ebc6c` / tree
+   `3859d5a1055a8670c6e02e4cd82201244a2f27da`.
+
+The M6-PRP-R1 docs-only state-alignment commit changes only `AGENTS.md`,
+`README.md`, `docs/development/CURRENT_STATE.md`, and this
+`docs/testing/testing-strategy.md`. It changes no application or runtime code,
+but it does create a new Product SHA/tree. That successor must receive **fresh
+exact-SHA/tree proof** before final PR readiness, and it must not be described
+as independently proven until then. The Run #4 authorization is spent and must
+not be reused. No PR is created and no merge is authorized.
+
+## 9. Evidence retention
 
 Retain until the separate cleanup decision:
 
