@@ -20,10 +20,33 @@ base  6adcf78b18349621bb80d6ea35f93308c2f1d42a
 tree  cf32f682539b8bf58f35660809e5f0c120720426
 ```
 
-M6 bounded implementation is **IN PROGRESS / CANDIDATE NOT MERGED** on
-`m6-mode-oriented-workbench-information-architecture`, created from the exact
-independently verified contract-freeze commit. Gate 2, Human review, PR
-creation, and merge remain unauthorized future decisions.
+M6 bounded implementation is confined to
+`m6-mode-oriented-workbench-information-architecture`. The exact application
+candidate:
+
+```text
+candidate  a5a981db77e33905f2c71c234616c6779e3ebc6c
+tree       3859d5a1055a8670c6e02e4cd82201244a2f27da
+parent     253637810455c6fcb490f9f6401b3009c8dcd1d5
+```
+
+application implementation, exact-candidate hosted proof, static review, and
+Human Runtime Acceptance are complete. It is **REVIEWED / HRA ACCEPTED / NOT
+MERGED**.
+
+For that exact epoch:
+
+- accepted M6-EXI-03 Run #4 exact-candidate hosted proof
+  (`Pacchifans69/linguagraph-m6-proof@68227e1bafe1423260879788d127ec1f5d055682`,
+  tree `c3eb74c02cbb81e2cfdf564ec773ba2ceca4cc53`): **PASS**, with backend
+  `587 passed`, Vitest `504 passed`, Playwright `32 passed`;
+- host-side and off-host 45-entry artifact manifest verification: **PASS**;
+  deterministic proof archive SHA-256 verified **PASS / exact match** off-host;
+- `G2-X01`: **CLOSED / PASS**; M6 Gate 2: **PASS / ESTABLISHED**;
+- Fresh M6 Human Runtime Acceptance: **PASS / COMPLETE**;
+- `HRA-F01`: **CLOSED / HUMAN ACCEPTED**;
+- Static Human Diff Review: **PASS**, including the Human-accepted supplemental
+  review `2536378...` → `a5a981...` with zero blocking findings.
 
 The frozen M6 scope replaces the repeated per-TextVersion linguistic-panel
 stack with a persistent canonical Text Canvas, five-destination task deck,
@@ -31,9 +54,13 @@ mount-preserved editor sessions, compact persistent Alignment Tray status, and
 mode-independent connectors. It preserves all backend/API/database semantics,
 canonical text/selection invariants, and M0–M5 workflows.
 
-`HRA-F01` remains **OPEN / ACTIVE M6 TARGET**. Contract freeze alone does not
-resolve it; closure requires successful M6 Gate 2 and explicit Human Runtime
-Acceptance.
+The durable docs-only pre-PR state alignment (M6-PRP-R1) is recorded in
+`AGENTS.md`, this `README.md`, `docs/development/CURRENT_STATE.md`, and
+`docs/testing/testing-strategy.md`. It changes no application/runtime code, but
+it creates a **new Product SHA/tree** whose exact-candidate proof is
+**PENDING**: Run #4 proves only `a5a981...` and does not transfer to the
+docs-only successor. Fresh exact-candidate proof must pass before PR readiness.
+**No PR has been created. Merge is not authorized.**
 
 ### Completed implementation milestone
 
@@ -149,13 +176,26 @@ Human Static Diff Review: **PASS**.
 
 Human Runtime Acceptance: **PASS WITH HUMAN-APPROVED UX DEFERRAL**.
 
-`G2-X01` remains `OPEN / EXTERNAL`. `HRA-F01` remains `OPEN / ACTIVE M6
-TARGET`.
-`HRA-F09` remains inherited non-blocking connector-routing visual debt.
+At M5 close `G2-X01` remained `OPEN / EXTERNAL` and `HRA-F01` remained
+`OPEN / ACTIVE M6 TARGET`. Both were subsequently resolved for the exact M6
+application epoch `a5a981...`: `G2-X01` is **CLOSED / PASS**, M6 Gate 2 is
+**PASS / ESTABLISHED**, and `HRA-F01` is **CLOSED / HUMAN ACCEPTED**.
+`HRA-F09` remains inherited non-blocking connector-routing visual debt and is
+not closed.
 
-The M5 External Infrastructure Exception does not carry forward to M6. Any M6
-alternative hosted proof path requires new exact-candidate evidence and a
-separate Human-approved M6-specific exception at Gate 2.
+Current M6 exact-candidate evidence for application epoch
+`a5a981db77e33905f2c71c234616c6779e3ebc6c` is recorded in
+`docs/testing/testing-strategy.md` and `docs/development/CURRENT_STATE.md`:
+Run #4 passed with backend `587`, Vitest `504`, and Playwright `32`; its
+deterministic archive SHA-256 and 45-entry manifest verified both on the host
+and off-host. Run #4 is bound only to that epoch and does not transfer to the
+M6-PRP-R1 docs-only successor, whose exact-candidate proof is pending.
+
+The M5 External Infrastructure Exception did not carry forward to M6. M6 Gate 2
+was established under the separately Human-authorized M6-specific
+external-infrastructure path M6-EXI-03 Run #4 (Alibaba ECS), whose
+authorization is **SPENT / MUST NOT REUSE**. Any further exception requires new
+exact-candidate evidence and new explicit Human approval.
 
 ## Authoritative documents
 
@@ -181,8 +221,8 @@ Read these when reconstructing project state:
 - `docs/testing/testing-strategy.md` — testing/evidence rules;
 - `docs/testing/manual-acceptance.md` — human M0 walkthrough.
 
-M6 bounded candidate implementation is authorized only on its named branch.
-No PR or merge is authorized.
+M6 bounded implementation is authorized only on its named branch. No PR is
+created and no merge is authorized.
 
 ## Repository layout
 
@@ -468,16 +508,17 @@ or automatic re-anchoring.
 
 ## Known limitations / retained debt
 
-These remain accepted at the M6 contract-freeze boundary:
+Retained debt and current M6 disposition:
 
-- `G2-X01` — GitHub-hosted-runner execution remains `OPEN / EXTERNAL`; the
-  checkpoint-specific CircleCI proof is retained release evidence, not a
-  declaration that GitHub Actions recovered.
-- `HRA-F01` — Workbench information architecture / panel density remains
-  `OPEN / ACTIVE M6 TARGET`. Fully expanded sentence/token/lemma/POS panels
-  create excessive page height, scrolling cost and weak visual hierarchy; M6
-  freezes this as its first contract input and requires explicit Human Runtime
-  Acceptance before closure.
+- `G2-X01` — **CLOSED / PASS** for the exact M6 application epoch
+  `a5a981db77e33905f2c71c234616c6779e3ebc6c`, established by the accepted
+  M6-EXI-03 Run #4 alternate hosted proof. Closure is scoped to that epoch and
+  does not by itself declare GitHub-hosted-runner recovery; M0–M5 historical
+  records retain their own `G2-X01` status.
+- `HRA-F01` — Workbench information architecture / panel density:
+  **CLOSED / HUMAN ACCEPTED** by the M6 Human Runtime Acceptance. The prior
+  fully expanded sentence/token/lemma/POS panel stack no longer describes the
+  M6 mode-oriented composition.
 - Connector routing uses frozen center-to-hub geometry and can visually cross
   text glyphs while binding correctness remains intact (`HRA-F09`).
 - A malformed/broken local Node command that resolves but emits no version
@@ -613,5 +654,8 @@ result; post-delete `main` remained unchanged. Proof repositories, CircleCI
 records/artifacts, GitHub Actions diagnostics, PR #14, and the reviewed
 candidate commit remain retained.
 
-`G2-X01` remains `OPEN / EXTERNAL`; `HRA-F01` remains `OPEN / ACTIVE M6
-TARGET` until M6 Human Runtime Acceptance explicitly closes it.
+At M5 close `G2-X01` remained `OPEN / EXTERNAL` and `HRA-F01` remained
+`OPEN / ACTIVE M6 TARGET`. For the exact M6 application epoch `a5a981...`,
+`G2-X01` is now **CLOSED / PASS** and `HRA-F01` is **CLOSED / HUMAN ACCEPTED**.
+The M6-PRP-R1 docs-only successor still requires fresh exact-candidate proof;
+no PR is created and no merge is authorized.
