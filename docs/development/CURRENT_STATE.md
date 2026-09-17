@@ -1558,8 +1558,12 @@ M6 is **NOT MERGED / NOT CLOSED**. No PR exists. Merge is not authorized.
 - candidate subject: `fix(M6): rebalance canonical panel density`;
 - implementation branch:
   `m6-mode-oriented-workbench-information-architecture`;
-- branch relation to frozen `main`: 13 commits ahead, 0 behind, merge base
-  exactly `cb61725fe9f05c704a6f80b67c6343f49ade9234`.
+- epoch relation: the HRA-approved application candidate `a5a981...` was 13
+  commits ahead of frozen `main`, 0 behind, with merge base exactly
+  `cb61725fe9f05c704a6f80b67c6343f49ade9234`. The later docs-only pre-PR
+  successors advance the branch tip; resolve the current branch relation
+  directly from Git history rather than embedding a self-invalidating tip
+  count here.
 
 ### 15.3 Accepted M6-EXI-03 Run #4 exact-candidate proof
 
