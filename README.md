@@ -206,7 +206,7 @@ Read these when reconstructing project state:
   specification and Definition of Done;
 - `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` — accepted
   pre-implementation engineering report;
-- `docs/adr/` — accepted as-built architecture decisions through ADR-013;
+- `docs/adr/` — accepted as-built architecture decisions through ADR-014;
 - `docs/development/CURRENT_STATE.md` — durable engineering handoff;
 - `docs/development/M1_CONTRACT.md` — completed frozen M1 contract;
 - `docs/development/M2_CONTRACT.md` — completed frozen M2 execution contract;

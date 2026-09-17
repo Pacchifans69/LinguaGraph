@@ -219,13 +219,24 @@ steps     none/null
 logs      none usable
 ```
 
-Consequences:
+Consequences for this historical M0.7 GitHub-provider record:
 
 - do not describe GitHub Actions as PASS;
 - do not infer an application/test failure from this pre-step provider event;
-- do not close `G2-X01` without a later successful provider-specific run;
+- do not retroactively classify the M0.7 GitHub-provider `G2-X01` record as
+  recovered or closed without a successful GitHub-provider run for that
+  lineage;
 - if hosted runners recover, rerun the frozen semantic workflow against the
   then-current durable release lineage.
+
+Later checkpoints govern `G2-X01` under their own separately authorized
+evidence contracts and may record their own exact-candidate disposition; M6
+records `G2-X01` **CLOSED / PASS** for the exact application epoch
+`a5a981db77e33905f2c71c234616c6779e3ebc6c` in section 8. That disposition is
+specific to M6's separately Human-authorized M6-EXI-03 path, does not
+retroactively recover the M0.7 GitHub-provider record, and does not mean
+Alibaba ECS was a GitHub-hosted run. GitHub Actions itself must still not be
+described as PASS unless a real GitHub Actions semantic run succeeds.
 
 ## 4. Approved External Infrastructure Exception evidence
 
