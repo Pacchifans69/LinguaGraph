@@ -255,8 +255,9 @@ Exception. Accepted proof remains retained at
 `Pacchifans69/linguagraph-m4-proof@c66de6b0bf2ef7ae30644cea29ef6a8beaf45b4f`
 (tree `33c101ceb1cf6449f8e5f23d0592a0a320bb1d03`), CircleCI build #1 SUCCESS.
 `G2-X01` remained `OPEN / EXTERNAL` for the M4 epoch and through M5; it is
-**CLOSED / PASS** for the exact current M6 application epoch
-`a5a981db77e33905f2c71c234616c6779e3ebc6c`.
+**CLOSED / PASS** for final exact M6 candidate
+`6af2c25e172d81725b97037945e38c047fba9941`, established by C5 proof
+`274aae9f86fb8da9571edf1e197696035d6fb4a3`.
 
 No unresolved M4 product defect is known. `HRA-F09` remains inherited,
 explicitly deferred visual debt.
@@ -319,8 +320,9 @@ completed M1 interaction boundary remains defined by `M1_CONTRACT.md`;
 completed M2/M3 segmentation boundaries remain defined by their contracts; the
 completed M4 occurrence-level lemma boundary remains defined by
 `M4_CONTRACT.md` and ADR-012; and the completed M5 coarse-POS boundary remains
-defined by `M5_CONTRACT.md` and ADR-013. The active M6 information-architecture
-boundary is defined by `M6_CONTRACT.md`; ADR-014 records the candidate's
-mode-oriented implementation decision without broadening that contract.
+defined by `M5_CONTRACT.md` and ADR-013. The completed M6 information-
+architecture boundary is defined by `M6_CONTRACT.md`; ADR-014 records the
+accepted mode-oriented implementation decision without broadening that
+contract.
 
 This file records workflow state and does not replace those authorities.

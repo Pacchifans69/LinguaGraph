@@ -483,7 +483,7 @@ Recorded observations:
 
 ## 7. Current architecture and schema baseline
 
-Accepted ADRs: **ADR-001 through ADR-013**, frozen until a later governed
+Accepted ADRs: **ADR-001 through ADR-014**, frozen until a later governed
 decision changes them.
 
 Runtime baseline:
@@ -609,8 +609,9 @@ See `docs/testing/testing-strategy.md` for evidence semantics.
 Open/non-blocking or explicitly deferred items:
 
 - `G2-X01` — historically the GitHub-hosted-runner `OPEN / EXTERNAL` finding;
-  **CLOSED / PASS** for the exact current M6 application epoch `a5a981...`
-  (section 15), with M0–M5 epochs retaining their own recorded status;
+  **CLOSED / PASS** for final exact M6 candidate `6af2c25...`, established by
+  C5 proof `274aae9...` (section 15), with M0–M5 epochs retaining their own
+  recorded status;
 - `HRA-F01` — Workbench information architecture / panel density was
   `OPEN / ACTIVE M6 TARGET`; **CLOSED / HUMAN ACCEPTED** by the M6 Human Runtime
   Acceptance for `a5a981...` (section 15);
@@ -622,7 +623,7 @@ Open/non-blocking or explicitly deferred items:
   protocol;
 - later lexical ontology, automatic NLP/LLM behavior, authentication,
   collaboration, graph/vector infrastructure and connector-routing redesign
-  remain outside completed M5.
+  remain outside completed M6.
 
 Retained provider/proof evidence remains protected; proof/diagnostic cleanup
 remains deferred. It includes historical M0.7 diagnostics and:
@@ -1517,7 +1518,8 @@ All proof repositories, CircleCI records/artifacts, GitHub Actions diagnostics,
 PR history, and reviewed candidate history remain retained.
 
 `G2-X01` remained **OPEN / EXTERNAL** at M5 close. It is **CLOSED / PASS** for
-the exact current M6 application epoch `a5a981db77e33905f2c71c234616c6779e3ebc6c`
+final exact M6 candidate `6af2c25e172d81725b97037945e38c047fba9941`,
+established by C5 proof `274aae9f86fb8da9571edf1e197696035d6fb4a3`
 (section 15).
 
 `HRA-F01` was **OPEN / ACTIVE M6 TARGET** at M5 close and was frozen as the

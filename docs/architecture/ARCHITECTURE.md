@@ -1,7 +1,7 @@
-# LinguaGraph — Architecture (M6 implementation candidate)
+# LinguaGraph — Architecture (as built through M6)
 
-This document describes the architecture implemented by the M6 candidate on
-top of the completed M5 boundary. It is a description, not a new authority:
+This document describes the architecture as built through the completed M6
+boundary on top of M0–M5. It is a description, not a new authority:
 the accepted ADRs (`docs/adr/ADR-001…ADR-014`) and the authoritative
 pre-implementation documents
 (`docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md`,

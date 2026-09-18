@@ -1,10 +1,12 @@
-# LinguaGraph — API Contract (as built through M5)
+# LinguaGraph — API Contract (as built through M6)
 
 This document describes the API surface as actually implemented. It is a
 description, not a new authority: the authoritative contract is
 `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` section 9 and the
-accepted ADRs and frozen milestone contracts. It documents the endpoints
-implemented through the M5 boundary.
+accepted ADRs and frozen milestone contracts. It documents the API surface
+as built through M6. M6 changes no backend route, request/response contract,
+schema, or migration, so the endpoint surface remains the M5 implementation
+surface.
 
 ## 1. Base and conventions
 

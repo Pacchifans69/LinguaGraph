@@ -200,11 +200,13 @@ Human Static Diff Review: **PASS**.
 Human Runtime Acceptance: **PASS WITH HUMAN-APPROVED UX DEFERRAL**.
 
 At M5 close `G2-X01` remained `OPEN / EXTERNAL` and `HRA-F01` remained
-`OPEN / ACTIVE M6 TARGET`. Both were subsequently resolved for the exact M6
-application epoch `a5a981...`: `G2-X01` is **CLOSED / PASS**, M6 Gate 2 is
-**PASS / ESTABLISHED**, and `HRA-F01` is **CLOSED / HUMAN ACCEPTED**.
-`HRA-F09` remains inherited non-blocking connector-routing visual debt and is
-not closed.
+`OPEN / ACTIVE M6 TARGET`. `HRA-F01` was subsequently **CLOSED / HUMAN
+ACCEPTED** by Human Runtime Acceptance on application epoch `a5a981...`.
+`G2-X01` and M6 Gate 2 were subsequently **CLOSED / PASS** and **PASS /
+ESTABLISHED** for final exact candidate
+`6af2c25e172d81725b97037945e38c047fba9941` by C5 proof
+`274aae9f86fb8da9571edf1e197696035d6fb4a3`. `HRA-F09` remains inherited
+non-blocking connector-routing visual debt and is not closed.
 
 Current final M6 exact-candidate evidence is bound to
 `6af2c25e172d81725b97037945e38c047fba9941` / tree `7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c` and is recorded in
@@ -532,13 +534,14 @@ or automatic re-anchoring.
 
 Retained debt and current M6 disposition:
 
-- `G2-X01` — **CLOSED / PASS** for the exact M6 application epoch
-  `a5a981db77e33905f2c71c234616c6779e3ebc6c`, established by the accepted
-  M6-EXI-03 Run #4 alternate hosted proof. Closure is scoped to that epoch and
-  does not by itself declare GitHub-hosted-runner recovery; M0–M5 historical
-  records retain their own `G2-X01` status.
+- `G2-X01` — **CLOSED / PASS** for final exact M6 candidate
+  `6af2c25e172d81725b97037945e38c047fba9941`, established by accepted C5
+  proof `274aae9f86fb8da9571edf1e197696035d6fb4a3`. This does not by itself
+  declare GitHub-hosted-runner recovery; M0–M5 historical records retain
+  their own `G2-X01` status.
 - `HRA-F01` — Workbench information architecture / panel density:
-  **CLOSED / HUMAN ACCEPTED** by the M6 Human Runtime Acceptance. The prior
+  **CLOSED / HUMAN ACCEPTED** by the M6 Human Runtime Acceptance on application
+  epoch `a5a981db77e33905f2c71c234616c6779e3ebc6c`. The prior
   fully expanded sentence/token/lemma/POS panel stack no longer describes the
   M6 mode-oriented composition.
 - Connector routing uses frozen center-to-hub geometry and can visually cross
@@ -550,7 +553,7 @@ Retained debt and current M6 disposition:
   token/lemma/POS mutation.
 - Later lexical ontology, automatic NLP/LLM features, authentication,
   collaboration, graph/vector/search infrastructure, advanced connector
-  routing and later workbench expansion remain outside completed M5.
+  routing and later workbench expansion remain outside completed M6.
 
 ## Completed M3 implementation boundary
 
@@ -677,7 +680,10 @@ records/artifacts, GitHub Actions diagnostics, PR #14, and the reviewed
 candidate commit remain retained.
 
 At M5 close `G2-X01` remained `OPEN / EXTERNAL` and `HRA-F01` remained
-`OPEN / ACTIVE M6 TARGET`. For the exact M6 application epoch `a5a981...`,
-`G2-X01` is now **CLOSED / PASS** and `HRA-F01` is **CLOSED / HUMAN ACCEPTED**.
-The M6-PRP-R1 docs-only successor still requires fresh exact-candidate proof;
-no PR is created and no merge is authorized.
+`OPEN / ACTIVE M6 TARGET`. `HRA-F01` was later **CLOSED / HUMAN ACCEPTED** on
+Human Runtime Acceptance epoch `a5a981...`. `G2-X01` and M6 Gate 2 were later
+**CLOSED / PASS** and **PASS / ESTABLISHED** for final exact candidate
+`6af2c25e172d81725b97037945e38c047fba9941` by C5 proof
+`274aae9f86fb8da9571edf1e197696035d6fb4a3`. PR #15 subsequently merged by
+rebase, Gate 3 exact tree identity passed, durable closeout and exact-guarded
+branch cleanup completed, and M6 is **COMPLETE / MERGED / CLOSED**.
