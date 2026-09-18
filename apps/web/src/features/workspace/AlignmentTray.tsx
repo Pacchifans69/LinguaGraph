@@ -13,6 +13,13 @@ export interface AlignmentTrayProps {
   canCreate: boolean;
   onCreate: () => void;
   isCreating: boolean;
+  /**
+   * M6-PRR-F01 (C1.1): an active TextVersion destructive lifecycle freezes the
+   * tray — no create and no member-set mutation (remove/clear) may start while
+   * the authoritative reconciliation could still discard this version's work.
+   * Deliberately separate from `isCreating` (this is not an in-flight create).
+   */
+  interactionLocked?: boolean;
 }
 
 export function AlignmentTray({
@@ -23,6 +30,7 @@ export function AlignmentTray({
   canCreate,
   onCreate,
   isCreating,
+  interactionLocked = false,
 }: AlignmentTrayProps) {
   return (
     <section className="alignment-tray workbench-surface" aria-label="Alignment tray">
@@ -62,7 +70,7 @@ export function AlignmentTray({
                   size="sm"
                   className="tray-remove"
                   aria-label={`Remove “${member.quote}” from tray`}
-                  disabled={isCreating}
+                  disabled={isCreating || interactionLocked}
                   onClick={() => onRemove(member)}
                 >
                   Remove
@@ -78,7 +86,7 @@ export function AlignmentTray({
           type="button"
           variant="secondary"
           className="tray-clear"
-          disabled={members.length === 0 || isCreating}
+          disabled={members.length === 0 || isCreating || interactionLocked}
           onClick={onClear}
         >
           Clear tray
@@ -88,7 +96,7 @@ export function AlignmentTray({
           variant="primary"
           className="tray-create"
           aria-label="Create Alignment"
-          disabled={!canCreate}
+          disabled={!canCreate || interactionLocked}
           isPending={isCreating}
           onClick={onCreate}
         >

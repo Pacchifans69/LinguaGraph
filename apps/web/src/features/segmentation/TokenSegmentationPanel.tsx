@@ -25,6 +25,21 @@ interface Props {
   sentenceSegments: LinguisticSegment[];
   savedLayer?: SegmentationLayer;
   savedSegments: LinguisticSegment[];
+  /**
+   * M6-PRR-F01: a TextVersion destructive lifecycle is active, so no new
+   * draft or draft mutation may be started in this session. The panel stays
+   * MOUNTED — only its drafting controls are frozen.
+   */
+  frozen?: boolean;
+  /**
+   * M6-PRR-F01 (C1.2): a WORKSPACE-OWNED TextVersion destructive lifecycle
+   * (dirty-delete warning, force confirmation or in-flight request) owns
+   * interaction. This session's own destructive opener is frozen so a second
+   * destructive surface can never stack behind it. Deliberately separate from
+   * `frozen`: this session's own dialog contributes to the generic navigation
+   * lock, so using that signal here would disable the opener of its own dialog.
+   */
+  workspaceDestructiveLocked?: boolean;
   onSessionStateChange?: (status: EditorSessionStatus) => void;
 }
 
@@ -188,6 +203,8 @@ export function TokenSegmentationPanel({
   sentenceSegments,
   savedLayer,
   savedSegments,
+  frozen = false,
+  workspaceDestructiveLocked = false,
   onSessionStateChange,
 }: Props) {
   const put = usePutTokenSegmentation(documentId);
@@ -283,7 +300,7 @@ export function TokenSegmentationPanel({
   const changed = dirty;
   // Same-domain exclusion (unchanged): any in-flight segmentation mutation in
   // this document keeps every segmentation control locked.
-  const pending = anySegmentationMutationPending;
+  const controlsLocked = frozen || anySegmentationMutationPending;
   // M6-G2-F12: the session summary reports the LIFE-CYCLE OF THIS SESSION's own
   // mutation, per TextVersion + layer kind (contract section 11) — not the
   // document-wide exclusion signal above.
@@ -373,6 +390,30 @@ export function TokenSegmentationPanel({
     setError(null);
   }
 
+  /**
+   * M6-PRR-F01 (C1.2): the workspace-owned TextVersion destructive lifecycle
+   * owns interaction, so this session's own destructive opener and its
+   * confirmed mutation are both refused. A second destructive surface must
+   * never stack behind that lifecycle.
+   */
+  function requestRemoveTokens() {
+    if (workspaceDestructiveLocked) {
+      return;
+    }
+    setConfirmDelete(true);
+  }
+
+  function confirmRemoveTokens() {
+    if (workspaceDestructiveLocked) {
+      return;
+    }
+    // HSDR-F01: the confirmed deletion supersedes any stored replacement
+    // outcome when it actually starts — opening the confirmation dialog above
+    // deliberately does not.
+    put.reset();
+    remove.mutate(version.id, { onSettled: () => setConfirmDelete(false) });
+  }
+
   if (!sentenceLayer) {
     return (
       <section className="segmentation-panel token-segmentation-panel" aria-labelledby={`tokens-${version.id}`}>
@@ -395,7 +436,7 @@ export function TokenSegmentationPanel({
               cannot be submitted.
             </p>
             <div className="segmentation-actions">
-              <Button type="button" size="sm" variant="quiet" disabled={pending} onClick={discardPreview}>
+              <Button type="button" size="sm" variant="quiet" disabled={controlsLocked} onClick={discardPreview}>
                 Discard preview
               </Button>
             </div>
@@ -430,9 +471,9 @@ export function TokenSegmentationPanel({
         Basis: <code>{sentenceLayer.id.slice(0, 8)}</code> · Resolved: <code>{locale}</code> · Origin: <code>{origin}</code>
       </p>
       <div className="segmentation-actions">
-        <Button type="button" size="sm" variant="secondary" disabled={pending || conflict} onClick={manual}>Start manual</Button>
-        <Button type="button" size="sm" variant="secondary" disabled={pending || conflict || !hasIntlWordSegmenter()} onClick={suggest}>Generate word suggestion</Button>
-        <Button type="button" size="sm" variant="quiet" disabled={pending || !changed} onClick={discardPreview}>Discard preview</Button>
+        <Button type="button" size="sm" variant="secondary" disabled={controlsLocked || conflict} onClick={manual}>Start manual</Button>
+        <Button type="button" size="sm" variant="secondary" disabled={controlsLocked || conflict || !hasIntlWordSegmenter()} onClick={suggest}>Generate word suggestion</Button>
+        <Button type="button" size="sm" variant="quiet" disabled={controlsLocked || !changed} onClick={discardPreview}>Discard preview</Button>
       </div>
       {!hasIntlWordSegmenter() ? <p className="segmentation-warning" role="status">Intl.Segmenter word mode is unavailable. Manual construction remains available.</p> : null}
       {error ? <p className="segmentation-warning" role="alert">{error}</p> : null}
@@ -459,10 +500,10 @@ export function TokenSegmentationPanel({
                   <span className="token-preview">{JSON.stringify(sliceByCodePoints(draftContent, token.start, token.end))}</span>
                 </div>
                 <div className="segmentation-row-actions">
-                  <label><input type="checkbox" checked={token.isWordLike} disabled={pending || conflict} onChange={() => adopt(current.map((item, itemIndex) => itemIndex === index ? { ...item, isWordLike: !item.isWordLike } : item))} />Word-like</label>
-                  <label>Split at<input type="number" min={token.start + 1} max={token.end - 1} value={splits[index] ?? ''} disabled={pending || conflict || token.end - token.start < 2} onChange={(event) => setSplits((value) => ({ ...value, [index]: event.target.value }))} /></label>
-                  <Button type="button" size="sm" variant="secondary" disabled={pending || conflict || !Number.isInteger(split) || split <= token.start || split >= token.end} onClick={() => adopt(splitToken(version.content, sentences, current, index, split))}>Split</Button>
-                  {index > 0 ? <Button type="button" size="sm" variant="quiet" disabled={pending || conflict || sentenceBoundary} onClick={() => adopt(mergeTokenWithPrevious(version.content, sentences, current, index))}>Merge previous</Button> : null}
+                  <label><input type="checkbox" checked={token.isWordLike} disabled={controlsLocked || conflict} onChange={() => adopt(current.map((item, itemIndex) => itemIndex === index ? { ...item, isWordLike: !item.isWordLike } : item))} />Word-like</label>
+                  <label>Split at<input type="number" min={token.start + 1} max={token.end - 1} value={splits[index] ?? ''} disabled={controlsLocked || conflict || token.end - token.start < 2} onChange={(event) => setSplits((value) => ({ ...value, [index]: event.target.value }))} /></label>
+                  <Button type="button" size="sm" variant="secondary" disabled={controlsLocked || conflict || !Number.isInteger(split) || split <= token.start || split >= token.end} onClick={() => adopt(splitToken(version.content, sentences, current, index, split))}>Split</Button>
+                  {index > 0 ? <Button type="button" size="sm" variant="quiet" disabled={controlsLocked || conflict || sentenceBoundary} onClick={() => adopt(mergeTokenWithPrevious(version.content, sentences, current, index))}>Merge previous</Button> : null}
                 </div>
               </li>
             );
@@ -470,7 +511,7 @@ export function TokenSegmentationPanel({
         </ol>
       )}
       <div className="segmentation-footer">
-        <Button type="button" size="sm" variant="primary" disabled={pending || !changed || conflict} onClick={() => {
+        <Button type="button" size="sm" variant="primary" disabled={controlsLocked || !changed || conflict} onClick={() => {
           // HSDR-F01: a new replacement supersedes any stored deletion
           // outcome before it starts, so only this operation's response can
           // become Human-visible dependency guidance.
@@ -495,20 +536,31 @@ export function TokenSegmentationPanel({
             segments: current.map((token) => ({ start: token.start, end: token.end, is_word_like: token.isWordLike })),
           });
         }}>{put.isPending ? 'Saving…' : 'Save tokens'}</Button>
-        {savedLayer ? <Button type="button" size="sm" variant="danger" disabled={pending} onClick={() => setConfirmDelete(true)}>Delete tokens</Button> : null}
+        {savedLayer ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="danger"
+          /*
+           * Deliberately NOT `controlsLocked`: this button only opens the
+           * session's own confirmation dialog, and the dialog must be able to
+           * restore focus to it when it closes. It IS frozen by the
+           * workspace-owned destructive lifecycle, which must never stack a
+           * second destructive surface.
+           */
+          disabled={anySegmentationMutationPending || workspaceDestructiveLocked}
+          onClick={requestRemoveTokens}
+        >
+          Delete tokens
+        </Button>
+      ) : null}
       </div>
-      {confirmDelete ? <ConfirmDialog headingId={`delete-tokens-${version.id}`} onClose={() => setConfirmDelete(false)} closeDisabled={remove.isPending}>
+      {confirmDelete ? <ConfirmDialog headingId={`delete-tokens-${version.id}`} onClose={() => setConfirmDelete(false)} closeDisabled={remove.isPending || workspaceDestructiveLocked}>
         <h3 id={`delete-tokens-${version.id}`}>Delete saved token segmentation?</h3>
         <p>The sentence segmentation and all Alignment data are preserved.</p>
         <div className="confirm-dialog-actions">
-          <Button type="button" variant="secondary" disabled={remove.isPending} onClick={() => setConfirmDelete(false)}>Cancel</Button>
-          <Button type="button" variant="danger" disabled={remove.isPending} onClick={() => {
-            // HSDR-F01: the confirmed deletion supersedes any stored
-            // replacement outcome when it actually starts — opening the
-            // confirmation dialog above deliberately does not.
-            put.reset();
-            remove.mutate(version.id, { onSettled: () => setConfirmDelete(false) });
-          }}>{remove.isPending ? 'Deleting…' : 'Delete tokens'}</Button>
+          <Button type="button" variant="secondary" disabled={remove.isPending || workspaceDestructiveLocked} onClick={() => setConfirmDelete(false)}>Cancel</Button>
+          <Button type="button" variant="danger" disabled={remove.isPending || workspaceDestructiveLocked} onClick={confirmRemoveTokens}>{remove.isPending ? 'Deleting…' : 'Delete tokens'}</Button>
         </div>
       </ConfirmDialog> : null}
     </section>

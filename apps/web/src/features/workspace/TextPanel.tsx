@@ -68,6 +68,14 @@ export interface TextPanelProps {
    * The ambiguity chooser lists only actual surviving groups.
    */
   survivingGroupIds?: ReadonlySet<string>;
+  /**
+   * M6-PRR-F01 (C1.2): a TextVersion destructive lifecycle is active, so no
+   * new staging or alignment-activation mutation may start from this canonical
+   * panel. Native selection capture is deliberately UNAFFECTED (the Selection
+   * and canonical offsets stay untouched); only the actions that would grow
+   * the tray or change active alignment authority become inert.
+   */
+  interactionLocked?: boolean;
 }
 
 /**
@@ -118,6 +126,7 @@ export function TextPanel({
   hideDisabled = false,
   spanRegistry,
   survivingGroupIds,
+  interactionLocked = false,
 }: TextPanelProps) {
   const contentRootRef = useRef<HTMLDivElement | null>(null);
   const runElementsRef = useRef(new Map<string, HTMLElement>());
@@ -232,6 +241,9 @@ export function TextPanel({
   }
 
   function handleAddToAlignment() {
+    if (interactionLocked) {
+      return;
+    }
     const result = addCurrentSelectionToTray();
     if (result.ok) {
       setStagingError(null);
@@ -323,7 +335,9 @@ export function TextPanel({
                 // M0.6 (Round 2): while an Inspector mutation for the
                 // active group is pending, the active group must stay
                 // stable — no run-click activation, no chooser opening.
-                if (isMutatingAlignment) {
+                // M6-PRR-F01 (C1.2): an active TextVersion destructive
+                // lifecycle owns the same stability guarantee.
+                if (isMutatingAlignment || interactionLocked) {
                   return;
                 }
                 // R1-F02: the trailing click of a native drag selection must
@@ -366,7 +380,7 @@ export function TextPanel({
         ) : null}
         <button
           type="button"
-          disabled={!isCurrentSelection || isCreatingAlignment}
+          disabled={!isCurrentSelection || isCreatingAlignment || interactionLocked}
           onClick={handleAddToAlignment}
         >
           Add to Alignment
@@ -393,7 +407,7 @@ export function TextPanel({
                     type="button"
                     className="alignment-chooser-option"
                     aria-label={`Activate alignment ${groupId.slice(0, 8)}`}
-                    disabled={isMutatingAlignment}
+                    disabled={isMutatingAlignment || interactionLocked}
                     onPointerEnter={() => setHoveredAlignment(groupId)}
                     onPointerLeave={() => {
                       if (hoveredAlignmentId === groupId) {
@@ -408,8 +422,10 @@ export function TextPanel({
                     }}
                     onClick={() => {
                       // Successful activation closes the chooser. Frozen
-                      // while an Inspector mutation is pending (Round 2).
-                      if (isMutatingAlignment) {
+                      // while an Inspector mutation is pending (Round 2) and
+                      // while a TextVersion destructive lifecycle owns
+                      // interaction (C1.2).
+                      if (isMutatingAlignment || interactionLocked) {
                         return;
                       }
                       setActiveAlignment(groupId);

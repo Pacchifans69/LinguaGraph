@@ -41,6 +41,12 @@ interface Props {
   tokenSegments: LinguisticSegment[];
   /** Authoritative annotation lookup keyed by saved token Segment.id. */
   annotationsByTokenSegmentId: Record<string, TokenLemmaAnnotation>;
+  /**
+   * M6-PRR-F01: a TextVersion destructive lifecycle is active, so no new
+   * draft or draft mutation may be started in this session. The panel stays
+   * MOUNTED — only its drafting controls are frozen.
+   */
+  frozen?: boolean;
   onSessionStateChange?: (status: EditorSessionStatus) => void;
 }
 
@@ -154,6 +160,7 @@ export function LemmaAnnotationPanel({
   tokenLayer,
   tokenSegments,
   annotationsByTokenSegmentId,
+  frozen = false,
   onSessionStateChange,
 }: Props) {
   const eligible = useMemo(
@@ -179,7 +186,7 @@ export function LemmaAnnotationPanel({
   // mutation, per TextVersion + layer kind (contract section 11); the
   // document-wide same-domain signal below only locks the row controls.
   const sessionPending = put.isPending || remove.isPending;
-  const pending = sessionPending || anyLemmaMutationPending;
+  const controlsLocked = frozen || sessionPending || anyLemmaMutationPending;
   const mutationError = put.error ?? remove.error ?? null;
 
   useEffect(() => {
@@ -191,7 +198,7 @@ export function LemmaAnnotationPanel({
       key={entry.segment.id}
       entry={entry}
       annotation={annotationsByTokenSegmentId[entry.segment.id]}
-      pending={pending}
+      pending={controlsLocked}
       activeMutationId={activeMutationId}
       error={activeMutationId === entry.segment.id ? mutationError : null}
       onChange={(value) => drafts.update(entry.segment.id, value)}

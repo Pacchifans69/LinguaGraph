@@ -5,6 +5,14 @@ export interface WorkspaceKeyboardOptions {
   onCreateAlignment: () => void;
   canCreateAlignment: boolean;
   isCreatingAlignment: boolean;
+  /**
+   * M6-PRR-F02: the workspace owns a modal/destructive interaction (a mounted
+   * session dialog, a workspace confirmation, or an active TextVersion delete
+   * lifecycle). While held, the background create-alignment shortcut is
+   * refused instead of starting a mutation behind the dialog that owns the
+   * interaction.
+   */
+  navigationLocked?: boolean;
 }
 
 /**
@@ -40,6 +48,7 @@ export function useWorkspaceKeyboard({
   onCreateAlignment,
   canCreateAlignment,
   isCreatingAlignment,
+  navigationLocked = false,
 }: WorkspaceKeyboardOptions) {
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -61,6 +70,7 @@ export function useWorkspaceKeyboard({
       if (
         !canCreateAlignment ||
         isCreatingAlignment ||
+        navigationLocked ||
         isEditableShortcutTarget(event.target)
       ) {
         return;
@@ -76,6 +86,7 @@ export function useWorkspaceKeyboard({
     canCreateAlignment,
     clearSelection,
     isCreatingAlignment,
+    navigationLocked,
     onCreateAlignment,
   ]);
 }

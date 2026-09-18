@@ -51,6 +51,12 @@ interface Props {
    * POS never derives, mutates or deletes lemma state.
    */
   lemmaTokenSegmentIds?: ReadonlySet<string>;
+  /**
+   * M6-PRR-F01: a TextVersion destructive lifecycle is active, so no new
+   * draft or draft mutation may be started in this session. The panel stays
+   * MOUNTED — only its drafting controls are frozen.
+   */
+  frozen?: boolean;
   onSessionStateChange?: (status: EditorSessionStatus) => void;
 }
 
@@ -183,6 +189,7 @@ export function PosAnnotationPanel({
   tokenSegments,
   posAnnotationsByTokenSegmentId,
   lemmaTokenSegmentIds,
+  frozen = false,
   onSessionStateChange,
 }: Props) {
   const eligible = useMemo(
@@ -208,7 +215,7 @@ export function PosAnnotationPanel({
   // mutation, per TextVersion + layer kind (contract section 11); the
   // document-wide same-domain signal below only locks the row controls.
   const sessionPending = put.isPending || remove.isPending;
-  const pending = sessionPending || anyPosMutationPending;
+  const controlsLocked = frozen || sessionPending || anyPosMutationPending;
   const mutationError = put.error ?? remove.error ?? null;
 
   useEffect(() => {
@@ -220,7 +227,7 @@ export function PosAnnotationPanel({
       key={entry.segment.id}
       entry={entry}
       annotation={posAnnotationsByTokenSegmentId[entry.segment.id]}
-      pending={pending}
+      pending={controlsLocked}
       activeMutationId={activeMutationId}
       error={activeMutationId === entry.segment.id ? mutationError : null}
       onChange={(value) => drafts.update(entry.segment.id, value)}
