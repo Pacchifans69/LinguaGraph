@@ -49,9 +49,10 @@ implementation code:
 
 ## Current phase
 
-M6 — Mode-Oriented Workbench Information Architecture — is **MERGED / GATE 3
-PASS / DURABLE-STATE CLOSURE RECORDED**, with exact-guarded implementation-
-branch cleanup still pending a separate Human authorization.
+M6 — Mode-Oriented Workbench Information Architecture — is **COMPLETE /
+MERGED / CLOSED**. Gate 2, Human review, PR #15 rebase merge, Gate 3 exact
+tree identity, durable-state closure, and exact-guarded implementation-branch
+cleanup have all completed.
 
 Durable M6 implementation provenance:
 
@@ -73,11 +74,13 @@ Durable M6 implementation provenance:
 - candidate → post-rebase `main` tree identity:
   **PASS / EXACT**;
 - post-merge durable-state closure:
-  this four-file docs-only closure commit; resolve its exact SHA/tree from Git
-  history rather than embedding a self-referential identity here;
-- implementation branch:
-  `m6-mode-oriented-workbench-information-architecture` remains retained at
-  `6af2c25e172d81725b97037945e38c047fba9941` until a separate exact-guarded cleanup decision.
+  `f66b6e51e0925d635a0c512969d60de497ed01d2` (tree `7aeaf56384ddd04ed14a29c64ae215b71eff70f4`);
+- implementation-branch cleanup:
+  **PASS / EXACT-GUARDED**; the historical branch
+  `m6-mode-oriented-workbench-information-architecture@6af2c25e172d81725b97037945e38c047fba9941` was deleted only after exact main/branch guards passed;
+  post-delete `main` remained exactly `f66b6e51e0925d635a0c512969d60de497ed01d2`; GitHub independently
+  returned `404 Branch not found` and an empty branch-search result; the
+  candidate commit remains addressable by SHA and PR #15 remains merged.
 
 Final exact-candidate Gate 2 evidence:
 
@@ -134,10 +137,8 @@ normally stopped in **economical mode**. Instance identity
 former system-assigned public IPv4 was released. This is post-proof operational
 state, not Product correctness evidence.
 
-Do not rerun the spent C5 authorization. Do not mutate the proof repository or
-provider as part of Product closeout. The next repository mutation after this
-durable-state closure is only the separately Human-authorized, exact-guarded M6
-implementation-branch cleanup.
+Do not rerun the spent C5 authorization. The proof repository and provider
+remain retained evidence and were not modified by M6 branch cleanup.
 
 M5 — Human-Reviewed POS Annotation Foundation — has completed its bounded
 implementation, exact-candidate Gate 2, Human Static Diff Review, Human Runtime
@@ -288,22 +289,22 @@ See `docs/development/M0_7_CLOSEOUT.md` for the full historical ledger.
 
 ## Post-M6 boundary
 
-M6 implementation is merged by rebase through PR #15. The reviewed/proven
+M6 implementation was merged by rebase through PR #15. The reviewed/proven
 candidate `6af2c25e172d81725b97037945e38c047fba9941` and post-rebase implementation
-`main@afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7` share the exact tree `7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c`, so Gate 3 is
-**PASS / EXACT**. This docs-only commit records the post-merge durable state;
-its exact SHA/tree must be resolved from Git history.
+`main@afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7` share the exact tree
+`7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c`, so Gate 3 is **PASS / EXACT**.
 
-The implementation branch remains retained at `6af2c25e172d81725b97037945e38c047fba9941` pending
-a separate exact-guarded cleanup authorization. PR #15, the candidate commit,
-proof repository, off-host archive, and provider diagnostics remain retained
-provenance. M0–M5 historical records retain the evidence status applicable to
-their own epochs.
+The post-merge durable-state closure is `f66b6e51e0925d635a0c512969d60de497ed01d2` with tree
+`7aeaf56384ddd04ed14a29c64ae215b71eff70f4`. Exact-guarded cleanup then deleted only the historical
+`m6-mode-oriented-workbench-information-architecture` ref after verifying durable `main@f66b6e51e0925d635a0c512969d60de497ed01d2` and exact
+branch head `6af2c25e172d81725b97037945e38c047fba9941`. Post-delete `main` remained unchanged; GitHub
+independently returned `404 Branch not found` and an empty branch-search
+result. The candidate commit, PR #15, proof repository, off-host archive, and
+provider diagnostics remain retained provenance.
 
-M6 is therefore **MERGED / DURABLY RECORDED**, with branch cleanup pending
-before the checkpoint can be called fully **COMPLETE / CLOSED**.
+M6 is therefore **COMPLETE / MERGED / CLOSED**.
 
-## Scope discipline## Scope discipline
+## Scope discipline
 
 The completed M5 occurrence-level coarse-POS boundary remains governed by
 `M5_CONTRACT.md` and ADR-013. Do not retroactively broaden it by introducing

@@ -472,6 +472,16 @@ The subsequent post-merge durable-state closure is docs-only and changes the
 four durable state/evidence documents. It is not itself a fresh semantic proof
 candidate and does not rewrite the established Gate 2/Gate 3 evidence bridge.
 
+That closure is `f66b6e51e0925d635a0c512969d60de497ed01d2` / tree `7aeaf56384ddd04ed14a29c64ae215b71eff70f4`. Exact-guarded
+cleanup then deleted only historical branch
+`m6-mode-oriented-workbench-information-architecture@6af2c25e172d81725b97037945e38c047fba9941` after exact durable-main and branch-head guards passed.
+Post-delete `main` remained unchanged; GitHub independently returned
+`404 Branch not found` and an empty branch-search result. The candidate
+commit remains addressable by SHA, PR #15 remains merged, and proof
+`main@274aae9f86fb8da9571edf1e197696035d6fb4a3` remains unchanged.
+
+M6 lifecycle status after this cleanup is **COMPLETE / MERGED / CLOSED**.
+
 ### 8.4 Post-proof provider state
 
 After C5 and off-host archive verification, Alibaba ECS instance
@@ -480,11 +490,11 @@ IPv4 `172.23.68.215` and the instance identity are retained; the former
 system-assigned public IPv4 was released. This operational state does not alter
 the accepted proof.
 
-## 9. Evidence retention## 9. Evidence retention
+## 9. Evidence retention
 
-Retain until the separate cleanup decision:
+Retain as durable M6 evidence:
 
-- final M6 candidate ref/SHA and candidate tree;
+- final M6 candidate SHA and candidate tree;
 - PR #15 merge history and Gate 3 exact-tree record;
 - final M6 proof source, archive checksum, 45/45 manifest, and C5-P01 record;
 - PR #9 history;

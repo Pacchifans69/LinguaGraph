@@ -11,9 +11,9 @@ schema structure.
 
 ## Current milestone
 
-M6 — Mode-Oriented Workbench Information Architecture — is **MERGED / GATE 3
-PASS / DURABLE-STATE CLOSURE RECORDED**. Exact-guarded deletion of the retained
-implementation branch remains a separate Human decision.
+M6 — Mode-Oriented Workbench Information Architecture — is **COMPLETE /
+MERGED / CLOSED**. Gate 3 exact tree identity, durable-state closure, and
+exact-guarded implementation-branch cleanup are complete.
 
 Durable implementation coordinates:
 
@@ -34,7 +34,13 @@ post-rebase implementation main
 afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7
 
 post-merge durable-state closure
-this four-file docs-only commit; resolve exact SHA/tree from Git history
+f66b6e51e0925d635a0c512969d60de497ed01d2
+
+closure tree
+7aeaf56384ddd04ed14a29c64ae215b71eff70f4
+
+implementation-branch cleanup
+PASS / EXACT-GUARDED
 ```
 
 Gate 3 candidate-to-main tree identity is **PASS / EXACT**.
@@ -65,6 +71,13 @@ Its private IPv4 `172.23.68.215` is retained and the former system-assigned
 public IPv4 was released. The proof remains valid off-host; no rerun is needed
 or authorized.
 
+Exact-guarded cleanup deleted only the historical
+`m6-mode-oriented-workbench-information-architecture@6af2c25e172d81725b97037945e38c047fba9941` ref after durable `main` was verified at
+`f66b6e51e0925d635a0c512969d60de497ed01d2`. Post-delete `main` remained unchanged; GitHub independently
+returned `404 Branch not found` and an empty branch-search result. The final
+candidate remains addressable by SHA and PR #15 remains retained as merged
+provenance.
+
 The frozen M6 scope replaces the repeated per-TextVersion linguistic-panel
 stack with a persistent canonical Text Canvas, five-destination task deck,
 mount-preserved editor sessions, compact persistent Alignment Tray status, and
@@ -72,7 +85,7 @@ mode-independent connectors while preserving M0–M5 backend/API/database and
 canonical-text semantics. `HRA-F01` is **CLOSED / HUMAN ACCEPTED**;
 `HRA-F09` remains **OPEN / DEFERRED / NON-BLOCKING**.
 
-### Previous completed milestone### Completed implementation milestone
+### Previous completed milestone
 
 M5 — Human-Reviewed POS Annotation Foundation — has completed bounded
 implementation, exact-candidate Gate 2, Human Static Diff Review, Human Runtime
@@ -205,7 +218,7 @@ The M5 External Infrastructure Exception did not carry forward to M6. M6 used
 the separately Human-authorized M6-EXI-03 evidence path. Its final C5
 authorization is spent and must not be reused.
 
-## Authoritative documents## Authoritative documents
+## Authoritative documents
 
 Read these when reconstructing project state:
 
