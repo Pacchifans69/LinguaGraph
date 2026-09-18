@@ -27,7 +27,7 @@ The completed frozen M5 execution contract is:
 
 `docs/development/M5_CONTRACT.md`
 
-The active frozen M6 execution contract is:
+The completed frozen M6 execution contract is:
 
 `docs/development/M6_CONTRACT.md`
 
@@ -49,79 +49,95 @@ implementation code:
 
 ## Current phase
 
-M6 — Mode-Oriented Workbench Information Architecture — has a Human-approved
-frozen execution contract in `docs/development/M6_CONTRACT.md`. The Human
-subsequently authorized bounded implementation from the exact frozen main.
+M6 — Mode-Oriented Workbench Information Architecture — is **MERGED / GATE 3
+PASS / DURABLE-STATE CLOSURE RECORDED**, with exact-guarded implementation-
+branch cleanup still pending a separate Human authorization.
 
-**M6 APPLICATION IMPLEMENTATION / REVIEW / HRA COMPLETE FOR THE EXACT
-APPLICATION CANDIDATE `a5a981db77e33905f2c71c234616c6779e3ebc6c`; NOT MERGED.**
-Work is confined to `m6-mode-oriented-workbench-information-architecture`.
+Durable M6 implementation provenance:
 
-For that exact application epoch:
-
-- accepted M6-EXI-03 Run #4 exact-candidate hosted proof
-  (`Pacchifans69/linguagraph-m6-proof@68227e1bafe1423260879788d127ec1f5d055682`,
-  tree `c3eb74c02cbb81e2cfdf564ec773ba2ceca4cc53`, Alibaba ECS):
-  **PASS / COMPLETE / independently verified off-host**;
-- `G2-X01`: **CLOSED / PASS**; M6 Gate 2: **PASS / ESTABLISHED**;
-- Fresh M6 Human Runtime Acceptance: **PASS / COMPLETE**;
-- `HRA-F01`: **CLOSED / HUMAN ACCEPTED**;
-- full Static Human Diff Review through
-  `253637810455c6fcb490f9f6401b3009c8dcd1d5`: **PASS**;
-- Human-accepted supplemental Static Human Diff Review
-  `253637810455c6fcb490f9f6401b3009c8dcd1d5` →
-  `a5a981db77e33905f2c71c234616c6779e3ebc6c`: **PASS**, blocking findings `0`,
-  corrective patch required `NO`, Human acceptance **explicitly granted**.
-
-M6 contract-freeze coordinates:
-
-- approved pre-freeze durable base:
-  `6adcf78b18349621bb80d6ea35f93308c2f1d42a`;
-- approved pre-freeze durable tree:
-  `cf32f682539b8bf58f35660809e5f0c120720426`;
-- freeze commit / frozen Product `main`:
+- frozen Product `main`:
   `cb61725fe9f05c704a6f80b67c6343f49ade9234` (tree
   `839705a3577652d1f9127a737a9535fe7f025d60`);
-- governing contract: `docs/development/M6_CONTRACT.md`;
+- final reviewed / independently proven candidate:
+  `6af2c25e172d81725b97037945e38c047fba9941`;
+- candidate tree:
+  `7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c`;
+- candidate unique parent:
+  `773aae151766038a451ee5b18f5923467b8a3e56`;
+- PR #15 — `M6 — Mode-Oriented Workbench Information Architecture`:
+  **MERGED BY REBASE** after explicit Human Merge Decision;
+- post-rebase implementation `main`:
+  `afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7`;
+- post-rebase implementation tree:
+  `7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c`;
+- candidate → post-rebase `main` tree identity:
+  **PASS / EXACT**;
+- post-merge durable-state closure:
+  this four-file docs-only closure commit; resolve its exact SHA/tree from Git
+  history rather than embedding a self-referential identity here;
 - implementation branch:
-  `m6-mode-oriented-workbench-information-architecture`;
-- implementation authorization: **GRANTED / BOUNDED**.
+  `m6-mode-oriented-workbench-information-architecture` remains retained at
+  `6af2c25e172d81725b97037945e38c047fba9941` until a separate exact-guarded cleanup decision.
 
-M6-PRP-R1 is a **docs-only** state-alignment successor on that branch. It
-changes only `AGENTS.md`, `README.md`, `docs/development/CURRENT_STATE.md`, and
-`docs/testing/testing-strategy.md`; application/runtime implementation is
-unchanged. It nevertheless creates a **new Product SHA and tree**, which must
-be resolved from Git history after the commit exists.
+Final exact-candidate Gate 2 evidence:
 
-That docs-only tip has **not** received fresh exact-candidate proof.
+- proof repository:
+  `Pacchifans69/linguagraph-m6-proof`;
+- proof source:
+  `274aae9f86fb8da9571edf1e197696035d6fb4a3` (tree `b331cd16642ba2c293bb6b83d2310f85b2af35e6`, parent `1c05663a2e90918e5de98631a9209a7f76822cdc`);
+- provider:
+  Alibaba ECS, instance `i-j6c13vpnkuq6xbbhyxzw`;
+- C5 exact-candidate hosted execution:
+  **PASS / COMPLETE / independently verified off-host**;
+- backend pytest:
+  **587 passed**;
+- Vitest:
+  **35 files / 519 passed**;
+- Playwright:
+  **32 passed / retries=0**;
+- artifact manifest:
+  **45 / 45 PASS**;
+- deterministic archive SHA-256:
+  `7a7a555167e9f8d0957baffc14ff4058e0cd939117d5774ebb3fa881b0f8c403`;
+- authorization SHA-256:
+  `5c0acedd8308bddf8d6fdd6f1486aac7660fd209b9160a05c3d648d9eb965609`;
+- authorization:
+  **SPENT / MUST NOT REUSE**;
+- `G2-X01`:
+  **CLOSED / PASS** for exact candidate `6af2c25e172d81725b97037945e38c047fba9941`;
+- M6 Gate 2:
+  **PASS / ESTABLISHED**.
 
-Fail closed on this boundary:
+The current candidate is the bounded PR-review corrective successor of the
+earlier HRA-approved application epoch `a5a981db77e33905f2c71c234616c6779e3ebc6c`.
+Fresh Human Runtime Acceptance completed on that application epoch; the later
+bounded corrective successor received corrective Static Human Diff Review and
+fresh exact-candidate hosted proof. `HRA-F01` remains **CLOSED / HUMAN
+ACCEPTED**. `HRA-F09` remains **OPEN / DEFERRED / NON-BLOCKING**.
 
-- accepted Run #4 is proof only for application epoch
-  `a5a981db77e33905f2c71c234616c6779e3ebc6c` / tree
-  `3859d5a1055a8670c6e02e4cd82201244a2f27da` (unique parent
-  `253637810455c6fcb490f9f6401b3009c8dcd1d5`); it is **not** proof for the
-  docs-only successor or any other commit;
-- exact-candidate proof never transfers automatically to a successor commit,
-  including a docs-only successor;
-- do not describe the new docs-only tip as independently proven;
-- final pre-PR exact proof for that tip is **PENDING**;
-- **no PR exists**; **merge is not authorized**;
-- do not run a new hosted proof, and do not reuse the spent M6-EXI-03 Run #4
-  authorization, without separate explicit Human authorization.
+`C5-P01` is retained as a procedural deviation: during C5 orchestration the
+raw one-shot authorization token was briefly staged in a root-only `0600`
+temporary file before process-environment injection, then removed before
+adapter execution. It is **non-semantic / non-blocking for proof validity**;
+the raw token is absent from the retained proof archive, no rerun is authorized,
+and the spent authorization must not be reused.
 
-M6 is governed by the Human-approved A+ composition, mount-preserved editor
-sessions, and mode-independent connector decision. It must keep the canonical
-Text Canvas persistent, expose exactly one bounded task surface, retain compact
-Alignment Tray status in every mode, and preserve all M0–M5 domain and
-canonical-text invariants.
+Automatic GitHub Actions did not supply semantic execution evidence for the
+final candidate or post-merge main. Candidate run #114 and post-merge main push
+run #115 / `35363051019` both failed before any repository-defined step
+(`steps=[]`, logs unavailable / `BlobNotFound`). These are retained
+provider/pre-step diagnostics, not application/test failures.
 
-The M5 External Infrastructure Exception did not carry forward to M6 and was
-not reused. M6 Gate 2 was established for the exact `a5a981...` epoch under the
-separately Human-authorized M6-specific external-infrastructure path M6-EXI-03
-Run #4 (Alibaba ECS), whose authorization is **SPENT / MUST NOT REUSE**. Any
-further exception requires new exact-candidate evidence and new explicit Human
-approval.
+After proof completion and off-host archive verification, the proof ECS was
+normally stopped in **economical mode**. Instance identity
+`i-j6c13vpnkuq6xbbhyxzw` and private IPv4 `172.23.68.215` are retained; the
+former system-assigned public IPv4 was released. This is post-proof operational
+state, not Product correctness evidence.
+
+Do not rerun the spent C5 authorization. Do not mutate the proof repository or
+provider as part of Product closeout. The next repository mutation after this
+durable-state closure is only the separately Human-authorized, exact-guarded M6
+implementation-branch cleanup.
 
 M5 — Human-Reviewed POS Annotation Foundation — has completed its bounded
 implementation, exact-candidate Gate 2, Human Static Diff Review, Human Runtime
@@ -270,30 +286,24 @@ while `G2-X01` is open.
 
 See `docs/development/M0_7_CLOSEOUT.md` for the full historical ledger.
 
-## Post-M5 / M6 boundary
+## Post-M6 boundary
 
-M5 is complete, merged, durably recorded, and closed. The exact reviewed
-candidate and the post-rebase implementation `main` share tree
-`179aba060d5e798ace46ea6bed0a7c496a50e9ad`, so Gate 3 is **PASS / EXACT**.
-The Human-authorized exact-guarded deletion of the historical implementation
-branch is independently verified by GitHub endpoint 404 plus an empty branch
-search, with durable `main@3c02f5fd087edce0f12692f901a697667ecfd31a`
-unchanged after deletion.
+M6 implementation is merged by rebase through PR #15. The reviewed/proven
+candidate `6af2c25e172d81725b97037945e38c047fba9941` and post-rebase implementation
+`main@afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7` share the exact tree `7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c`, so Gate 3 is
+**PASS / EXACT**. This docs-only commit records the post-merge durable state;
+its exact SHA/tree must be resolved from Git history.
 
-All proof repositories, successful CircleCI evidence, GitHub Actions
-diagnostics, PR history, and reviewed candidate history remain retained. M0–M5
-historical records retain the `G2-X01` status recorded for their own epochs.
+The implementation branch remains retained at `6af2c25e172d81725b97037945e38c047fba9941` pending
+a separate exact-guarded cleanup authorization. PR #15, the candidate commit,
+proof repository, off-host archive, and provider diagnostics remain retained
+provenance. M0–M5 historical records retain the evidence status applicable to
+their own epochs.
 
-For the exact current M6 application epoch
-`a5a981db77e33905f2c71c234616c6779e3ebc6c`, `G2-X01` is **CLOSED / PASS**, M6
-Gate 2 is **PASS / ESTABLISHED**, and `HRA-F01` is **CLOSED / HUMAN ACCEPTED**.
+M6 is therefore **MERGED / DURABLY RECORDED**, with branch cleanup pending
+before the checkpoint can be called fully **COMPLETE / CLOSED**.
 
-M6 — Mode-Oriented Workbench Information Architecture — remains the active
-frozen normative checkpoint. Its docs-only M6-PRP-R1 state-alignment successor
-requires fresh exact-candidate proof before PR readiness. Do not create a PR,
-merge, or run a new proof without separate Human authorization.
-
-## Scope discipline
+## Scope discipline## Scope discipline
 
 The completed M5 occurrence-level coarse-POS boundary remains governed by
 `M5_CONTRACT.md` and ADR-013. Do not retroactively broaden it by introducing

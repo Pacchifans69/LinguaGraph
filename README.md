@@ -11,58 +11,68 @@ schema structure.
 
 ## Current milestone
 
-M6 — Mode-Oriented Workbench Information Architecture — now has a
-Human-approved frozen execution contract in
-`docs/development/M6_CONTRACT.md` on the approved pre-freeze base:
+M6 — Mode-Oriented Workbench Information Architecture — is **MERGED / GATE 3
+PASS / DURABLE-STATE CLOSURE RECORDED**. Exact-guarded deletion of the retained
+implementation branch remains a separate Human decision.
+
+Durable implementation coordinates:
 
 ```text
-base  6adcf78b18349621bb80d6ea35f93308c2f1d42a
-tree  cf32f682539b8bf58f35660809e5f0c120720426
+frozen Product main
+cb61725fe9f05c704a6f80b67c6343f49ade9234
+
+final reviewed / independently proven candidate
+6af2c25e172d81725b97037945e38c047fba9941
+
+candidate / post-rebase application tree
+7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c
+
+PR
+#15 — merged by rebase
+
+post-rebase implementation main
+afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7
+
+post-merge durable-state closure
+this four-file docs-only commit; resolve exact SHA/tree from Git history
 ```
 
-M6 bounded implementation is confined to
-`m6-mode-oriented-workbench-information-architecture`. The exact application
-candidate:
+Gate 3 candidate-to-main tree identity is **PASS / EXACT**.
 
-```text
-candidate  a5a981db77e33905f2c71c234616c6779e3ebc6c
-tree       3859d5a1055a8670c6e02e4cd82201244a2f27da
-parent     253637810455c6fcb490f9f6401b3009c8dcd1d5
-```
+The final exact-candidate C5 hosted proof is retained at
+`Pacchifans69/linguagraph-m6-proof@274aae9f86fb8da9571edf1e197696035d6fb4a3` (tree `b331cd16642ba2c293bb6b83d2310f85b2af35e6`) and
+passed on Alibaba ECS with backend `587 passed`, Vitest `35 files / 519
+passed`, and Playwright `32 passed / retries=0`. The retained archive
+SHA-256 is `7a7a555167e9f8d0957baffc14ff4058e0cd939117d5774ebb3fa881b0f8c403`; off-host verification and its 45-entry manifest
+are **PASS / 45 of 45**. `G2-X01` is **CLOSED / PASS** and M6 Gate 2 is
+**PASS / ESTABLISHED** for exact candidate `6af2c25e172d81725b97037945e38c047fba9941`.
 
-application implementation, exact-candidate hosted proof, static review, and
-Human Runtime Acceptance are complete. It is **REVIEWED / HRA ACCEPTED / NOT
-MERGED**.
+C5 authorization SHA-256 `5c0acedd8308bddf8d6fdd6f1486aac7660fd209b9160a05c3d648d9eb965609` is **SPENT / MUST NOT REUSE**.
+`C5-P01` remains a recorded **procedural / non-semantic / non-blocking**
+deviation: the raw token was briefly staged in a root-only `0600` temporary
+file before environment injection and was removed before adapter execution; it
+is absent from retained proof artifacts.
 
-For that exact epoch:
+PR #15 was merged by rebase into `main@afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7`. Its tree is exactly
+`7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c`, identical to the reviewed/proven candidate tree. The
+post-merge GitHub Actions main run #115 / `35363051019` again failed before
+repository-defined steps (`steps=[]`, logs `BlobNotFound`), so it remains a
+provider/pre-step diagnostic rather than semantic failure evidence.
 
-- accepted M6-EXI-03 Run #4 exact-candidate hosted proof
-  (`Pacchifans69/linguagraph-m6-proof@68227e1bafe1423260879788d127ec1f5d055682`,
-  tree `c3eb74c02cbb81e2cfdf564ec773ba2ceca4cc53`): **PASS**, with backend
-  `587 passed`, Vitest `504 passed`, Playwright `32 passed`;
-- host-side and off-host 45-entry artifact manifest verification: **PASS**;
-  deterministic proof archive SHA-256 verified **PASS / exact match** off-host;
-- `G2-X01`: **CLOSED / PASS**; M6 Gate 2: **PASS / ESTABLISHED**;
-- Fresh M6 Human Runtime Acceptance: **PASS / COMPLETE**;
-- `HRA-F01`: **CLOSED / HUMAN ACCEPTED**;
-- Static Human Diff Review: **PASS**, including the Human-accepted supplemental
-  review `2536378...` → `a5a981...` with zero blocking findings.
+The Alibaba proof instance `i-j6c13vpnkuq6xbbhyxzw` is now stopped in
+**economical mode** after proof completion and off-host evidence verification.
+Its private IPv4 `172.23.68.215` is retained and the former system-assigned
+public IPv4 was released. The proof remains valid off-host; no rerun is needed
+or authorized.
 
 The frozen M6 scope replaces the repeated per-TextVersion linguistic-panel
 stack with a persistent canonical Text Canvas, five-destination task deck,
 mount-preserved editor sessions, compact persistent Alignment Tray status, and
-mode-independent connectors. It preserves all backend/API/database semantics,
-canonical text/selection invariants, and M0–M5 workflows.
+mode-independent connectors while preserving M0–M5 backend/API/database and
+canonical-text semantics. `HRA-F01` is **CLOSED / HUMAN ACCEPTED**;
+`HRA-F09` remains **OPEN / DEFERRED / NON-BLOCKING**.
 
-The durable docs-only pre-PR state alignment (M6-PRP-R1) is recorded in
-`AGENTS.md`, this `README.md`, `docs/development/CURRENT_STATE.md`, and
-`docs/testing/testing-strategy.md`. It changes no application/runtime code, but
-it creates a **new Product SHA/tree** whose exact-candidate proof is
-**PENDING**: Run #4 proves only `a5a981...` and does not transfer to the
-docs-only successor. Fresh exact-candidate proof must pass before PR readiness.
-**No PR has been created. Merge is not authorized.**
-
-### Completed implementation milestone
+### Previous completed milestone### Completed implementation milestone
 
 M5 — Human-Reviewed POS Annotation Foundation — has completed bounded
 implementation, exact-candidate Gate 2, Human Static Diff Review, Human Runtime
@@ -183,21 +193,19 @@ application epoch `a5a981...`: `G2-X01` is **CLOSED / PASS**, M6 Gate 2 is
 `HRA-F09` remains inherited non-blocking connector-routing visual debt and is
 not closed.
 
-Current M6 exact-candidate evidence for application epoch
-`a5a981db77e33905f2c71c234616c6779e3ebc6c` is recorded in
-`docs/testing/testing-strategy.md` and `docs/development/CURRENT_STATE.md`:
-Run #4 passed with backend `587`, Vitest `504`, and Playwright `32`; its
-deterministic archive SHA-256 and 45-entry manifest verified both on the host
-and off-host. Run #4 is bound only to that epoch and does not transfer to the
-M6-PRP-R1 docs-only successor, whose exact-candidate proof is pending.
+Current final M6 exact-candidate evidence is bound to
+`6af2c25e172d81725b97037945e38c047fba9941` / tree `7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c` and is recorded in
+`docs/testing/testing-strategy.md` and `docs/development/CURRENT_STATE.md`.
+C5 passed with backend `587`, Vitest `519`, and Playwright `32`; its
+deterministic archive and 45-entry manifest were independently verified
+off-host. Gate 3 then established exact tree identity between that candidate
+and post-rebase `main@afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7`.
 
-The M5 External Infrastructure Exception did not carry forward to M6. M6 Gate 2
-was established under the separately Human-authorized M6-specific
-external-infrastructure path M6-EXI-03 Run #4 (Alibaba ECS), whose
-authorization is **SPENT / MUST NOT REUSE**. Any further exception requires new
-exact-candidate evidence and new explicit Human approval.
+The M5 External Infrastructure Exception did not carry forward to M6. M6 used
+the separately Human-authorized M6-EXI-03 evidence path. Its final C5
+authorization is spent and must not be reused.
 
-## Authoritative documents
+## Authoritative documents## Authoritative documents
 
 Read these when reconstructing project state:
 
@@ -221,8 +229,9 @@ Read these when reconstructing project state:
 - `docs/testing/testing-strategy.md` — testing/evidence rules;
 - `docs/testing/manual-acceptance.md` — human M0 walkthrough.
 
-M6 bounded implementation is authorized only on its named branch. No PR is
-created and no merge is authorized.
+M6 is merged by rebase through PR #15 and durably recorded. The retained M6
+implementation branch may be deleted only by a separate exact-guarded Human
+authorization.
 
 ## Repository layout
 

@@ -11,85 +11,85 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ## 0. Current durable status
 
-M6 — Mode-Oriented Workbench Information Architecture — has a Human-approved
-frozen execution contract in `docs/development/M6_CONTRACT.md`.
+M6 — Mode-Oriented Workbench Information Architecture — is **MERGED / GATE 3
+PASS / DURABLE-STATE CLOSURE RECORDED**. Exact-guarded implementation-branch
+cleanup remains pending a separate Human authorization.
 
-**M6 APPLICATION IMPLEMENTATION / REVIEW / HRA COMPLETE FOR THE EXACT
-APPLICATION CANDIDATE `a5a981db77e33905f2c71c234616c6779e3ebc6c`; NOT
-MERGED.**
-
-For that exact application epoch:
+Durable M6 coordinates:
 
 - frozen Product `main`:
-  `cb61725fe9f05c704a6f80b67c6343f49ade9234`; frozen `main` tree:
+  `cb61725fe9f05c704a6f80b67c6343f49ade9234`; tree
   `839705a3577652d1f9127a737a9535fe7f025d60`;
-- HRA-approved application candidate:
-  `a5a981db77e33905f2c71c234616c6779e3ebc6c`; candidate tree:
-  `3859d5a1055a8670c6e02e4cd82201244a2f27da`; unique parent:
-  `253637810455c6fcb490f9f6401b3009c8dcd1d5`; subject
-  `fix(M6): rebalance canonical panel density`;
-- accepted M6-EXI-03 Run #4 exact-candidate hosted proof
-  (`Pacchifans69/linguagraph-m6-proof@68227e1bafe1423260879788d127ec1f5d055682`,
-  tree `c3eb74c02cbb81e2cfdf564ec773ba2ceca4cc53`, Alibaba ECS):
-  **PASS / COMPLETE / independently verified off-host**;
-- semantic counts: pytest `587 passed`, Vitest `504 passed`, Playwright
-  `32 passed`; Alembic head `0006`; disposable-database cleanup PASS;
-- host-side 45-entry artifact manifest PASS; deterministic proof archive SHA-256
-  `9d4d88164a8faef2b3557f3bef866c34246cf81e659b9f03968531fc31adc126`;
-  off-host archive SHA-256 verification PASS / exact match; off-host 45-entry
-  manifest PASS;
-- Fresh M6 Human Runtime Acceptance: **PASS / COMPLETE**;
-- `HRA-F01`: **CLOSED / HUMAN ACCEPTED**;
-- full Static Human Diff Review through `2536378...`: **PASS**; Human-accepted
-  supplemental review `2536378...` → `a5a981...`: **PASS / HUMAN ACCEPTED**,
-  0 blocking findings, no corrective patch required;
-- `G2-X01`: **CLOSED / PASS** for the exact `a5a981...` epoch;
-- M6 Gate 2: **PASS / ESTABLISHED** for the exact `a5a981...` epoch.
-
-M6-PRP-F01 — stale durable current-M6 workflow/state wording that predated the
-completed M6 review/proof sequence — was identified and is addressed by the
-bounded M6-PRP-R1 docs-only four-file correction.
-
-The M6-PRP-R1 docs-only state-alignment commit containing this update modifies
-exactly `AGENTS.md`, `README.md`, `docs/development/CURRENT_STATE.md`, and
-`docs/testing/testing-strategy.md`. Application/runtime implementation is
-unchanged, but the commit creates a new Product SHA/tree; resolve that SHA and
-tree directly from Git history rather than embedding a self-referential SHA
-here. That docs-only tip **has not yet received fresh exact-candidate proof**,
-so final pre-PR exact proof is **PENDING**. Run #4 remains proof only for
-`a5a981...` and does not transfer to the docs-only successor. **No PR exists
-yet. Merge is not authorized.** `HRA-F09` remains deferred/non-blocking and is
-not closed.
-
-M6 approved pre-freeze coordinates:
-
-- base:
-  `6adcf78b18349621bb80d6ea35f93308c2f1d42a`;
-- tree:
-  `cf32f682539b8bf58f35660809e5f0c120720426`;
-- freeze commit / frozen Product `main`:
-  `cb61725fe9f05c704a6f80b67c6343f49ade9234`;
-- governing contract:
-  `docs/development/M6_CONTRACT.md`;
+- final reviewed / independently proven candidate:
+  `6af2c25e172d81725b97037945e38c047fba9941`; tree `7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c`; unique parent
+  `773aae151766038a451ee5b18f5923467b8a3e56`; subject `fix(M6): close PR review findings`;
+- PR #15:
+  **MERGED BY REBASE** after explicit Human Merge Decision;
+- post-rebase implementation `main`:
+  `afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7`; tree `7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c`;
+- candidate → post-rebase `main` tree identity:
+  **PASS / EXACT**;
+- post-merge durable-state closure:
+  this docs-only four-file commit; resolve exact SHA/tree from Git history
+  rather than embedding a self-referential identity;
 - implementation branch:
-  `m6-mode-oriented-workbench-information-architecture`.
+  `m6-mode-oriented-workbench-information-architecture@6af2c25e172d81725b97037945e38c047fba9941`, retained pending separate cleanup.
 
-The frozen M6 composition is a persistent canonical Text Canvas plus five
-task destinations (`Alignment`, `Sentence`, `Token`, `Lemma`, `POS`), one
-bounded visible task surface, mount-preserved linguistic editor sessions,
-persistent compact Alignment Tray status, and mode-independent connectors.
+Final M6 Gate 2 evidence:
 
-The M5 External Infrastructure Exception did not carry forward to M6 and was
-not reused. M6 Gate 2 was established for the exact `a5a981...` epoch under the
-separately Human-authorized M6-specific external-infrastructure path M6-EXI-03
-Run #4 (Alibaba ECS), whose authorization is **SPENT / MUST NOT REUSE**. Any
-further exception requires new exact-candidate evidence and new explicit Human
-approval.
+- proof repository:
+  `Pacchifans69/linguagraph-m6-proof`;
+- proof source:
+  `274aae9f86fb8da9571edf1e197696035d6fb4a3`; tree `b331cd16642ba2c293bb6b83d2310f85b2af35e6`; parent `1c05663a2e90918e5de98631a9209a7f76822cdc`;
+- provider:
+  Alibaba ECS, instance `i-j6c13vpnkuq6xbbhyxzw`;
+- C5 hosted result:
+  **PASS / COMPLETE / independently verified off-host**;
+- semantic counts:
+  pytest `587 passed`; Vitest `35 files / 519 passed`; Playwright
+  `32 passed / retries=0`;
+- Alembic head:
+  `0006`; empty → head / current / check **PASS**;
+- dependency integrity, candidate cleanliness, disposable-database cleanup and
+  final remote guard:
+  **PASS**;
+- artifact manifest:
+  **45 / 45 PASS**;
+- deterministic archive SHA-256:
+  `7a7a555167e9f8d0957baffc14ff4058e0cd939117d5774ebb3fa881b0f8c403`;
+- authorization SHA-256:
+  `5c0acedd8308bddf8d6fdd6f1486aac7660fd209b9160a05c3d648d9eb965609`;
+- authorization:
+  **SPENT / MUST NOT REUSE**;
+- `G2-X01`:
+  **CLOSED / PASS** for exact candidate `6af2c25e172d81725b97037945e38c047fba9941`;
+- M6 Gate 2:
+  **PASS / ESTABLISHED**.
 
-M6 is **NOT MERGED / NOT CLOSED**. Section 15 records the complete M6 durable
-pre-PR ledger.
+Fresh M6 Human Runtime Acceptance completed on application epoch
+`a5a981db77e33905f2c71c234616c6779e3ebc6c`; `HRA-F01` is **CLOSED /
+HUMAN ACCEPTED**. The later PR-review corrective successor `6af2c25e172d81725b97037945e38c047fba9941`
+received bounded corrective Static Human Diff Review and fresh exact-candidate
+hosted proof. `HRA-F09` remains **OPEN / DEFERRED / NON-BLOCKING**.
 
-M5 — Human-Reviewed POS Annotation Foundation — has completed bounded
+`C5-P01` is retained as a **procedural / non-semantic / non-blocking**
+deviation: the raw one-shot authorization token was briefly staged in a
+root-only `0600` temporary file before environment injection, then removed
+before adapter execution. The raw token is absent from retained artifacts; no
+rerun is authorized.
+
+GitHub Actions candidate run #114 and post-merge main push run #115 /
+`35363051019` failed before any repository-defined step (`steps=[]`, logs
+unavailable / `BlobNotFound`). They remain provider/pre-step diagnostics and
+do not constitute application/test failures.
+
+After C5 and off-host verification, the proof ECS was normally stopped in
+**economical mode**. Instance `i-j6c13vpnkuq6xbbhyxzw` and private IPv4
+`172.23.68.215` remain retained; the former system-assigned public IPv4 was
+released. This is post-proof operational state and does not alter Gate 2 or
+Gate 3 evidence.
+
+M5 — Human-Reviewed POS Annotation Foundation — has completedM5 — Human-Reviewed POS Annotation Foundation — has completed bounded
 implementation, exact-candidate Gate 2, Human Static Diff Review, Human Runtime
 Acceptance, PR #14, explicit Human Merge Decision, rebase merge, Gate 3 exact
 candidate-to-main tree verification, docs-only post-merge durable-state
@@ -190,23 +190,22 @@ recorded in section 13.
 
 ## 1. Repository checkpoint
 
-Current completed, merged and closed implementation checkpoint: **M5 —
+Current merged implementation checkpoint: **M6 — Mode-Oriented Workbench
+Information Architecture**.
+
+Current M6 lifecycle state:
+
+**MERGED / GATE 3 PASS / DURABLE-STATE CLOSURE RECORDED / BRANCH CLEANUP
+PENDING.**
+
+Most recent fully complete / merged / closed checkpoint before M6: **M5 —
 Human-Reviewed POS Annotation Foundation**.
 
-Current normative checkpoint: **M6 — Mode-Oriented Workbench Information
-Architecture / GATE 2 ESTABLISHED, HRA PASSED, STATIC REVIEW PASSED FOR THE
-EXACT APPLICATION CANDIDATE `a5a981db77e33905f2c71c234616c6779e3ebc6c` / PR NOT
-CREATED / NOT MERGED**.
-
-M6 application implementation and review are complete for that exact epoch, but
-the branch tip then advanced by the docs-only M6-PRP-R1 state-alignment commit.
-The resulting docs-only successor requires fresh exact-candidate proof before
-PR readiness. No PR or merge is authorized.
-
-The M5 docs-only contract-freeze commit, post-merge durable-state closure, and
-this branch-cleanup durable record remain historical provenance. Resolve the
-final branch-cleanup record commit/tree directly from Git history rather than
-embedding a self-referential SHA in this file.
+The exact reviewed/proven M6 candidate `6af2c25e172d81725b97037945e38c047fba9941` entered durable
+`main` by rebase as `afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7`. Their trees are exactly identical at
+`7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c`. This four-file docs-only commit records the post-merge
+closure state; resolve its exact SHA/tree from Git history. The M6 implementation
+branch remains retained until a separate exact-guarded cleanup authorization.
 
 ### Checkpoint ledger
 
@@ -224,13 +223,13 @@ embedding a self-referential SHA in this file.
 | M3 Word/Token Segmentation Foundation | #12 | `d4254c1239e649b17dc4ae6d6f995e52bd4635db` | rebase → `fc607b597bee35aff31a06a3945fa7a256f6b5c8` |
 | M4 Human-Reviewed Lemma Annotation Foundation | #13 | `ac1cd40ae190577783453050f2cbc209cd3958a6` | rebase → `4cc435893207cdd32216012ca887d338e1932250` |
 | M5 Human-Reviewed POS Annotation Foundation | #14 | `139f3349b8556f5dd13d5c2d8808fda4a79dc819` | rebase → `49163ee407c0dae7d9e20cc647cabc8ae98f75de`; Gate 3 exact tree identity PASS; branch cleanup PASS |
-| M6 Mode-Oriented Workbench Information Architecture | — (no PR created) | `a5a981db77e33905f2c71c234616c6779e3ebc6c` (HRA-approved application candidate; Run #4 exact proof PASS; off-host verification PASS; `G2-X01` CLOSED/PASS; Gate 2 PASS/ESTABLISHED; HRA PASS; Static Diff Review PASS) | not merged; docs-only M6-PRP-R1 state-alignment successor requires fresh exact-candidate proof before PR; merge not authorized |
+| M6 Mode-Oriented Workbench Information Architecture | #15 | `6af2c25e172d81725b97037945e38c047fba9941` | rebase → `afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7`; Gate 3 exact tree identity PASS; docs-only durable-state closure recorded; branch cleanup pending |
 
-M0.5 and M0.6 merge commits preserved exact reviewed trees. M0.7, M1, M2,
-M3, M4 and M5 used repository-permitted rebase merge; their Gate 3 bridges are
-exact reviewed-candidate to durable-implementation-main tree identities.
+M0.5 and M0.6 merge commits preserved exact reviewed trees. M0.7 and M1–M6
+used repository-permitted rebase merge; their Gate 3 evidence bridges use exact
+reviewed-candidate to durable-implementation-main tree identities.
 
-## 2. M1 durable provenance
+## 2. M1 durable provenance## 2. M1 durable provenance
 
 ### Base, branch, and candidate
 
@@ -1526,129 +1525,244 @@ Human Runtime Acceptance for that exact epoch (section 15).
 
 M5 is **COMPLETE / MERGED / CLOSED**.
 
-M6 application implementation and review are complete for
-`a5a981db77e33905f2c71c234616c6779e3ebc6c`; the docs-only M6-PRP-R1 successor
-requires fresh exact-candidate proof. No PR is created and no merge is
-authorized.
+M6 is merged by rebase through PR #15, Gate 3 exact tree identity is PASS, and
+the post-merge durable-state closure is recorded below. The implementation
+branch remains retained pending separate exact-guarded cleanup authorization.
 
-## 15. M6 durable pre-PR record
+## 15. M6 durable post-merge closure
 
-### 15.1 Final status
+### 15.1 Lifecycle status
 
-M6 — Mode-Oriented Workbench Information Architecture — completed bounded
-application implementation, static Human diff review, fresh Human Runtime
-Acceptance, and exact-candidate hosted proof for the HRA-approved application
-candidate `a5a981db77e33905f2c71c234616c6779e3ebc6c`.
+**M6 — Mode-Oriented Workbench Information Architecture: MERGED / GATE 3 PASS /
+DURABLE-STATE CLOSURE RECORDED.**
 
-M6 is **NOT MERGED / NOT CLOSED**. No PR exists. Merge is not authorized.
+Completed lifecycle through this closure:
 
-### 15.2 Frozen Product baseline and candidate
+- repository reality reconstruction / Gate 1: PASS;
+- Human contract freeze: PASS;
+- bounded implementation and corrective successors: PASS;
+- Gate 2 for final exact candidate: **PASS / ESTABLISHED**;
+- Static Human Diff Review, including bounded PR-review corrective review:
+  **PASS**;
+- Fresh Human Runtime Acceptance on the accepted application epoch:
+  **PASS / COMPLETE**;
+- `HRA-F01`: **CLOSED / HUMAN ACCEPTED**;
+- PR #15: **MERGED BY REBASE** after explicit Human Merge Decision;
+- Gate 3: **PASS / EXACT TREE IDENTITY**;
+- durable-state closure: recorded by this four-file docs-only commit;
+- implementation-branch cleanup: **PENDING separate Human authorization**.
 
-- frozen `main`:
-  `cb61725fe9f05c704a6f80b67c6343f49ade9234` (subject
-  `docs: freeze M6 workbench IA contract`);
-- frozen `main` tree:
+`HRA-F09` remains **OPEN / DEFERRED / NON-BLOCKING**.
+
+### 15.2 Frozen baseline, final candidate, merge, and Gate 3
+
+- frozen Product `main`:
+  `cb61725fe9f05c704a6f80b67c6343f49ade9234`;
+- frozen tree:
   `839705a3577652d1f9127a737a9535fe7f025d60`;
-- HRA-approved application candidate:
-  `a5a981db77e33905f2c71c234616c6779e3ebc6c`;
+- final reviewed / independently proven candidate:
+  `6af2c25e172d81725b97037945e38c047fba9941`;
 - candidate tree:
-  `3859d5a1055a8670c6e02e4cd82201244a2f27da`;
+  `7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c`;
 - candidate unique parent:
-  `253637810455c6fcb490f9f6401b3009c8dcd1d5`;
-- candidate subject: `fix(M6): rebalance canonical panel density`;
+  `773aae151766038a451ee5b18f5923467b8a3e56`;
+- candidate subject:
+  `fix(M6): close PR review findings`;
 - implementation branch:
   `m6-mode-oriented-workbench-information-architecture`;
-- epoch relation: the HRA-approved application candidate `a5a981...` was 13
-  commits ahead of frozen `main`, 0 behind, with merge base exactly
-  `cb61725fe9f05c704a6f80b67c6343f49ade9234`. The later docs-only pre-PR
-  successors advance the branch tip; resolve the current branch relation
-  directly from Git history rather than embedding a self-invalidating tip
-  count here.
+- PR:
+  `#15 — M6 — Mode-Oriented Workbench Information Architecture`;
+- merge method:
+  rebase;
+- post-rebase implementation `main`:
+  `afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7`;
+- post-rebase implementation tree:
+  `7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c`.
 
-### 15.3 Accepted M6-EXI-03 Run #4 exact-candidate proof
+Reviewed/proven candidate tree:
 
-- proof repository: `Pacchifans69/linguagraph-m6-proof`;
-- proof SHA: `68227e1bafe1423260879788d127ec1f5d055682`;
-- proof tree: `c3eb74c02cbb81e2cfdf564ec773ba2ceca4cc53`;
-- proof parent: `7315b612aaad60296f4236f77894abbe44a8b068`;
-- provider: Alibaba ECS;
-- instance: `i-j6c13vpnkuq6xbbhyxzw`;
-- run: `M6-EXI-03 Run #4`;
-- run authorization: **SPENT / MUST NOT REUSE**;
-- adapter rc = `0`; formal outcome = **PASS**.
+`7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c`
 
-Exact proof binding:
+Post-rebase durable implementation tree:
+
+`7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c`
+
+Therefore:
+
+**M6 Gate 3 candidate → post-rebase main tree identity: PASS / EXACT.**
+
+Rebase rewrote commit identities while preserving the complete reviewed/proven
+file tree. Git graph comparison between the historical candidate branch and
+post-rebase main is expected to diverge; tree identity is the evidence bridge.
+
+### 15.3 Final C5 exact-candidate hosted proof
+
+Accepted proof source:
+
+- repository:
+  `Pacchifans69/linguagraph-m6-proof`;
+- proof SHA:
+  `274aae9f86fb8da9571edf1e197696035d6fb4a3`;
+- proof tree:
+  `b331cd16642ba2c293bb6b83d2310f85b2af35e6`;
+- proof parent:
+  `1c05663a2e90918e5de98631a9209a7f76822cdc`;
+- provider:
+  Alibaba ECS;
+- instance:
+  `i-j6c13vpnkuq6xbbhyxzw`;
+- exact candidate:
+  `6af2c25e172d81725b97037945e38c047fba9941`;
+- exact candidate tree:
+  `7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c`;
+- exact candidate parent:
+  `773aae151766038a451ee5b18f5923467b8a3e56`;
+- frozen `main`:
+  `cb61725fe9f05c704a6f80b67c6343f49ade9234`;
+- Alembic head:
+  `0006`;
+- adapter invocation count:
+  `1`;
+- adapter rc:
+  `0`;
+- formal outcome:
+  **PASS**;
+- authorization SHA-256:
+  `5c0acedd8308bddf8d6fdd6f1486aac7660fd209b9160a05c3d648d9eb965609`;
+- authorization:
+  **SPENT / MUST NOT REUSE**.
+
+All required stages completed with exit 0:
 
 ```text
-approved_proof_sha = 68227e1bafe1423260879788d127ec1f5d055682
-proof_sha          = 68227e1bafe1423260879788d127ec1f5d055682
-proof_tree         = c3eb74c02cbb81e2cfdf564ec773ba2ceca4cc53
-candidate_sha      = a5a981db77e33905f2c71c234616c6779e3ebc6c
-candidate_tree     = 3859d5a1055a8670c6e02e4cd82201244a2f27da
-candidate_parent   = 253637810455c6fcb490f9f6401b3009c8dcd1d5
-frozen_main        = cb61725fe9f05c704a6f80b67c6343f49ade9234
-Alembic head       = 0006
+guard_core
+guard_remote
+fetch_candidate
+deps_pre
+install_runtimes
+backend
+frontend
+playwright
+integrity
 ```
 
-Required stages (all `exit=0`):
+Retained semantic/integrity evidence:
 
-```text
-guard_core        exit=0
-guard_remote      exit=0
-fetch_candidate   exit=0
-deps_pre          exit=0
-install_runtimes  exit=0
-backend           exit=0
-frontend          exit=0
-playwright        exit=0
-integrity         exit=0
-```
+- Python 3.13.15;
+- Node v24.17.0;
+- uv 0.12.10;
+- PostgreSQL 18.6;
+- Alembic empty → `0006` / current / check: PASS;
+- backend pytest: **587 passed**, zero skipped;
+- Vitest: **35 files / 519 passed**;
+- Playwright: **32 passed / retries=0**;
+- dependency hash equality: PASS;
+- candidate final worktree: CLEAN;
+- disposable-database residual: EMPTY;
+- proof-owned PostgreSQL container after cleanup: ABSENT;
+- final remote guard: PASS / refs unchanged;
+- artifact manifest: **45 / 45 PASS**.
 
-Established semantic and integrity result:
+Deterministic archive:
 
-- backend pytest: `587 passed`;
-- Vitest: `504 passed`;
-- Playwright: `32 passed`;
-- semantic-stage failures: none;
-- disposable-database cleanup: **PASS**;
-- candidate final worktree: **CLEAN / PASS**;
-- dependency/tree/provenance integrity: **PASS**;
-- host-side artifact manifest: 45 entries, **ALL OK**;
-- deterministic proof archive SHA-256:
-  `9d4d88164a8faef2b3557f3bef866c34246cf81e659b9f03968531fc31adc126`;
-- off-host Windows archive SHA-256 verification: **PASS / exact match**;
-- off-host extracted artifact manifest: 45 entries checked, **PASS**;
-- Run #4 disposition: **PASS / COMPLETE / independently verified off-host**.
+`m6-proof-artifacts-274aae9f86fb8da9571edf1e197696035d6fb4a3.tar.gz`
 
-Run #4 is proof **only** for the exact epoch above. It is not proof for any
-later commit, including the M6-PRP-R1 docs-only successor.
+Archive SHA-256:
 
-### 15.4 Human review, HRA, and Gate 2
+`7a7a555167e9f8d0957baffc14ff4058e0cd939117d5774ebb3fa881b0f8c403`
 
-For the exact `a5a981...` epoch:
+Off-host archive SHA-256 and extracted manifest verification:
+**PASS / exact / 45 of 45**.
 
-- Fresh M6 Human Runtime Acceptance: **PASS / COMPLETE**;
-- `HRA-F01` — Workbench information architecture / panel density:
-  **CLOSED / HUMAN ACCEPTED**;
-- original full Static Human Diff Review through
-  `253637810455c6fcb490f9f6401b3009c8dcd1d5`: **PASS**;
-- supplemental Static Human Diff Review
-  `253637810455c6fcb490f9f6401b3009c8dcd1d5` →
-  `a5a981db77e33905f2c71c234616c6779e3ebc6c`: **PASS**, blocking findings
-  `0`, corrective patch required `NO`, Human acceptance **explicitly granted**;
-- `G2-X01`: **CLOSED / PASS**;
-- M6 Gate 2: **PASS / ESTABLISHED**.
+`G2-X01` is therefore **CLOSED / PASS** and M6 Gate 2 is
+**PASS / ESTABLISHED** for exact candidate `6af2c25e172d81725b97037945e38c047fba9941`.
 
-`HRA-F09` remains inherited, deferred, non-blocking connector-routing visual
-debt and is **not** closed.
+### 15.4 Human review and accepted application epoch
 
-### 15.5 M6-PRP-R1 docs-only successor and pre-PR boundary
+Fresh Human Runtime Acceptance completed on application epoch
+`a5a981db77e33905f2c71c234616c6779e3ebc6c`, closing `HRA-F01`. Two
+docs-only pre-PR successors followed, then bounded PR review produced the final
+application/test corrective successor `6af2c25e172d81725b97037945e38c047fba9941`.
 
-M6-PRP-F01 — stale durable current-M6 workflow/state wording that predated the
-completed M6 review/proof sequence — was identified and is addressed by the
-bounded M6-PRP-R1 four-file docs-only correction.
+That final corrective successor received bounded corrective Static Human Diff
+Review with zero blocking findings and fresh exact-candidate hosted proof.
+No later Product change occurred before merge. `HRA-F09` remains separately
+governed and deferred.
 
-M6-PRP-R1 modifies exactly:
+### 15.5 GitHub-provider diagnostic state
+
+Automatic GitHub Actions did not execute repository-defined semantic steps for
+the final candidate or post-merge main.
+
+Final-candidate PR-era run:
+
+- run #114 / `35343563836`;
+- result: failure before repository-defined steps;
+- verification job: `steps=[]`;
+- logs unavailable / `BlobNotFound`.
+
+Post-merge `main@afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7` push run:
+
+- run #115 / `35363051019`;
+- job `105658759117`;
+- result: failure before repository-defined steps;
+- verification job: `steps=[]`;
+- logs unavailable / `BlobNotFound`.
+
+These are provider/pre-step diagnostics. They are not application, test, lint,
+typecheck, build, or Playwright failure evidence and do not supersede the
+accepted exact-candidate C5 hosted proof.
+
+### 15.6 C5-P01 procedural deviation
+
+`C5-P01` is retained without concealment.
+
+During C5 orchestration, the raw one-shot authorization token was briefly
+written to a root-only `0600` temporary file before process-environment
+injection and was removed before adapter execution. This deviated from the
+stricter instruction that the raw token not be written to a file.
+
+Classification:
+
+- procedural;
+- non-semantic;
+- non-blocking for proof validity;
+- raw token absent from retained proof archive;
+- authorization spent / must not reuse;
+- rerun neither required nor authorized.
+
+### 15.7 Post-proof ECS state
+
+After successful C5 execution and off-host evidence verification, the Human
+authorized economical stop of the proof host.
+
+Recorded state:
+
+- instance:
+  `i-j6c13vpnkuq6xbbhyxzw`;
+- region / zone:
+  `cn-hongkong / cn-hongkong-d`;
+- private IPv4 retained:
+  `172.23.68.215`;
+- SSH ED25519 host fingerprint retained off-host:
+  `SHA256:nfDqp5sIJgJL8O0Mi+QSpWYhcLGGw39DCwyCtL0P+mk`;
+- state:
+  **STOPPED / ECONOMICAL MODE**;
+- former system-assigned public IPv4:
+  released;
+- C5 archive:
+  retained off-host with exact SHA-256 `7a7a555167e9f8d0957baffc14ff4058e0cd939117d5774ebb3fa881b0f8c403`.
+
+This provider state is operational retention information, not Product
+correctness evidence.
+
+### 15.8 Durable closure and cleanup boundary
+
+This four-file docs-only commit is the M6 post-merge durable-state closure.
+Because a commit cannot embed its own identity without changing it, resolve the
+exact closure SHA/tree from Git history.
+
+This closure changes only:
 
 ```text
 AGENTS.md
@@ -1657,31 +1771,27 @@ docs/development/CURRENT_STATE.md
 docs/testing/testing-strategy.md
 ```
 
-It contains no application code, test, workflow, contract, ADR, architecture,
-dependency, lockfile, or runtime-configuration change. Application/runtime
-implementation is therefore unchanged from `a5a981...`.
+It changes no application code, tests, workflow, contract, ADR, architecture,
+dependency, lockfile, runtime, proof repository, or provider configuration.
 
-The commit nevertheless creates a **new Product SHA and tree**. The M6-PRP-R1
-docs-only state-alignment commit containing this update must have its SHA/tree
-resolved from Git history; its parent must be exactly
-`a5a981db77e33905f2c71c234616c6779e3ebc6c`.
+The implementation branch remains retained at
+`m6-mode-oriented-workbench-information-architecture@6af2c25e172d81725b97037945e38c047fba9941`.
 
-For the resulting docs-only tip:
+A future branch deletion requires a separate Human authorization guarded by:
 
-- fresh exact-candidate hosted proof has **NOT** run;
-- final pre-PR exact proof is **PENDING**;
-- exact-candidate proof does not transfer to a successor commit, including a
-  docs-only successor;
-- the docs-only tip must **not** be described as independently proven;
-- **no PR exists yet**;
-- **merge is not authorized**;
-- no new hosted proof is authorized or implied by this state alignment;
-- the M6-EXI-03 Run #4 authorization is spent and must not be reused;
-- `HRA-F09` remains deferred/non-blocking and is not closed.
+1. exact durable `main` equal to this closure commit;
+2. exact implementation branch equal to `6af2c25e172d81725b97037945e38c047fba9941`;
+3. deletion of only that branch;
+4. post-delete verification that durable `main` is unchanged and the branch
+   no longer exists.
 
-### 15.6 Retention
+Until that separate cleanup passes, M6 is **MERGED / DURABLY RECORDED** but not
+yet declared fully **COMPLETE / CLOSED**.
 
-Retain all proof repositories, provider records and artifacts, PR history,
-reviewed candidate history, and the M6 branch until a separate Human cleanup
-decision. M0–M5 historical sections retain the `G2-X01` status recorded for
-their own epochs.
+### 15.9 Retention
+
+Retain PR #15, final candidate `6af2c25e172d81725b97037945e38c047fba9941`, proof repository
+`274aae9f86fb8da9571edf1e197696035d6fb4a3`, deterministic archive/checksum, GitHub Actions provider
+diagnostics, C5-P01 record, and historical review/proof chronology. M0–M5
+historical sections retain the evidence status applicable to their own epochs.
+

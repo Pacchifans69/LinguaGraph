@@ -1,4 +1,4 @@
-# LinguaGraph — Testing Strategy (M6 implementation candidate)
+# LinguaGraph — Testing Strategy (M6 durable implementation)
 
 This document describes the inherited M0/M1 testing architecture, M2/M3
 segmentation coverage, M4 lemma-annotation coverage, M5 coarse-POS coverage,
@@ -200,8 +200,8 @@ Workflow configuration by itself is not execution evidence.
 At M0.7 closeout, GitHub-hosted-runner execution is **BLOCKED / EXTERNAL**.
 
 `G2-X01` remained **OPEN / EXTERNAL** through M0.7 and M5. It is
-**CLOSED / PASS** for the exact current M6 application epoch
-`a5a981db77e33905f2c71c234616c6779e3ebc6c`; see section 8.
+**CLOSED / PASS** for the final exact M6 candidate
+`6af2c25e172d81725b97037945e38c047fba9941`; see section 8.
 
 The failure pattern is provider/pre-step: the hosted job fails before checkout
 or any other workflow step begins. This was reproduced across the candidate
@@ -231,8 +231,8 @@ Consequences for this historical M0.7 GitHub-provider record:
 
 Later checkpoints govern `G2-X01` under their own separately authorized
 evidence contracts and may record their own exact-candidate disposition; M6
-records `G2-X01` **CLOSED / PASS** for the exact application epoch
-`a5a981db77e33905f2c71c234616c6779e3ebc6c` in section 8. That disposition is
+records `G2-X01` **CLOSED / PASS** for final exact candidate
+`6af2c25e172d81725b97037945e38c047fba9941` in section 8. That disposition is
 specific to M6's separately Human-authorized M6-EXI-03 path, does not
 retroactively recover the M0.7 GitHub-provider record, and does not mean
 Alibaba ECS was a GitHub-hosted run. GitHub Actions itself must still not be
@@ -348,107 +348,145 @@ Manual browser/runtime verification of the user-facing flows documented in
 `docs/testing/manual-acceptance.md`. M0.7 HRA completed PASS. Human acceptance
 supplements automated proof; it does not replace the automated semantic gates.
 
-## 8. Current M6 exact-candidate evidence (M6-EXI-03 Run #4)
+## 8. Final M6 exact-candidate evidence and Gate 3
 
-The current M6 evidence epoch is the HRA-approved application candidate:
+The final reviewed / independently proven M6 candidate is:
 
 ```text
-candidate_sha    a5a981db77e33905f2c71c234616c6779e3ebc6c
-candidate_tree   3859d5a1055a8670c6e02e4cd82201244a2f27da
-candidate_parent 253637810455c6fcb490f9f6401b3009c8dcd1d5
+candidate_sha    6af2c25e172d81725b97037945e38c047fba9941
+candidate_tree   7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c
+candidate_parent 773aae151766038a451ee5b18f5923467b8a3e56
 frozen_main      cb61725fe9f05c704a6f80b67c6343f49ade9234
 ```
 
-Accepted independent hosted proof:
+Accepted C5 independent hosted proof:
 
 ```text
 proof repository  Pacchifans69/linguagraph-m6-proof
-proof_sha         68227e1bafe1423260879788d127ec1f5d055682
-proof_tree        c3eb74c02cbb81e2cfdf564ec773ba2ceca4cc53
-proof_parent      7315b612aaad60296f4236f77894abbe44a8b068
+proof_sha         274aae9f86fb8da9571edf1e197696035d6fb4a3
+proof_tree        b331cd16642ba2c293bb6b83d2310f85b2af35e6
+proof_parent      1c05663a2e90918e5de98631a9209a7f76822cdc
 provider          Alibaba ECS
 instance          i-j6c13vpnkuq6xbbhyxzw
-run               M6-EXI-03 Run #4
 authorization     SPENT / MUST NOT REUSE
 adapter rc        0
 formal outcome    PASS
 ```
 
-Required proof stages (all `exit=0`):
+Required proof stages all completed with `exit=0`:
 
 ```text
-guard_core        exit=0
-guard_remote      exit=0
-fetch_candidate   exit=0
-deps_pre          exit=0
-install_runtimes  exit=0
-backend           exit=0
-frontend          exit=0
-playwright        exit=0
-integrity         exit=0
+guard_core
+guard_remote
+fetch_candidate
+deps_pre
+install_runtimes
+backend
+frontend
+playwright
+integrity
 ```
 
-Established proof baseline (per the retained Run #4 evidence):
+Established semantic/integrity baseline:
 
 ```text
-Python 3.13 / Node 24 / PostgreSQL 18       PASS
+Python 3.13.15 / Node v24.17.0 / PostgreSQL 18.6
 exact SHA/tree/frozen-base guard            PASS
-Alembic empty → 0006 / current / check      PASS (head 0006)
-backend pytest (real PostgreSQL)            PASS (587 passed)
-Vitest                                      PASS (504 passed)
-Playwright                                  PASS (32 passed)
+Alembic empty → 0006 / current / check      PASS
+backend pytest (real PostgreSQL)            PASS (587 passed, zero skipped)
+Vitest                                      PASS (35 files / 519 passed)
+Playwright                                  PASS (32 passed / retries=0)
 semantic-stage failures                     NONE
 disposable database cleanup                 PASS
 dependency/tree/provenance integrity        PASS
-host-side artifact manifest                 PASS (45 entries, ALL OK)
-off-host archive SHA-256 verification       PASS / exact match
-off-host extracted artifact manifest        PASS (45 entries checked)
+candidate final worktree                    CLEAN
+final remote guard                          PASS / unchanged
+host-side artifact manifest                 PASS (45 / 45)
+off-host archive SHA-256 verification       PASS / exact
+off-host extracted artifact manifest        PASS (45 / 45)
 ```
 
-Deterministic proof archive SHA-256:
+Deterministic archive SHA-256:
 
-```text
-9d4d88164a8faef2b3557f3bef866c34246cf81e659b9f03968531fc31adc126
-```
+`7a7a555167e9f8d0957baffc14ff4058e0cd939117d5774ebb3fa881b0f8c403`
 
-Run #4 disposition: **PASS / COMPLETE / independently verified off-host**.
+Authorization SHA-256:
 
-For this exact epoch:
+`5c0acedd8308bddf8d6fdd6f1486aac7660fd209b9160a05c3d648d9eb965609`
+
+For exact candidate `6af2c25e172d81725b97037945e38c047fba9941`:
 
 - `G2-X01`: **CLOSED / PASS**;
 - M6 Gate 2: **PASS / ESTABLISHED**;
-- Fresh M6 Human Runtime Acceptance: **PASS / COMPLETE**;
-- `HRA-F01`: **CLOSED / HUMAN ACCEPTED**;
-- Static Human Diff Review: **PASS**, including the Human-accepted supplemental
-  review `253637810455c6fcb490f9f6401b3009c8dcd1d5` →
-  `a5a981db77e33905f2c71c234616c6779e3ebc6c` with zero blocking findings.
+- bounded corrective Static Human Diff Review: **PASS / zero blocking
+  findings**.
 
-### 8.1 No automatic evidence transfer
+Fresh Human Runtime Acceptance completed on the earlier accepted application
+epoch `a5a981db77e33905f2c71c234616c6779e3ebc6c`; `HRA-F01` is **CLOSED /
+HUMAN ACCEPTED**. `HRA-F09` remains **OPEN / DEFERRED / NON-BLOCKING**.
 
-Two rules govern current M6 evidence:
+### 8.1 C5-P01
 
-1. **Workflow configuration alone is not evidence.** The presence of the
-   `.github/workflows/ci.yml` semantic gates listed in section 2 does not prove
-   that any of them executed. Only an actually executed run with retained,
-   exact-candidate provenance is evidence.
-2. **Exact-candidate proof does not automatically transfer to a successor
-   commit**, including a docs-only successor. Run #4 is bound only to
-   `a5a981db77e33905f2c71c234616c6779e3ebc6c` / tree
-   `3859d5a1055a8670c6e02e4cd82201244a2f27da`.
+During C5 orchestration, the raw one-shot authorization token was briefly
+staged in a root-only `0600` temporary file before process-environment
+injection, then removed before adapter execution. This is retained as
+`C5-P01`: **procedural / non-semantic / non-blocking for proof validity**.
+The raw token is absent from the retained proof archive. The authorization is
+spent and must not be reused; no rerun is required or authorized.
 
-The M6-PRP-R1 docs-only state-alignment commit changes only `AGENTS.md`,
-`README.md`, `docs/development/CURRENT_STATE.md`, and this
-`docs/testing/testing-strategy.md`. It changes no application or runtime code,
-but it does create a new Product SHA/tree. That successor must receive **fresh
-exact-SHA/tree proof** before final PR readiness, and it must not be described
-as independently proven until then. The Run #4 authorization is spent and must
-not be reused. No PR is created and no merge is authorized.
+### 8.2 GitHub-provider diagnostics
 
-## 9. Evidence retention
+Automatic GitHub Actions did not provide semantic execution evidence:
+
+- final-candidate run #114 / `35343563836`: failure before repository-defined
+  steps, `steps=[]`, logs unavailable / `BlobNotFound`;
+- post-merge main run #115 / `35363051019`, job `105658759117`: same
+  pre-step fingerprint.
+
+These runs are provider diagnostics, not application/test failures. GitHub
+Actions itself must not be described as PASS.
+
+### 8.3 Rebase merge and evidence continuity
+
+PR #15 merged the final candidate by rebase.
+
+```text
+reviewed/proven candidate
+6af2c25e172d81725b97037945e38c047fba9941
+tree 7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c
+
+post-rebase implementation main
+afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7
+tree 7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c
+```
+
+The trees are exactly identical, therefore:
+
+**M6 Gate 3 candidate → post-rebase main tree identity: PASS / EXACT.**
+
+Rebase changed commit identities. Exact-candidate proof remains evidence for
+the candidate content, and Gate 3 tree identity proves that the same content
+entered durable main.
+
+The subsequent post-merge durable-state closure is docs-only and changes the
+four durable state/evidence documents. It is not itself a fresh semantic proof
+candidate and does not rewrite the established Gate 2/Gate 3 evidence bridge.
+
+### 8.4 Post-proof provider state
+
+After C5 and off-host archive verification, Alibaba ECS instance
+`i-j6c13vpnkuq6xbbhyxzw` was normally stopped in **economical mode**. Private
+IPv4 `172.23.68.215` and the instance identity are retained; the former
+system-assigned public IPv4 was released. This operational state does not alter
+the accepted proof.
+
+## 9. Evidence retention## 9. Evidence retention
 
 Retain until the separate cleanup decision:
 
-- formal candidate ref/SHA;
+- final M6 candidate ref/SHA and candidate tree;
+- PR #15 merge history and Gate 3 exact-tree record;
+- final M6 proof source, archive checksum, 45/45 manifest, and C5-P01 record;
 - PR #9 history;
 - GitHub-hosted-runner failure runs and diagnostic evidence;
 - public runner-probe evidence;
