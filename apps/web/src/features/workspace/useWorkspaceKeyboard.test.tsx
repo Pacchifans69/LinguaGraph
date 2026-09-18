@@ -116,6 +116,66 @@ describe('useWorkspaceKeyboard', () => {
     expect(pendingCreate).not.toHaveBeenCalled();
   });
 
+  it('refuses Ctrl/Meta+Enter while the workspace navigation lock is held', () => {
+    const onCreateAlignment = vi.fn();
+    const { rerender } = renderHook(
+      (props: { navigationLocked: boolean }) =>
+        useWorkspaceKeyboard(
+          options({ onCreateAlignment, navigationLocked: props.navigationLocked }),
+        ),
+      { initialProps: { navigationLocked: false } },
+    );
+
+    // Unlocked: the ordinary shortcut still creates.
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(onCreateAlignment).toHaveBeenCalledTimes(1);
+
+    // Locked: neither primary modifier may reach the background mutation.
+    rerender({ navigationLocked: true });
+    const lockedCtrl = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      ctrlKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    const lockedMeta = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      metaKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => {
+      window.dispatchEvent(lockedCtrl);
+      window.dispatchEvent(lockedMeta);
+    });
+    expect(onCreateAlignment).toHaveBeenCalledTimes(1);
+    expect(lockedCtrl.defaultPrevented).toBe(false);
+    expect(lockedMeta.defaultPrevented).toBe(false);
+
+    // Unlocked again: the shortcut recovers without a remount.
+    rerender({ navigationLocked: false });
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          metaKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    });
+    expect(onCreateAlignment).toHaveBeenCalledTimes(2);
+  });
+
   it('suppresses the create shortcut for editable controls', () => {
     const onCreateAlignment = vi.fn();
     renderHook(() =>

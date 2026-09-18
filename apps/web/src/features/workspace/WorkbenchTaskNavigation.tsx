@@ -6,6 +6,7 @@ import {
   WORKBENCH_MODE_LABELS,
   isTabNavigationKey,
   nextWorkbenchTab,
+  sessionStatusLabel as statusLabel,
   type EditorSessionStatus,
   type LinguisticMode,
   type WorkbenchMode,
@@ -13,14 +14,6 @@ import {
 } from './workbenchIa';
 
 const MODE_LABELS = WORKBENCH_MODE_LABELS;
-
-function statusLabel(status: EditorSessionStatus | undefined): string | null {
-  if (status?.conflict) return 'Conflict';
-  if (status?.pending) return 'Pending';
-  if (status?.error) return 'Error';
-  if (status?.dirty) return 'Unsaved';
-  return null;
-}
 
 export function WorkbenchTaskNavigation({
   activeMode,

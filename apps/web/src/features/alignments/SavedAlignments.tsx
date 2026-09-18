@@ -36,6 +36,13 @@ export interface SavedAlignmentsProps {
    * active — they never change the active alignment.
    */
   disabled?: boolean;
+  /**
+   * M6-PRR-F01 (C1.1): an active TextVersion destructive lifecycle freezes
+   * activation too, so switching the active alignment can never bypass the
+   * Alignment-surface freeze. Hover previews stay allowed (they change no
+   * active state and dispose no draft).
+   */
+  interactionLocked?: boolean;
 }
 
 function shortId(id: string): string {
@@ -50,6 +57,7 @@ export function SavedAlignments({
   onActivate,
   onHover,
   disabled = false,
+  interactionLocked = false,
 }: SavedAlignmentsProps) {
   if (groups.length === 0) {
     return (
@@ -108,7 +116,7 @@ export function SavedAlignments({
                   onPointerLeave={() => onHover?.(null)}
                   onFocus={() => onHover?.(group.id)}
                   onBlur={() => onHover?.(null)}
-                  disabled={disabled}
+                  disabled={disabled || interactionLocked}
                   onClick={() => onActivate(group.id)}
                 >
                   Activate

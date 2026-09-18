@@ -1,5 +1,5 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RouteObject } from 'react-router-dom';
 import { renderPageAt, restoreDataRouterAbortController } from '../../test/harness';
 import { installFetchMock, json, type Handler, type MockResponse } from '../../test/mockFetch';
@@ -102,6 +102,95 @@ function alignedM6SnapshotWithThreeMembers(): WorkspaceSnapshot {
  * `alignment-1` survives with the German + French members (2 members across 2
  * distinct TextVersions), so it is NOT cascade-deleted.
  */
+/**
+ * M6-PRR-F01 (C1.1): a THREE-member active alignment with an EXISTING
+ * persisted note. The Inspector starts with a clean note (so the TextVersion
+ * delete lifecycle can begin without a dirty-delete confirmation) and removing
+ * one member is still a valid operation, so the member-removal control is
+ * genuinely interactive before the freeze.
+ */
+function threeMemberAlignedSnapshotWithNote(): WorkspaceSnapshot {
+  const data = alignedM6SnapshotWithThreeMembers();
+  // `shortId` truncates to 8 chars, so distinct groups must differ inside that
+  // prefix ('grp-zeta' vs 'grp-eta') for activation controls to be addressable.
+  data.alignment_groups = [
+    ...data.alignment_groups.map((group) => ({
+      ...group,
+      id: 'grp-zeta',
+      note: 'baseline note',
+    })),
+    {
+      id: 'grp-eta',
+      document_id: 'doc-1',
+      note: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    },
+  ];
+  data.alignment_members = data.alignment_members.map((member) => ({
+    ...member,
+    alignment_group_id: 'grp-zeta',
+  }));
+  return data;
+}
+
+/**
+ * M6-PRR-F01 (C1.1): the same note-bearing active alignment plus a SECOND
+ * persisted group, so "switch the active alignment" is a genuinely available
+ * operation that the freeze must also block.
+ */
+/**
+ * M6-PRR-F01 (C1.2 / item 3): two persisted groups where English's FIRST
+ * canonical run belongs to BOTH groups (the ambiguity path) and its SECOND run
+ * belongs ONLY to `grp-eta`. That gives a real canonical run-click target
+ * that would switch the active alignment away from `grp-zeta`.
+ *
+ * Also carries the active note, so the same fixture exercises the note freeze.
+ */
+function ambiguityAlignedSnapshotWithNote(): WorkspaceSnapshot {
+  const data = alignedM6SnapshotWithThreeMembers();
+  data.alignment_groups = data.alignment_groups.map((group) => ({
+    ...group,
+    id: 'grp-zeta',
+    note: 'baseline note',
+  }));
+  data.alignment_members = data.alignment_members.map((member) => ({
+    ...member,
+    alignment_group_id: 'grp-zeta',
+  }));
+  data.alignment_groups = [
+    ...data.alignment_groups,
+    {
+      id: 'grp-eta',
+      document_id: 'doc-1',
+      note: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    },
+  ];
+  // Run [0,3): ambiguous — member of BOTH groups.
+  data.alignment_members = [
+    ...data.alignment_members,
+    { id: 'member-en-eta', alignment_group_id: 'grp-eta', span_id: 'span-en', created_at: '2026-01-01T00:00:00Z' },
+  ];
+  // Run [4,12) "sentence": member of grp-eta ONLY.
+  data.spans = [
+    ...data.spans,
+    { id: 'span-en-sentence', text_version_id: 'tv-en', start_offset: 4, end_offset: 12, exact_text: 'sentence', prefix: 'One ', suffix: '.', created_at: '2026-01-01T00:00:00Z' },
+  ];
+  data.alignment_members = [
+    ...data.alignment_members,
+    { id: 'member-en-sentence-eta', alignment_group_id: 'grp-eta', span_id: 'span-en-sentence', created_at: '2026-01-01T00:00:00Z' },
+  ];
+  return data;
+}
+
+function threeMemberAlignedSnapshotWithNoteAndOther(): WorkspaceSnapshot {
+  // Already carries the second group; kept as a named alias so the C1.1
+  // alignment-surface test and the C1.2 warning-window test share one fixture.
+  return threeMemberAlignedSnapshotWithNote();
+}
+
 function alignedSnapshotWithoutEnglishSurvivingGroup(): WorkspaceSnapshot {
   const data = alignedM6SnapshotWithThreeMembers();
   data.text_versions = data.text_versions.filter((version) => version.id !== 'tv-en');
@@ -207,10 +296,55 @@ function renderWorkspace(
   );
 }
 
+/**
+ * Stub a native selection over the FIRST canonical text run so the panel's
+ * explicit "Add to Alignment" staging path can be exercised in jsdom.
+ */
+function stubSelection(container: HTMLElement, startUtf16: number, endUtf16: number) {
+  const panel = container.querySelector('.text-panel');
+  if (!panel) {
+    throw new Error('no text panel rendered');
+  }
+  const root = panel.querySelector('[data-text-content-root]');
+  const run = root?.firstChild;
+  const textNode = run?.firstChild;
+  if (
+    textNode === null ||
+    textNode === undefined ||
+    textNode.nodeType !== Node.TEXT_NODE
+  ) {
+    throw new Error('no text node in the content root');
+  }
+  // Clamp to the run's actual length: the canonical runs are split at span
+  // boundaries, so the FIRST text node is one run, not the whole content.
+  const limit = textNode.nodeValue?.length ?? 0;
+  const start = Math.min(startUtf16, limit);
+  const end = Math.min(endUtf16, limit);
+  const range = document.createRange();
+  range.setStart(textNode, start);
+  range.setEnd(textNode, end);
+  vi.stubGlobal('getSelection', () => ({
+    rangeCount: 1,
+    getRangeAt: () => range,
+    anchorNode: textNode,
+    focusNode: textNode,
+    anchorOffset: start,
+    focusOffset: end,
+    removeAllRanges: vi.fn(),
+  }));
+}
+
 async function openBoth() {
   fireEvent.click(await screen.findByRole('button', { name: 'Open English' }));
   fireEvent.click(screen.getByRole('button', { name: 'Open German' }));
 }
+
+beforeEach(() => {
+  // Panel preferences are per-document localStorage state. Clear them before
+  // each case so a preceding case's reconciled preference (for example, after
+  // an authoritative TextVersion deletion) can never leak into the next one.
+  window.localStorage.clear();
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -1202,5 +1336,816 @@ describe('WorkspacePage M6 mode-oriented IA', () => {
     releasePos?.({ status: 500, body: { code: 'INTERNAL_ERROR', message: 'POS save failed', details: {} } });
     await waitFor(() => expect(summary).toHaveTextContent('English · POSError'));
     expect(summary).not.toHaveTextContent('German · POS');
+  });
+
+  // ---- M6-PRR-F01: TextVersion delete lifecycle lock ---------------------
+
+  // ---- M6-PRR-F01 (C1.2 / item 6): the ORIGINAL clean-version race --------
+  // The target starts CLEAN: no dirty-delete confirmation arms at all. This is
+  // the exact race the corpus finding describes — `Start manual` is usable,
+  // the Human starts the ordinary DELETE, and a draft created while the
+  // request/refetch is in flight would be silently swallowed by the
+  // authoritative reconciliation. This test MUST NOT open any confirmation.
+  it('locks a CLEAN target task editor from the DELETE request until the authoritative snapshot drops the version', async () => {
+    let resolveDelete: ((value: MockResponse) => void) | undefined;
+    let refetchCalls = 0;
+    let releaseRefetch: (() => void) | undefined;
+    const refetched = new Promise<void>((resolve) => {
+      releaseRefetch = resolve;
+    });
+    let snapshot = m6Snapshot();
+    installFetchMock([
+      [
+        '/api/v1/text-versions/',
+        (_url, init) =>
+          new Promise<MockResponse>((resolve) => {
+            if (init?.method === 'DELETE') {
+              resolveDelete = resolve;
+              return;
+            }
+            resolve({ status: 204, body: null });
+          }),
+      ],
+      [
+        '/workspace',
+        async () => {
+          refetchCalls += 1;
+          // Only the post-delete authoritative refetch is held; the initial
+          // load must resolve so the workspace can mount.
+          if (refetchCalls > 1) {
+            await refetched;
+          }
+          return json(200, snapshot);
+        },
+      ],
+    ]);
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    await openBoth();
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    const englishSession = view.container.querySelector(
+      '[data-session-key="tv-en:sentence"]',
+    ) as HTMLElement;
+    const startManual = within(englishSession).getByRole('button', { name: 'Start manual' });
+    const deleteEnglish = screen.getByRole('button', { name: 'Delete English' });
+    expect(startManual).toBeEnabled();
+    expect(deleteEnglish).toBeEnabled();
+
+    // No dirty work anywhere, so the ordinary DELETE starts immediately and
+    // NO confirmation may appear.
+    fireEvent.click(deleteEnglish);
+    await waitFor(() => expect(resolveDelete).toBeTypeOf('function'));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+
+    // Pending: the clean target can no longer START a draft.
+    expect(startManual).toBeDisabled();
+    fireEvent.click(startManual);
+    expect(within(englishSession).queryByText('Unsaved preview')).toBeNull();
+
+    // Resolve the ordinary DELETE while the authoritative refetch is HELD.
+    // `deleteMutation.isPending` is now false, but the editor must stay locked
+    // and still must not be able to create a swallowed draft.
+    await act(async () => {
+      resolveDelete?.({ status: 204, body: null });
+      await Promise.resolve();
+    });
+    expect(deleteEnglish).toBeDisabled();
+    expect(startManual).toBeDisabled();
+    fireEvent.click(startManual);
+    expect(within(englishSession).queryByText('Unsaved preview')).toBeNull();
+    expect(document.body).toHaveTextContent('linguistic drafting is frozen');
+
+    // Only the authoritative snapshot removing English ends the lifecycle.
+    await waitFor(() => expect(refetchCalls).toBeGreaterThan(1));
+    snapshot = snapshotWithoutEnglish();
+    releaseRefetch?.();
+    await waitFor(() =>
+      expect(view.container.querySelector('[data-session-key="tv-en:sentence"]')).toBeNull(),
+    );
+    expect(screen.queryByRole('button', { name: 'Delete English' })).toBeNull();
+  });
+
+  // ---- M6-PRR-F01 (C1.2 / item 4): destructive openers never stack -------
+  it('freezes the sentence/token destructive openers and cannot start a second destructive mutation', async () => {
+    const segmentationCalls: string[] = [];
+    renderWorkspace(twoLayerSnapshot(), [
+      [
+        '/api/v1/text-versions/',
+        (_url, init) =>
+          new Promise<MockResponse>((resolve) => {
+            if (init?.method === 'DELETE') {
+              return; // ordinary TextVersion DELETE stays pending
+            }
+            resolve({ status: 204, body: null });
+          }),
+      ],
+      [
+        '/segmentations/',
+        async (url, init) => {
+          segmentationCalls.push(`${init?.method ?? 'GET'} ${url}`);
+          return json(204, null);
+        },
+      ],
+    ]);
+    await openBoth();
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    const englishSession = document.querySelector(
+      '[data-session-key="tv-en:sentence"]',
+    ) as HTMLElement;
+    fireEvent.click(within(englishSession).getByRole('button', { name: 'Start manual' }));
+    await waitFor(() =>
+      expect(within(englishSession).getByText('Unsaved preview')).toBeInTheDocument(),
+    );
+
+    const deleteSegmentation = screen.getByRole('button', { name: 'Delete segmentation' });
+    fireEvent.click(screen.getByRole('tab', { name: 'Token' }));
+    const deleteTokens = screen.getByRole('button', { name: 'Delete tokens' });
+    expect(deleteSegmentation).toBeEnabled();
+    expect(deleteTokens).toBeEnabled();
+
+    // Dirty target -> dirty-delete warning window. The openers must already be
+    // frozen so no second destructive surface can stack behind that dialog.
+    fireEvent.click(screen.getByRole('button', { name: 'Delete English' }));
+    const dirtyDialog = await screen.findByRole('alertdialog');
+    expect(within(dirtyDialog).getByRole('button', { name: 'Continue delete' })).toBeInTheDocument();
+    expect(deleteSegmentation).toBeDisabled();
+    expect(deleteTokens).toBeDisabled();
+    fireEvent.click(deleteSegmentation);
+    fireEvent.click(deleteTokens);
+    expect(screen.getAllByRole('alertdialog')).toHaveLength(1);
+
+    // Continue into the ordinary DELETE lifecycle: still frozen, and the dirty
+    // warning closes as the request starts (no stacked destructive surface).
+    fireEvent.click(within(dirtyDialog).getByRole('button', { name: 'Continue delete' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(deleteSegmentation).toBeDisabled();
+    expect(deleteTokens).toBeDisabled();
+    fireEvent.click(deleteSegmentation);
+    fireEvent.click(deleteTokens);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    // No segmentation/token destructive request could start.
+    expect(
+      segmentationCalls.filter((entry) => entry.startsWith('DELETE')),
+    ).toHaveLength(0);
+  });
+
+  // ---- M6-PRR-F01 (C1.3): force SUCCESS must not release the lifecycle ----
+  // `onSettled` runs on success AND failure. On success the authoritative
+  // refetch is still pending, so releasing there let the target editor become
+  // writable again while the OLD snapshot (still containing English) was
+  // mounted — a new draft could then be lost by the reconciliation. Only the
+  // authoritative `versionsById` reconciliation may end the lifecycle.
+  it('holds the destructive lifecycle across force success until the authoritative snapshot drops the version', async () => {
+    let resolveForce: ((value: MockResponse) => void) | undefined;
+    let refetchCalls = 0;
+    let releaseRefetch: (() => void) | undefined;
+    const refetched = new Promise<void>((resolve) => {
+      releaseRefetch = resolve;
+    });
+    let snapshot = alignedM6Snapshot();
+    installFetchMock([
+      [
+        '/api/v1/text-versions/',
+        async (url, init) => {
+          if (init?.method === 'DELETE' && String(url).includes('force=true')) {
+            return new Promise<MockResponse>((resolve) => {
+              resolveForce = resolve;
+            });
+          }
+          return json(409, {
+            code: 'TEXT_HAS_ANNOTATIONS',
+            message: 'text version has annotations',
+            details: {},
+          });
+        },
+      ],
+      [
+        '/workspace',
+        async () => {
+          refetchCalls += 1;
+          // Only the post-force authoritative refetch is held; the initial load
+          // must resolve so the workspace can mount.
+          if (refetchCalls > 1) {
+            await refetched;
+          }
+          return json(200, snapshot);
+        },
+      ],
+    ]);
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    await openBoth();
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    const englishSession = view.container.querySelector(
+      '[data-session-key="tv-en:sentence"]',
+    ) as HTMLElement;
+    const startManual = () =>
+      within(
+        view.container.querySelector('[data-session-key="tv-en:sentence"]') as HTMLElement,
+      ).getByRole('button', { name: 'Start manual' });
+    const deleteEnglish = screen.getByRole('button', { name: 'Delete English' });
+    expect(startManual()).toBeEnabled();
+
+    // Ordinary DELETE -> TEXT_HAS_ANNOTATIONS -> force confirmation.
+    fireEvent.click(deleteEnglish);
+    const forceDialog = await screen.findByRole('alertdialog');
+    expect(
+      within(forceDialog).getByRole('heading', {
+        name: 'Delete text version permanently?',
+      }),
+    ).toBeInTheDocument();
+
+    // Hold the FORCE request, then confirm it.
+    fireEvent.click(
+      within(forceDialog).getByRole('button', { name: 'Delete permanently' }),
+    );
+    await waitFor(() => expect(resolveForce).toBeTypeOf('function'));
+    expect(startManual()).toBeDisabled();
+
+    // Resolve the force DELETE with 204 while the authoritative refetch is
+    // HELD and still returns the OLD snapshot that contains English.
+    await act(async () => {
+      resolveForce?.({ status: 204, body: null });
+      await Promise.resolve();
+    });
+
+    // The workspace dialog may close, but the destructive lifecycle must NOT.
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    await waitFor(() => expect(refetchCalls).toBeGreaterThan(1));
+    // Old authoritative snapshot still has English mounted...
+    expect(
+      view.container.querySelector('[data-session-key="tv-en:sentence"]'),
+    ).not.toBeNull();
+    // ...and every destructive-lifecycle interaction is STILL frozen.
+    expect(startManual()).toBeDisabled();
+    fireEvent.click(startManual());
+    expect(englishSession.textContent).not.toContain('Unsaved preview');
+    // Add to Alignment cannot stage while the lifecycle is held.
+    const currentEnglishPanel = () =>
+      view.container.querySelector(
+        '.text-panel[data-text-version-id="tv-en"]',
+      ) as HTMLElement;
+    await waitFor(() =>
+      expect(
+        within(currentEnglishPanel()).getByRole('button', {
+          name: 'Add to Alignment',
+        }),
+      ).toBeDisabled(),
+    );
+    expect(
+      within(currentEnglishPanel()).getByRole('button', {
+        name: 'Add to Alignment',
+      }),
+    ).toBeDisabled();
+
+    // Release the authoritative snapshot WITHOUT English: only now does the
+    // lifecycle end and the interaction recover.
+    snapshot = snapshotWithoutEnglish();
+    releaseRefetch?.();
+    await waitFor(() =>
+      expect(view.container.querySelector('[data-session-key="tv-en:sentence"]')).toBeNull(),
+    );
+    expect(screen.queryByRole('button', { name: 'Delete English' })).toBeNull();
+    // The surviving German version recovers its interaction.
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    await waitFor(() => {
+      const germanSession = view.container.querySelector(
+        '[data-session-key="tv-de:sentence"]',
+      ) as HTMLElement;
+      expect(
+        Array.from(germanSession.querySelectorAll('button')).find(
+          (button) => button.textContent?.trim() === 'Start manual',
+        ),
+      ).toBeEnabled();
+    });
+  });
+
+  // ---- M6-PRR-F01 (C1.2 / item 7): force failure releases the lifecycle --
+  it('closes the force confirmation and releases the lock when the forced deletion fails', async () => {
+    renderWorkspace(m6Snapshot(), [
+      [
+        '/api/v1/text-versions/',
+        async (url, init) => {
+          if (init?.method === 'DELETE' && String(url).includes('force=true')) {
+            return json(500, {
+              code: 'INTERNAL_ERROR',
+              message: 'forced deletion failed',
+              details: {},
+            });
+          }
+          return json(409, {
+            code: 'TEXT_HAS_ANNOTATIONS',
+            message: 'text version has annotations',
+            details: {},
+          });
+        },
+      ],
+    ]);
+    await openBoth();
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete English' }));
+    const forceDialog = await screen.findByRole('alertdialog');
+    expect(
+      within(forceDialog).getByRole('heading', {
+        name: 'Delete text version permanently?',
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(forceDialog).getByRole('button', { name: 'Delete permanently' }),
+    );
+    // A failed force request is not recoverable by retrying the same
+    // confirmation: the dialog closes, the lifecycle lock is released, and the
+    // existing workspace error surface stays available.
+    await waitFor(() =>
+      expect(screen.queryByRole('alertdialog')).toBeNull(),
+    );
+    const sentenceSession = document.querySelector(
+      '[data-session-key="tv-en:sentence"]',
+    ) as HTMLElement;
+    await waitFor(() =>
+      expect(
+        within(sentenceSession).getByRole('button', { name: 'Start manual' }),
+      ).toBeEnabled(),
+    );
+    expect(screen.getByLabelText('Workspace errors')).toBeInTheDocument();
+  });
+
+  it('keeps the interaction locked across the ordinary to force delete handoff and releases it on cancel', async () => {
+    const view = renderWorkspace(m6Snapshot(), [
+      [
+        '/api/v1/text-versions/',
+        async () => json(409, {
+          code: 'TEXT_HAS_ANNOTATIONS',
+          message: 'text version has annotations',
+          details: {},
+        }),
+      ],
+    ]);
+    await openBoth();
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete English' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Delete text version permanently?' }),
+    ).toBeInTheDocument();
+
+    const sentenceSession = await waitFor(() => {
+      const session = view.container.querySelector('[data-session-key="tv-en:sentence"]');
+      expect(session).not.toBeNull();
+      return session as HTMLElement;
+    });
+    const startManual = await waitFor(() =>
+      within(sentenceSession).getByRole('button', { name: 'Start manual' }),
+    );
+    await waitFor(() => expect(startManual).toBeDisabled());
+    fireEvent.click(startManual);
+    expect(within(sentenceSession).queryByText('Unsaved preview')).toBeNull();
+
+    const forceDialog = screen.getByRole('alertdialog');
+    fireEvent.click(within(forceDialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    await waitFor(() => expect(startManual).toBeEnabled());
+  });
+
+  // ---- M6-PRR-F01 (C1.2 / item 5): hidden badge global severity ---------
+  it('reports the highest-severity hidden session state instead of the last mode', async () => {
+    let tokenLayerDeleted = false;
+    installFetchMock([
+      [
+        '/segmentations/token',
+        async (_url, init) => {
+          if (init?.method === 'DELETE') {
+            tokenLayerDeleted = true;
+            return json(204, null);
+          }
+          return json(200, { layer: { id: 'token-en' }, segments: [] });
+        },
+      ],
+      [
+        '/workspace',
+        async () =>
+          json(200, tokenLayerDeleted ? snapshotWithoutTokenLayer() : m6Snapshot()),
+      ],
+    ]);
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Open English' }));
+
+    // English gets TWO noteworthy sessions: an unsaved POS draft and a lemma
+    // draft that is forced into CONFLICT when its saved token layer disappears.
+    fireEvent.click(screen.getByRole('tab', { name: 'POS' }));
+    const posSession = view.container.querySelector(
+      '[data-session-key="tv-en:pos"]',
+    ) as HTMLElement;
+    const oneRow = posSession.querySelector(
+      '[data-token-segment-id="token-one"]',
+    ) as HTMLElement;
+    fireEvent.change(within(oneRow).getByLabelText('Coarse POS for One'), {
+      target: { value: 'NOUN' },
+    });
+    fireEvent.click(screen.getByRole('tab', { name: 'Lemma' }));
+    fireEvent.change(screen.getByLabelText('Lemma for One'), {
+      target: { value: 'house' },
+    });
+    await waitFor(() =>
+      expect(screen.getByLabelText('Workbench session status')).toHaveTextContent(
+        'Unsaved',
+      ),
+    );
+
+    // Delete the saved token layer through the confirmed UI flow.
+    fireEvent.click(screen.getByRole('tab', { name: 'Token' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete tokens' }));
+    fireEvent.click(
+      within(screen.getByRole('alertdialog')).getByRole('button', {
+        name: 'Delete tokens',
+      }),
+    );
+    // The lemma session becomes conflicted; the POS session stays unsaved.
+    await waitFor(() =>
+      expect(screen.getByLabelText('Workbench session status')).toHaveTextContent(
+        'Conflict',
+      ),
+    );
+
+    // Hide English and read the HIDDEN management surface itself. POS is the
+    // last linguistic mode, so a last-mode-wins aggregate would say "Unsaved".
+    fireEvent.click(screen.getByRole('tab', { name: 'Alignment' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Hide English panel' }));
+    const hiddenToolbar = await screen.findByRole('group', { name: 'Hidden panels' });
+    const reopen = await within(hiddenToolbar).findByRole('button', {
+      name: 'Open English',
+    });
+    const hiddenEntry = reopen.parentElement as HTMLElement;
+    expect(within(hiddenEntry).getByLabelText('English session status')).toHaveTextContent(
+      'English — Conflict',
+    );
+  });
+
+  // ---- M6-PRR-F01 (C1.2 / item 2): dirty-delete window freeze ------------
+  it('freezes the Alignment surface for the whole dirty-delete warning window and recovers on cancel', async () => {
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    const view = renderWorkspace(threeMemberAlignedSnapshotWithNote());
+    await openBoth();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Activate alignment grp-zeta' }),
+    );
+    expect(screen.getByRole('button', { name: 'Activate alignment grp-eta' })).toBeEnabled();
+
+    // Dirty Sentence work so the ordinary DELETE must first warn, WITHOUT
+    // leaving Alignment mode (the Inspector is the pivot of this test and is
+    // only rendered while the Alignment task is the active destination).
+    const englishSession = view.container.querySelector(
+      '[data-session-key="tv-en:sentence"]',
+    ) as HTMLElement;
+    // The session is mounted but its task destination is inactive, so it is
+    // `hidden`; drive the real control through the DOM directly.
+    const startManual = Array.from(
+      englishSession.querySelectorAll('button'),
+    ).find((button) => button.textContent?.trim() === 'Start manual') as HTMLButtonElement;
+    expect(startManual).toBeDefined();
+    fireEvent.click(startManual);
+    await waitFor(() =>
+      expect(englishSession.textContent).toContain('Unsaved preview'),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete English' }));
+    const dirtyDialog = await screen.findByRole('alertdialog');
+    expect(dirtyDialog).toHaveTextContent('unsaved work: Sentence');
+    expect(dirtyDialog).not.toHaveTextContent('Alignment note');
+
+    // WHILE THE DIRTY WARNING IS STILL OPEN the whole Alignment task surface is
+    // frozen — the note cannot be edited (which is the race: a note made dirty
+    // here would be cascaded away without a dirty-delete disposition).
+    const note = screen.getByRole('textbox', { name: /Note/ }) as HTMLTextAreaElement;
+    const removeMember = screen.getByRole('button', { name: 'Remove member “One”' });
+    const deleteAlignment = screen.getByRole('button', { name: 'Delete Alignment' });
+    const closeInspector = screen.getByRole('button', { name: 'Close inspector' });
+    const activateOther = screen.getByRole('button', {
+      name: 'Activate alignment grp-eta',
+    });
+    expect(note).toBeDisabled();
+    fireEvent.change(note, { target: { value: 'note drafted during the warning' } });
+    expect(note).toHaveValue('baseline note');
+    expect(screen.getByRole('button', { name: 'Save note' })).toBeDisabled();
+    expect(removeMember).toBeDisabled();
+    expect(deleteAlignment).toBeDisabled();
+    expect(closeInspector).toBeDisabled();
+    expect(activateOther).toBeDisabled();
+
+    // Cancel the workspace warning: the Alignment surface recovers and the
+    // pre-existing note state is preserved.
+    fireEvent.click(within(dirtyDialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    await waitFor(() => expect(note).toBeEnabled());
+    expect(note).toHaveValue('baseline note');
+    expect(removeMember).toBeEnabled();
+    expect(deleteAlignment).toBeEnabled();
+    expect(closeInspector).toBeEnabled();
+    expect(activateOther).toBeEnabled();
+    // The Sentence draft the warning protected is still there too.
+    expect(englishSession.textContent).toContain('Unsaved preview');
+  });
+
+  // ---- M6-PRR-F01 (C1.2 / item 3): canonical activation entrances --------
+  it('freezes canonical staging and canonical run/ambiguity activation while the delete lifecycle is active', async () => {
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    installFetchMock([
+      [
+        '/api/v1/text-versions/',
+        (_url, init) =>
+          init?.method === 'DELETE'
+            ? // Hold the ordinary DELETE so the destructive lifecycle stays
+              // active for the whole assertion window below.
+              new Promise<MockResponse>(() => {})
+            : json(204, null),
+      ],
+      ['/workspace', () => json(200, ambiguityAlignedSnapshotWithNote())],
+    ]);
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    await openBoth();
+    const englishPanel = view.container.querySelector(
+      '.text-panel[data-text-version-id="tv-en"]',
+    ) as HTMLElement;
+    const runs = Array.from(englishPanel.querySelectorAll('[data-run]')) as HTMLElement[];
+    const ambiguousRun = runs.find(
+      (run) => (run.textContent ?? '') === 'One',
+    ) as HTMLElement;
+    const betaOnlyRun = runs.find(
+      (run) => (run.textContent ?? '') === 'sentence',
+    ) as HTMLElement;
+    expect(ambiguousRun).toBeDefined();
+    expect(betaOnlyRun).toBeDefined();
+
+    // Baseline: the grp-eta-only run really can change the active alignment.
+    const activateAlpha = screen.getByRole('button', {
+      name: 'Activate alignment grp-zeta',
+    });
+    fireEvent.click(activateAlpha);
+    fireEvent.click(betaOnlyRun);
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('region', { name: 'Alignment inspector' })).getByRole(
+          'heading',
+          { level: 3 },
+        ),
+      ).toHaveTextContent('Alignment grp-eta'),
+    );
+    fireEvent.click(activateAlpha);
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('region', { name: 'Alignment inspector' })).getByRole(
+          'heading',
+          { level: 3 },
+        ),
+      ).toHaveTextContent('Alignment grp-zeta'),
+    );
+
+    // Baseline: native selection capture still works and stages.
+    stubSelection(view.container, 0, 3);
+    const englishRoot = englishPanel.querySelector('[data-text-content-root]') as HTMLElement;
+    fireEvent.mouseUp(englishRoot);
+    const addToAlignment = within(englishPanel).getByRole('button', {
+      name: 'Add to Alignment',
+    });
+    await waitFor(() => expect(addToAlignment).toBeEnabled());
+    fireEvent.click(addToAlignment);
+    await screen.findByRole('button', { name: /Remove “One” from tray/ });
+
+    // Start the CLEAN-version TextVersion delete lifecycle (no confirmation).
+    fireEvent.click(screen.getByRole('button', { name: 'Delete English' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Delete English' })).toBeDisabled(),
+    );
+
+    // 1. Staging cannot grow the tray: another canonical selection may still
+    //    be captured natively, but the action is inert and the tray never grows.
+    //    Re-query each time — the panel subtree is re-rendered by the lock.
+    const currentAddToAlignment = () =>
+      within(
+        view.container.querySelector(
+          '.text-panel[data-text-version-id="tv-en"]',
+        ) as HTMLElement,
+      ).getByRole('button', { name: 'Add to Alignment' });
+    stubSelection(view.container, 1, 3);
+    fireEvent.mouseUp(englishRoot);
+    await waitFor(() => expect(currentAddToAlignment()).toBeDisabled());
+    fireEvent.click(currentAddToAlignment());
+    expect(screen.getAllByRole('button', { name: /from tray/ })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: /Remove “One” from tray/ })).toBeInTheDocument();
+
+    // 2. A canonical run click cannot switch the active alignment.
+    fireEvent.click(betaOnlyRun);
+    expect(
+      within(screen.getByRole('region', { name: 'Alignment inspector' })).getByRole(
+        'heading',
+        { level: 3 },
+      ),
+    ).toHaveTextContent('Alignment grp-zeta');
+
+    // 3. The ambiguity chooser cannot even open while frozen, and if it were
+    //    already open its options would be inert.
+    fireEvent.click(ambiguousRun);
+    expect(screen.queryByRole('group', { name: /Choose an alignment group/ })).toBeNull();
+  });
+
+  // ---- M6-PRR-F03: hidden management surface exposes session state -------
+
+  it('exposes a hidden TextVersion unsaved session state on the hidden management surface itself', async () => {
+    const view = renderWorkspace(m6Snapshot());
+    await openBoth();
+    fireEvent.click(screen.getByRole('tab', { name: 'Sentence' }));
+    const englishSession = view.container.querySelector(
+      '[data-session-key="tv-en:sentence"]',
+    ) as HTMLElement;
+    fireEvent.click(within(englishSession).getByRole('button', { name: 'Start manual' }));
+    await waitFor(() =>
+      expect(within(englishSession).getByText('Unsaved preview')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide English panel' }));
+    const hiddenToolbar = screen.getByRole('group', { name: 'Hidden panels' });
+    const reopen = await within(hiddenToolbar).findByRole('button', { name: 'Open English' });
+
+    // The hidden-version management surface itself — not the global Workbench
+    // session summary — must identify the dirty hidden version.
+    const hiddenEntry = reopen.parentElement as HTMLElement;
+    expect(hiddenEntry).not.toBe(hiddenToolbar);
+    expect(within(hiddenEntry).getByLabelText('English session status')).toHaveTextContent(
+      'English — Unsaved',
+    );
+    // The button's accessible name is unchanged.
+    expect(reopen).toHaveTextContent('Open English');
+
+    fireEvent.click(reopen);
+    expect(within(englishSession).getByText('Unsaved preview')).toBeInTheDocument();
+  });
+
+  // ---- M6-PRR-F01 (C1.1): Alignment task surface lifecycle lock ----------
+
+  it('freezes the complete Alignment task surface across the TextVersion delete lifecycle', async () => {
+    vi.stubGlobal('ResizeObserver', class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    });
+    let resolveDelete: ((value: MockResponse) => void) | undefined;
+    let patchCalls = 0;
+    installFetchMock([
+      [
+        '/api/v1/text-versions/',
+        (_url, init) => {
+          if (init?.method === 'DELETE') {
+            return new Promise<MockResponse>((resolve) => {
+              resolveDelete = resolve;
+            });
+          }
+          return json(204, null);
+        },
+      ],
+      [
+        '/alignments/',
+        (_url, init) => {
+          if (init?.method === 'PATCH') {
+            patchCalls += 1;
+          }
+          return json(200, {
+            id: 'alignment-1',
+            document_id: 'doc-1',
+            note: 'baseline note',
+            created_at: '2026-01-01T00:00:00Z',
+            updated_at: '2026-01-01T00:00:00Z',
+            members: [],
+          });
+        },
+      ],
+      ['/workspace', () => json(200, threeMemberAlignedSnapshotWithNoteAndOther())],
+    ]);
+    const view = renderPageAt(
+      <WorkspacePage />,
+      '/documents/:documentId/workspace',
+      '/documents/doc-1/workspace',
+    );
+    await openBoth();
+    // Stage one pending tray member so the tray has real state to protect.
+    stubSelection(view.container, 0, 3);
+    const englishRoot = view.container.querySelector(
+      '.text-panel [data-text-content-root]',
+    );
+    fireEvent.mouseUp(englishRoot as HTMLElement);
+    const englishTextPanel = view.container.querySelector(
+      '[data-text-version-id="tv-en"]',
+    )?.closest('.panel-slot') as HTMLElement;
+    fireEvent.click(
+      within(englishTextPanel).getByRole('button', { name: 'Add to Alignment' }),
+    );
+    const trayRemove = await screen.findByRole('button', {
+      name: /Remove “One” from tray/,
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Activate alignment grp-zeta' }),
+    );
+
+    const note = screen.getByRole('textbox', { name: /Note/ }) as HTMLTextAreaElement;
+    const saveNote = screen.getByRole('button', { name: 'Save note' });
+    const removeMember = screen.getByRole('button', {
+      name: 'Remove member “One”',
+    });
+    const deleteAlignment = screen.getByRole('button', { name: 'Delete Alignment' });
+    const closeInspector = screen.getByRole('button', { name: 'Close inspector' });
+    const activateOther = screen.getByRole('button', {
+      name: 'Activate alignment grp-eta',
+    });
+    expect(note).toBeEnabled();
+    expect(removeMember).toBeEnabled();
+    expect(deleteAlignment).toBeEnabled();
+    expect(trayRemove).toBeEnabled();
+
+    // The Inspector note is CLEAN, so no dirty confirmation arms and the
+    // ordinary DELETE starts immediately; the request is held pending.
+    fireEvent.click(screen.getByRole('button', { name: 'Delete English' }));
+    await waitFor(() => expect(resolveDelete).toBeTypeOf('function'));
+
+    // While the TextVersion destructive lifecycle is active, the ENTIRE
+    // Alignment task interaction surface is frozen against new drafts and
+    // persisted alignment mutations.
+    expect(note).toBeDisabled();
+    fireEvent.change(note, { target: { value: 'draft created during delete' } });
+    expect(note).toHaveValue('baseline note');
+    expect(saveNote).toBeDisabled();
+    fireEvent.click(saveNote);
+    expect(removeMember).toBeDisabled();
+    fireEvent.click(removeMember);
+    expect(deleteAlignment).toBeDisabled();
+    fireEvent.click(deleteAlignment);
+    expect(closeInspector).toBeDisabled();
+    expect(trayRemove).toBeDisabled();
+    fireEvent.click(trayRemove);
+    expect(screen.getByText('“One”')).toBeInTheDocument();
+    // Switching to another saved alignment cannot bypass the freeze either.
+    expect(activateOther).toBeDisabled();
+    fireEvent.click(activateOther);
+    // The active group never switched away from the one owning the draft.
+    const inspector = screen.getByRole('region', { name: 'Alignment inspector' });
+    expect(within(inspector).getByRole('heading', { level: 3 })).toHaveTextContent(
+      'Alignment grp-zeta',
+    );
+    expect(note).toHaveValue('baseline note');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+
+    // Cancel this attempt: the alignment surface recovers, the note draft is
+    // preserved and a real edit + save still works.
+    await act(async () => {
+      resolveDelete?.({
+        status: 409,
+        body: {
+          code: 'TEXT_HAS_ANNOTATIONS',
+          message: 'text version has annotations',
+          details: {},
+        },
+      });
+      await Promise.resolve();
+    });
+    const forceDialog = await screen.findByRole('alertdialog');
+    expect(
+      screen.getByRole('heading', { name: 'Delete text version permanently?' }),
+    ).toBeInTheDocument();
+    fireEvent.click(within(forceDialog).getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+
+    await waitFor(() => expect(note).toBeEnabled());
+    expect(note).toHaveValue('baseline note');
+    expect(removeMember).toBeEnabled();
+    expect(deleteAlignment).toBeEnabled();
+    expect(closeInspector).toBeEnabled();
+
+    fireEvent.change(note, { target: { value: 'edited after cancellation' } });
+    expect(note).toHaveValue('edited after cancellation');
+    expect(saveNote).toBeEnabled();
+    fireEvent.click(saveNote);
+    await waitFor(() => expect(patchCalls).toBe(1));
+    expect(view.container.querySelector('[data-session-key="tv-en:lemma"]')).not.toBeNull();
   });
 });

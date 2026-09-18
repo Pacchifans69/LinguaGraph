@@ -60,6 +60,17 @@ export interface AlignmentInspectorProps {
   versionsById: Record<string, TextVersion>;
   /** Close the Inspector (clears activeAlignmentId — no click-to-toggle-off). */
   onClose: () => void;
+  /**
+   * M6-PRR-F01 (C1.1): an active TextVersion destructive lifecycle owns the
+   * interaction. The complete Alignment task surface is frozen against new
+   * note drafts, persisted alignment mutations and draft-disposing navigation.
+   *
+   * Deliberately SEPARATE from `isMutatingAlignment`: that flag means "this
+   * alignment has a mutation in flight" and keeps its existing semantics (it
+   * is also reported as the session's `pending` state). A TextVersion deletion
+   * is NOT an alignment mutation and must never be reported as one.
+   */
+  interactionLocked?: boolean;
   onSessionStateChange?: (status: EditorSessionStatus) => void;
 }
 
@@ -75,6 +86,7 @@ export function AlignmentInspector({
   spansById,
   versionsById,
   onClose,
+  interactionLocked = false,
   onSessionStateChange,
 }: AlignmentInspectorProps) {
   const { isMutatingAlignment, setAlignmentMutationPending } =
@@ -137,10 +149,14 @@ export function AlignmentInspector({
   const noteUnchanged = (group?.note ?? '') === noteDraft;
   const noteTooLong = noteDraft.length > NOTE_MAX_LENGTH;
   const saveDisabled =
-    group === null || isMutatingAlignment || noteUnchanged || noteTooLong;
+    group === null ||
+    isMutatingAlignment ||
+    interactionLocked ||
+    noteUnchanged ||
+    noteTooLong;
 
   function handleSaveNote() {
-    if (group === null || saveDisabled) {
+    if (group === null || saveDisabled || interactionLocked) {
       return;
     }
     // Empty draft clears the nullable note; non-empty sends the EXACT
@@ -189,6 +205,7 @@ export function AlignmentInspector({
     if (
       group === null ||
       isMutatingAlignment ||
+      interactionLocked ||
       pendingRemove === null ||
       // The confirmation only executes for the group/member it was armed
       // for, and the member must still exist in the CURRENT authoritative
@@ -223,6 +240,7 @@ export function AlignmentInspector({
     if (
       group === null ||
       isMutatingAlignment ||
+      interactionLocked ||
       // The confirmation only executes for the group it was armed for
       // (R2-F02): a stale G1 confirmation can never delete G2.
       pendingDeleteGroupId !== group.id
@@ -283,7 +301,7 @@ export function AlignmentInspector({
           type="button"
           className="inspector-close"
           aria-label="Close inspector"
-          disabled={isMutatingAlignment}
+          disabled={isMutatingAlignment || interactionLocked}
           onClick={onClose}
         >
           Close
@@ -304,7 +322,11 @@ export function AlignmentInspector({
           value={noteDraft}
           maxLength={NOTE_MAX_LENGTH}
           rows={3}
+          disabled={interactionLocked}
           onChange={(event) => {
+            if (interactionLocked) {
+              return;
+            }
             setNoteDraft(event.target.value);
             setNoteDirty(true);
           }}
@@ -357,7 +379,9 @@ export function AlignmentInspector({
                   type="button"
                   className="inspector-remove-member"
                   aria-label={`Remove member “${span?.exact_text ?? ''}”`}
-                  disabled={isMutatingAlignment || !preflight.ok}
+                  disabled={
+                    isMutatingAlignment || interactionLocked || !preflight.ok
+                  }
                   onClick={() =>
                     setPendingRemove({ groupId: group.id, memberId: member.id })
                   }
@@ -377,7 +401,7 @@ export function AlignmentInspector({
         <button
           type="button"
           className="danger"
-          disabled={isMutatingAlignment}
+          disabled={isMutatingAlignment || interactionLocked}
           onClick={() => setPendingDeleteGroupId(group.id)}
         >
           Delete Alignment
@@ -394,7 +418,9 @@ export function AlignmentInspector({
           // G2-F02: while any Inspector mutation for the active group is
           // pending, the destructive dialog is LOCKED — Escape must not
           // close it (Cancel/Confirm are disabled below as well).
-          closeDisabled={isMutatingAlignment}
+          // M6-PRR-F01 (C1.1): an active TextVersion destructive lifecycle
+          // holds the same ownership over the Alignment surface.
+          closeDisabled={isMutatingAlignment || interactionLocked}
         >
           <h3 id="inspector-remove-heading">Remove this member?</h3>
           <p>
@@ -406,14 +432,14 @@ export function AlignmentInspector({
             <button
               type="button"
               onClick={() => setPendingRemove(null)}
-              disabled={isMutatingAlignment}
+              disabled={isMutatingAlignment || interactionLocked}
             >
               Cancel
             </button>
             <button
               type="button"
               className="danger"
-              disabled={isMutatingAlignment}
+              disabled={isMutatingAlignment || interactionLocked}
               onClick={handleConfirmRemove}
             >
               Confirm remove
@@ -429,7 +455,9 @@ export function AlignmentInspector({
           // G2-F02: while any Inspector mutation for the active group is
           // pending, the destructive dialog is LOCKED — Escape must not
           // close it (Cancel/Confirm are disabled below as well).
-          closeDisabled={isMutatingAlignment}
+          // M6-PRR-F01 (C1.1): an active TextVersion destructive lifecycle
+          // holds the same ownership over the Alignment surface.
+          closeDisabled={isMutatingAlignment || interactionLocked}
         >
           <h3 id="inspector-delete-heading">Delete this alignment?</h3>
           <p>
@@ -440,14 +468,14 @@ export function AlignmentInspector({
             <button
               type="button"
               onClick={() => setPendingDeleteGroupId(null)}
-              disabled={isMutatingAlignment}
+              disabled={isMutatingAlignment || interactionLocked}
             >
               Cancel
             </button>
             <button
               type="button"
               className="danger"
-              disabled={isMutatingAlignment}
+              disabled={isMutatingAlignment || interactionLocked}
               onClick={handleConfirmDelete}
             >
               Confirm delete

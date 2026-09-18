@@ -29,6 +29,21 @@ interface SegmentationPanelProps {
   version: TextVersion;
   savedLayer?: SegmentationLayer;
   savedSegments: LinguisticSegment[];
+  /**
+   * M6-PRR-F01: a TextVersion destructive lifecycle is active, so no new
+   * draft or draft mutation may be started in this session. The panel stays
+   * MOUNTED — only its drafting controls are frozen.
+   */
+  frozen?: boolean;
+  /**
+   * M6-PRR-F01 (C1.2): a WORKSPACE-OWNED TextVersion destructive lifecycle
+   * (dirty-delete warning, force confirmation or in-flight request) owns
+   * interaction. This session's own destructive opener is frozen so a second
+   * destructive surface can never stack behind it. Deliberately separate from
+   * `frozen`: this session's own dialog contributes to the generic navigation
+   * lock, so using that signal here would disable the opener of its own dialog.
+   */
+  workspaceDestructiveLocked?: boolean;
   onSessionStateChange?: (status: EditorSessionStatus) => void;
 }
 
@@ -71,6 +86,8 @@ export function SegmentationPanel({
   version,
   savedLayer,
   savedSegments,
+  frozen = false,
+  workspaceDestructiveLocked = false,
   onSessionStateChange,
 }: SegmentationPanelProps) {
   const putMutation = usePutSentenceSegmentation(documentId);
@@ -184,7 +201,7 @@ export function SegmentationPanel({
   const activeDirty = dirty;
   // Same-domain exclusion (unchanged): any in-flight segmentation mutation in
   // this document keeps every segmentation control locked.
-  const isMutating = anySegmentationMutationPending;
+  const controlsLocked = frozen || anySegmentationMutationPending;
   // M6-G2-F12: the session summary reports the LIFE-CYCLE OF THIS SESSION's own
   // mutation, per TextVersion + layer kind (contract section 11) — not the
   // document-wide exclusion signal above.
@@ -288,7 +305,7 @@ export function SegmentationPanel({
   }
 
   function save() {
-    if (!activeDirty || isMutating || conflict) {
+    if (!activeDirty || controlsLocked || conflict) {
       return;
     }
     setSubmittedSemanticFingerprint(
@@ -311,9 +328,19 @@ export function SegmentationPanel({
   }
 
   function removeSavedLayer() {
+    if (workspaceDestructiveLocked) {
+      return;
+    }
     deleteMutation.mutate(version.id, {
       onSettled: () => setConfirmDelete(false),
     });
+  }
+
+  function requestRemoveSavedLayer() {
+    if (workspaceDestructiveLocked) {
+      return;
+    }
+    setConfirmDelete(true);
   }
 
   return (
@@ -344,7 +371,7 @@ export function SegmentationPanel({
           type="button"
           size="sm"
           variant="secondary"
-          disabled={isMutating || conflict}
+          disabled={controlsLocked || conflict}
           onClick={beginManual}
         >
           Start manual
@@ -353,7 +380,7 @@ export function SegmentationPanel({
           type="button"
           size="sm"
           variant="secondary"
-          disabled={isMutating || conflict || !suggestionSupported}
+          disabled={controlsLocked || conflict || !suggestionSupported}
           onClick={generateSuggestion}
         >
           Generate suggestion
@@ -362,7 +389,7 @@ export function SegmentationPanel({
           type="button"
           size="sm"
           variant="quiet"
-          disabled={isMutating || !activeDirty}
+          disabled={controlsLocked || !activeDirty}
           onClick={discard}
         >
           Discard preview
@@ -419,7 +446,7 @@ export function SegmentationPanel({
                       min={range.start + 1}
                       max={range.end - 1}
                       value={splitInputs[index] ?? ''}
-                      disabled={isMutating || conflict || range.end - range.start < 2}
+                      disabled={controlsLocked || conflict || range.end - range.start < 2}
                       onChange={(event) =>
                         setSplitInputs((current) => ({
                           ...current,
@@ -432,7 +459,7 @@ export function SegmentationPanel({
                     type="button"
                     size="sm"
                     variant="secondary"
-                    disabled={isMutating || conflict || !splitIsValid}
+                    disabled={controlsLocked || conflict || !splitIsValid}
                     onClick={() => split(index)}
                   >
                     Split
@@ -442,7 +469,7 @@ export function SegmentationPanel({
                       type="button"
                       size="sm"
                       variant="quiet"
-                      disabled={isMutating || conflict}
+                      disabled={controlsLocked || conflict}
                       onClick={() => merge(index)}
                     >
                       Merge previous
@@ -460,7 +487,7 @@ export function SegmentationPanel({
           type="button"
           size="sm"
           variant="primary"
-          disabled={isMutating || !activeDirty || conflict}
+          disabled={controlsLocked || !activeDirty || conflict}
           onClick={save}
         >
           {putMutation.isPending ? 'Saving…' : 'Save segmentation'}
@@ -470,8 +497,13 @@ export function SegmentationPanel({
             type="button"
             size="sm"
             variant="danger"
-            disabled={isMutating}
-            onClick={() => setConfirmDelete(true)}
+            /*
+             * Deliberately NOT `controlsLocked`: this button only opens the
+             * session's own confirmation dialog, and the dialog must be able
+             * to restore focus to it when it closes.
+             */
+            disabled={anySegmentationMutationPending || workspaceDestructiveLocked}
+            onClick={requestRemoveSavedLayer}
           >
             Delete segmentation
           </Button>
@@ -482,7 +514,7 @@ export function SegmentationPanel({
         <ConfirmDialog
           headingId={`delete-segmentation-${version.id}`}
           onClose={() => setConfirmDelete(false)}
-          closeDisabled={deleteMutation.isPending}
+          closeDisabled={deleteMutation.isPending || workspaceDestructiveLocked}
         >
           <h3 id={`delete-segmentation-${version.id}`}>
             Delete saved sentence segmentation?
@@ -495,7 +527,7 @@ export function SegmentationPanel({
             <Button
               type="button"
               variant="secondary"
-              disabled={deleteMutation.isPending}
+              disabled={deleteMutation.isPending || workspaceDestructiveLocked}
               onClick={() => setConfirmDelete(false)}
             >
               Cancel
@@ -503,7 +535,7 @@ export function SegmentationPanel({
             <Button
               type="button"
               variant="danger"
-              disabled={deleteMutation.isPending}
+              disabled={deleteMutation.isPending || workspaceDestructiveLocked}
               onClick={removeSavedLayer}
             >
               {deleteMutation.isPending ? 'Deleting…' : 'Delete segmentation'}

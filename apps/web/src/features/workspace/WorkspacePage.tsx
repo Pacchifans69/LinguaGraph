@@ -8,7 +8,7 @@
  * offsets and can break reconciliation while dynamic alignment UI unmounts.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams, useBlocker } from 'react-router-dom';
 import { useDeleteTextVersion, useWorkspace, type TextVersion } from './api';
 import { normalizeWorkspace } from './normalize';
@@ -45,6 +45,8 @@ import {
   nextVisibleTarget,
   sameSessionStatus,
   sessionKey,
+  sessionStatusPrecedence,
+  sessionVersionId,
   type EditorSessionStatus,
   type WorkbenchMode,
 } from './workbenchIa';
@@ -63,8 +65,43 @@ interface PendingDelete {
 
 const ALIGNMENT_NOTE_CATEGORY = 'Alignment note';
 
+/**
+ * M6-PRR-F01: the document-local TextVersion destructive lifecycle target.
+ *
+ * It is deliberately NOT `deleteMutation.isPending`: the delete lifecycle
+ * begins BEFORE the ordinary request is sent and only ends when the
+ * authoritative workspace snapshot no longer contains the target (or the
+ * lifecycle terminates). It therefore also spans the ordinary 409 →
+ * force-confirmation handoff and the gap between a 204 response and the
+ * authoritative workspace refetch/reconciliation.
+ */
+interface ActiveDeleteTarget {
+  versionId: string;
+  label: string;
+  unsaved: string[];
+}
+
 function unsavedSummary(unsaved: readonly string[]): string {
   return unsaved.join(', ');
+}
+
+/**
+ * M6-PRR-F03 / M6-PRR-F01 (C1.2): the bounded session state of ONE hidden
+ * TextVersion, derived from the existing session coordination vocabulary. It
+ * exposes no draft content and creates no new authority.
+ *
+ * The aggregate uses the GLOBAL severity precedence
+ * `Conflict > Pending > Error > Unsaved > null` (order-independent), so the
+ * badge can never understate a hidden version merely because a milder session
+ * happened to be visited last.
+ */
+function hiddenVersionStatus(
+  versionId: string,
+  sessionStatuses: Record<string, EditorSessionStatus>,
+): string | null {
+  return sessionStatusPrecedence(
+    LINGUISTIC_MODES.map((mode) => sessionStatuses[sessionKey(versionId, mode)]),
+  );
 }
 
 function WorkspaceBody({
@@ -119,6 +156,15 @@ function WorkspaceBody({
     useState<PendingDelete | null>(null);
   const [pendingDirtyDelete, setPendingDirtyDelete] =
     useState<PendingDelete | null>(null);
+  const [activeDeleteTarget, setActiveDeleteTarget] =
+    useState<ActiveDeleteTarget | null>(null);
+  /**
+   * M6-PRR-F01: whether the active delete target was ever observed in the
+   * authoritative panel order. Combined with "no longer present", this makes
+   * the lifecycle end on the authoritative snapshot transition rather than on
+   * a snapshot that never contained the target.
+   */
+  const pendingDeleteSeenRef = useRef(false);
   const [activeMode, setActiveMode] = useState<WorkbenchMode>('alignment');
   const [activeTargetId, setActiveTargetId] = useState<string | null>(null);
   const [sessionStatuses, setSessionStatuses] = useState<Record<string, EditorSessionStatus>>({});
@@ -155,8 +201,9 @@ function WorkspaceBody({
     setSessionStatuses((current) =>
       Object.fromEntries(
         Object.entries(current).filter(([key]) => {
-          if (key === 'alignment' || key === 'import') return true;
-          return surviving.has(key.slice(0, key.lastIndexOf(':')));
+          const versionId = sessionVersionId(key);
+          if (versionId === null) return true;
+          return surviving.has(versionId);
         }),
       ),
     );
@@ -165,6 +212,58 @@ function WorkspaceBody({
   const anyDirty = Object.values(sessionStatuses).some((status) => status.dirty);
   const anySessionDialogOpen = Object.values(sessionStatuses).some((status) => status.dialogOpen);
   const navigationLocked = anySessionDialogOpen || pendingDirtyDelete !== null || pendingForceDelete !== null;
+
+  /**
+   * M6-PRR-F01 (C1.2): the WORKSPACE-OWNED TextVersion destructive lifecycle /
+   * dialog lock. Its meaning is exactly "a workspace-owned TextVersion
+   * deletion owns interaction", i.e. it spans the dirty-delete warning, the
+   * force confirmation and the in-flight ordinary/force request.
+   *
+   * It deliberately does NOT include `anySessionDialogOpen`: a session's OWN
+   * dialog (Alignment Inspector, Sentence/Token editor) must never feed its
+   * own freeze back into itself — that would disable the dialog's Cancel and
+   * self-deadlock. Every control that can open such a dialog therefore keys
+   * its freeze on THIS signal, never on `taskInteractionLocked`.
+   */
+  const workspaceDestructiveLocked =
+    pendingDirtyDelete !== null ||
+    pendingForceDelete !== null ||
+    activeDeleteTarget !== null;
+
+  /**
+   * M6-PRR-F01: the broad task-interaction freeze. While a TextVersion
+   * destructive lifecycle is active, no new task-editor draft or task
+   * mutation may be started, because the pending authoritative reconciliation
+   * can remove the target TextVersion and silently discard that work without
+   * the Human ever disposing of it.
+   *
+   * This is a superset of `navigationLocked`: it also holds across the
+   * ordinary 409 → force handoff and across the success → authoritative
+   * refetch gap, where `deleteMutation.isPending` is already false.
+   */
+  const taskInteractionLocked = navigationLocked || activeDeleteTarget !== null;
+
+  /**
+   * The lifecycle terminates exactly when the AUTHORITATIVE snapshot no longer
+   * contains the target TextVersion. `versionsById` is derived directly from
+   * the normalized server snapshot (not from the local panel preference), so
+   * "the target is absent from the authoritative version set" IS the
+   * reconciliation that may have destroyed the version's work.
+   *
+   * Success-only: the terminating signal is an authoritative SNAPSHOT, never
+   * the mutation settling. A failed delete leaves the version present, so the
+   * mutation handlers below release the lock explicitly instead.
+   */
+  useEffect(() => {
+    if (activeDeleteTarget === null) return;
+    if (Object.prototype.hasOwnProperty.call(versionsById, activeDeleteTarget.versionId)) {
+      pendingDeleteSeenRef.current = true;
+      return;
+    }
+    if (pendingDeleteSeenRef.current) {
+      setActiveDeleteTarget(null);
+    }
+  }, [activeDeleteTarget, versionsById]);
 
   // Full page unload (refresh / close / external navigation) keeps using the
   // native browser warning; client-side route transitions are handled by the
@@ -225,7 +324,7 @@ function WorkspaceBody({
     new Set(pendingMembers.map((member) => member.textVersionId)).size >= 2;
 
   function handleCreateAlignment() {
-    if (!canCreateAlignment || createMutation.isPending) {
+    if (!canCreateAlignment || createMutation.isPending || taskInteractionLocked) {
       return;
     }
     createMutation.mutate(
@@ -244,6 +343,7 @@ function WorkspaceBody({
     onCreateAlignment: handleCreateAlignment,
     canCreateAlignment,
     isCreatingAlignment: createMutation.isPending,
+    navigationLocked: taskInteractionLocked,
   });
 
   const indexOf = (id: string) => panelOrder.indexOf(id);
@@ -322,6 +422,11 @@ function WorkspaceBody({
   }
 
   function performDelete(versionId: string, label: string, unsaved: string[]) {
+    // The lifecycle lock starts BEFORE the request is sent, so a draft created
+    // while the mutation is still pending can never be swallowed by this
+    // deletion.
+    pendingDeleteSeenRef.current = false;
+    setActiveDeleteTarget({ versionId, label, unsaved });
     deleteMutation.mutate(
       { versionId, force: false },
       {
@@ -329,16 +434,18 @@ function WorkspaceBody({
           if (isApiError(error) && error.isCode('TEXT_HAS_ANNOTATIONS')) {
             // The unsaved-work context survives the ordinary -> force
             // confirmation handoff so the destructive dialog keeps naming
-            // exactly what is still at risk.
+            // exactly what is still at risk. The lifecycle lock stays held.
             setPendingForceDelete({ versionId, label, unsaved });
+            return;
           }
+          setActiveDeleteTarget(null);
         },
       },
     );
   }
 
   function requestDelete(versionId: string, label: string) {
-    if (navigationLocked) {
+    if (taskInteractionLocked) {
       return;
     }
     const unsaved = affectedUnsavedWork(versionId);
@@ -375,14 +482,60 @@ function WorkspaceBody({
     setActiveMode(mode);
   }
 
+  /**
+   * M6-PRR-F01: the force confirmation is the same destructive lifecycle, so
+   * cancelling it terminates that lifecycle and releases the lock (the target
+   * TextVersion still exists and its drafts are preserved).
+   */
+  function cancelForceDelete() {
+    setPendingForceDelete(null);
+    setActiveDeleteTarget(null);
+  }
+
   function confirmForceDelete() {
     if (!pendingForceDelete) {
       return;
     }
+    const target = pendingForceDelete;
+    pendingDeleteSeenRef.current = false;
+    setActiveDeleteTarget({
+      versionId: target.versionId,
+      label: target.label,
+      unsaved: target.unsaved,
+    });
     deleteMutation.mutate(
-      { versionId: pendingForceDelete.versionId, force: true },
+      { versionId: target.versionId, force: true },
       {
-        onSettled: () => setPendingForceDelete(null),
+        /*
+         * REAL BACKEND SEMANTICS (apps/api/app/services/text_version_service.py
+         * `delete_text_version`): both `TEXT_HAS_ANNOTATIONS` guards are
+         * `... and not force`, so an authoritative `force=true` request can
+         * NEVER produce that code. Its possible failures are `NOT_FOUND` (404)
+         * and unexpected server errors; neither is recoverable by retrying the
+         * same confirmation.
+         *
+         * Distinct success/failure termination (never `onSettled`, which runs
+         * on BOTH):
+         *
+         * - SUCCESS: the server accepted the destructive operation, so the
+         *   workspace confirmation no longer needs to stay open — but the
+         *   authoritative refetch is still pending and the OLD snapshot is
+         *   still mounted. `activeDeleteTarget` therefore MUST stay set:
+         *   lifecycle termination belongs exclusively to the authoritative
+         *   `versionsById` reconciliation effect above. Releasing here would
+         *   make the target editor writable again for a draft the pending
+         *   reconciliation is about to destroy.
+         * - FAILURE: the server did NOT delete the target. The dialog closes,
+         *   the lifecycle is explicitly terminated, and the existing
+         *   `ErrorMessage` surface stays available for a fresh attempt.
+         */
+        onSuccess: () => {
+          setPendingForceDelete(null);
+        },
+        onError: () => {
+          setPendingForceDelete(null);
+          setActiveDeleteTarget(null);
+        },
       },
     );
   }
@@ -407,18 +560,39 @@ function WorkspaceBody({
           density="compact"
         >
           <span className="toolbar-label">Hidden text versions</span>
-          {hidden.map((id) => (
-            <Button
-              key={id}
-              type="button"
-              variant="quiet"
-              size="sm"
-              className="reopen-button"
-              onClick={() => openPanel(id)}
-            >
-              Open {versionsById[id]?.label ?? id}
-            </Button>
-          ))}
+          {hidden.map((id) => {
+            const label = versionsById[id]?.label ?? id;
+            const status = hiddenVersionStatus(id, sessionStatuses);
+            return (
+              <span key={id} className="hidden-version-item">
+                <Button
+                  type="button"
+                  variant="quiet"
+                  size="sm"
+                  className="reopen-button"
+                  onClick={() => openPanel(id)}
+                >
+                  Open {label}
+                </Button>
+                {/*
+                  M6-PRR-F03 / contract section 17: the hidden-version
+                  management surface itself must expose the bounded
+                  unsaved-session state of each hidden TextVersion. Derived
+                  from the existing session coordination state; it copies no
+                  draft and adds no authority.
+                */}
+                {status !== null ? (
+                  <span
+                    className={`hidden-version-status session-state session-state-${status.toLowerCase()}`}
+                    role="status"
+                    aria-label={`${label} session status`}
+                  >
+                    {label} — {status}
+                  </span>
+                ) : null}
+              </span>
+            );
+          })}
         </Toolbar>
       ) : null}
 
@@ -498,6 +672,7 @@ function WorkspaceBody({
                   hideDisabled={navigationLocked}
                   spanRegistry={spanRegistry}
                   survivingGroupIds={survivingGroupIds}
+                  interactionLocked={taskInteractionLocked}
                 />
               </div>
             );
@@ -542,6 +717,24 @@ function WorkspaceBody({
         onTargetChange={setActiveTargetId}
       />
 
+      {/*
+        M6-PRR-F01: while a TextVersion destructive lifecycle is active the
+        linguistic editor sessions receive an explicit `frozen` coordination
+        input, so a new draft or draft mutation can never be created and then
+        swallowed by the pending authoritative reconciliation. Every editor
+        stays MOUNTED (existing drafts, session state and dialog ownership are
+        preserved) and only the drafting controls become inert.
+
+        Controls that OPEN a session-owned destructive dialog (Delete
+        segmentation / Delete tokens, Inspector Remove / Delete Alignment,
+        Inspector Close) are driven by `workspaceDestructiveLocked` instead of
+        the broad `taskInteractionLocked`: their own dialog contributes to
+        `navigationLocked`, and feeding that back would disable the dialog's
+        own Cancel and self-deadlock. `workspaceDestructiveLocked` carries the
+        same workspace-owned TextVersion destructive lifetime, so a second
+        destructive surface can never stack behind it, while the pre-existing
+        focus restoration for a normally-opened session dialog is preserved.
+      */}
       <div className="workbench-task-deck" aria-label="Active workbench task">
         <div
           id="workbench-session-alignment"
@@ -558,6 +751,7 @@ function WorkspaceBody({
             canCreate={canCreateAlignment}
             onCreate={handleCreateAlignment}
             isCreating={createMutation.isPending}
+            interactionLocked={taskInteractionLocked}
           />
 
           <AlignmentInspector
@@ -568,6 +762,7 @@ function WorkspaceBody({
             spansById={savedAlignments.spansById}
             versionsById={savedAlignments.versionsById}
             onClose={() => setActiveAlignment(null)}
+            interactionLocked={workspaceDestructiveLocked}
             onSessionStateChange={sessionReporters.alignment}
           />
 
@@ -579,6 +774,7 @@ function WorkspaceBody({
             onActivate={setActiveAlignment}
             onHover={setHoveredAlignment}
             disabled={isMutatingAlignment}
+            interactionLocked={taskInteractionLocked}
           />
         </div>
 
@@ -611,6 +807,8 @@ function WorkspaceBody({
                       version={version}
                       savedLayer={sentenceLayer}
                       savedSegments={sentenceLayer ? segmentation.segmentsByLayer[sentenceLayer.id] ?? [] : []}
+                      frozen={taskInteractionLocked}
+                      workspaceDestructiveLocked={workspaceDestructiveLocked}
                       onSessionStateChange={reporter}
                     />
                   ) : null}
@@ -622,6 +820,8 @@ function WorkspaceBody({
                       sentenceSegments={sentenceLayer ? segmentation.segmentsByLayer[sentenceLayer.id] ?? [] : []}
                       savedLayer={tokenLayer}
                       savedSegments={tokenLayer ? segmentation.segmentsByLayer[tokenLayer.id] ?? [] : []}
+                      frozen={taskInteractionLocked}
+                      workspaceDestructiveLocked={workspaceDestructiveLocked}
                       onSessionStateChange={reporter}
                     />
                   ) : null}
@@ -632,6 +832,7 @@ function WorkspaceBody({
                       tokenLayer={tokenLayer}
                       tokenSegments={tokenLayer ? segmentation.segmentsByLayer[tokenLayer.id] ?? [] : []}
                       annotationsByTokenSegmentId={segmentation.lemmaAnnotationByTokenSegmentId}
+                      frozen={taskInteractionLocked}
                       onSessionStateChange={reporter}
                     />
                   ) : null}
@@ -643,6 +844,7 @@ function WorkspaceBody({
                       tokenSegments={tokenLayer ? segmentation.segmentsByLayer[tokenLayer.id] ?? [] : []}
                       posAnnotationsByTokenSegmentId={segmentation.posAnnotationByTokenSegmentId}
                       lemmaTokenSegmentIds={new Set(Object.keys(segmentation.lemmaAnnotationByTokenSegmentId))}
+                      frozen={taskInteractionLocked}
                       onSessionStateChange={reporter}
                     />
                   ) : null}
@@ -652,6 +854,13 @@ function WorkspaceBody({
           </div>
         ))}
       </div>
+
+      {activeDeleteTarget !== null ? (
+        <p className="workbench-delete-lock" role="status">
+          Deleting “{activeDeleteTarget.label}” — linguistic drafting is frozen
+          until the authoritative workspace confirms the deletion.
+        </p>
+      ) : null}
 
       {activeMode !== 'alignment' && activeTargetId === null ? (
         <EmptyState>Open a text version to use linguistic tools.</EmptyState>
@@ -683,7 +892,7 @@ function WorkspaceBody({
       {pendingForceDelete ? (
         <ConfirmDialog
           headingId="force-delete-heading"
-          onClose={() => setPendingForceDelete(null)}
+          onClose={cancelForceDelete}
           closeDisabled={deleteMutation.isPending}
         >
           <h3 id="force-delete-heading">Delete text version permanently?</h3>
@@ -707,7 +916,7 @@ function WorkspaceBody({
               type="button"
               variant="secondary"
               disabled={deleteMutation.isPending}
-              onClick={() => setPendingForceDelete(null)}
+              onClick={cancelForceDelete}
             >
               Cancel
             </Button>
