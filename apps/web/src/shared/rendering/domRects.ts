@@ -1,64 +1,109 @@
 /**
- * DOM rect collection for connector geometry (M0.6 Round 1).
+ * DOM rect collection for connector geometry.
  *
- * Separated from ConnectorOverlay so the component file only exports
- * components (react-refresh) and the pure geometry helpers stay
- * framework-light. This module is the only place that translates DOM
- * elements into the plain rect-like inputs of `geometry.ts`.
- *
- * Pipeline (frozen contract sections J, K):
- *
- *   RenderedSpanRegistry.getElements(spanId)
- *     -> element.getClientRects()  (flattened across run elements)
- *     -> clipped to the owning .text-panel-body viewport
- *     -> converted to overlay-relative coordinates
- *
- * DOM traversal is allowed ONLY for layout/scroll-container discovery
- * (`closest('.text-panel-body')`) — never for span-identity discovery.
+ * Span identity comes ONLY from RenderedSpanRegistry. DOM traversal here is
+ * limited to canonical layout discovery: the owning .text-panel-body and
+ * .panel-slot rectangles used for clipping and M8 obstacle routing.
  */
 
 import { intersectRects, isVisibleRect, toOverlayRect, type RectLike } from './geometry';
 
-/**
- * Collect the visible, overlay-relative candidate rects of one member.
- *
- * - every run element's client rects are flattened (a span may be split
- *   across runs and wrap across lines);
- * - each rect is clipped to its owning ``.text-panel-body`` viewport
- *   rectangle: fully clipped rects are ignored, partially visible rects use
- *   the visible intersection;
- * - disconnected (unmounted) elements and hidden/zero-size panels
- *   contribute nothing;
- * - all coordinates are converted into overlay-relative space BEFORE
- *   geometry computation (no browser-global absolute coordinates).
- */
-export function collectVisibleMemberRects(
+export interface VisibleMemberDomGeometry {
+  kind: 'visible';
+  rects: RectLike[];
+  panelRect: RectLike;
+  panelElement: HTMLElement;
+}
+
+export type MemberDomGeometry =
+  | VisibleMemberDomGeometry
+  | { kind: 'hidden' }
+  | { kind: 'invalid' };
+
+export function collectMemberDomGeometry(
   elements: ReadonlyArray<HTMLElement>,
   overlayRect: RectLike,
-): RectLike[] {
+): MemberDomGeometry {
   const visible: RectLike[] = [];
+  let owningPanel: HTMLElement | null = null;
+  let panelRect: RectLike | null = null;
+  let sawConnectedElement = false;
+
   for (const element of elements) {
     if (!element.isConnected) {
       continue;
     }
-    // DOM traversal for layout/scroll-container discovery (allowed) — this
-    // is NOT span-identity discovery.
+    sawConnectedElement = true;
     const panelBody = element.closest('.text-panel-body');
-    if (!(panelBody instanceof HTMLElement)) {
-      continue;
+    const panel = element.closest('.panel-slot');
+    if (!(panelBody instanceof HTMLElement) || !(panel instanceof HTMLElement)) {
+      return { kind: 'invalid' };
     }
+    if (owningPanel !== null && panel !== owningPanel) {
+      return { kind: 'invalid' };
+    }
+    if (owningPanel === null) {
+      owningPanel = panel;
+      const rawPanelRect = panel.getBoundingClientRect();
+      if (rawPanelRect.width > 0 && rawPanelRect.height > 0) {
+        panelRect = toOverlayRect(rawPanelRect, overlayRect);
+      }
+    }
+
     const viewport = panelBody.getBoundingClientRect();
     if (viewport.width === 0 || viewport.height === 0) {
-      // Hidden/zero-size panel: contributes no geometry (section K).
       continue;
     }
     const viewportOverlay = toOverlayRect(viewport, overlayRect);
     for (const rect of element.getClientRects()) {
-      const clipped = intersectRects(toOverlayRect(rect, overlayRect), viewportOverlay);
+      const clipped = intersectRects(
+        toOverlayRect(rect, overlayRect),
+        viewportOverlay,
+      );
       if (clipped !== null && isVisibleRect(clipped)) {
         visible.push(clipped);
       }
     }
   }
-  return visible;
+
+  if (
+    !sawConnectedElement ||
+    owningPanel === null ||
+    panelRect === null ||
+    visible.length === 0
+  ) {
+    return { kind: 'hidden' };
+  }
+  return { kind: 'visible', rects: visible, panelRect, panelElement: owningPanel };
+}
+
+/** Inherited M0.6 clipping helper retained for focused geometry tests. */
+export function collectVisibleMemberRects(
+  elements: ReadonlyArray<HTMLElement>,
+  overlayRect: RectLike,
+): RectLike[] {
+  const geometry = collectMemberDomGeometry(elements, overlayRect);
+  return geometry.kind === 'visible' ? geometry.rects : [];
+}
+
+/** Visible direct .panel-slot children of the canonical panels container. */
+export function collectVisiblePanelRects(
+  container: HTMLElement,
+  overlayRect: RectLike,
+): RectLike[] {
+  const panels: RectLike[] = [];
+  for (const child of Array.from(container.children)) {
+    if (
+      !(child instanceof HTMLElement) ||
+      !child.classList.contains('panel-slot')
+    ) {
+      continue;
+    }
+    const rect = child.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      continue;
+    }
+    panels.push(toOverlayRect(rect, overlayRect));
+  }
+  return panels;
 }
