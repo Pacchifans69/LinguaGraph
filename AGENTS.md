@@ -53,10 +53,13 @@ implementation code:
 
 ## Current phase
 
-M7 — Alignment Mutation Concurrency Hardening — is **IMPLEMENTATION
-AUTHORIZED / IN PROGRESS** on
-`m7-alignment-mutation-concurrency-hardening`. Gate 2 is not yet established
-and no PR/merge is authorized.
+M7 — Alignment Mutation Concurrency Hardening — has completed bounded
+implementation and exact-implementation-epoch Gate 2 for
+`854137cd498569f7c3d770d3b82be51042080edd` (tree
+`7b5306fbd37a158cd1fb688fd050d20cfc5aec74`). Static Human Diff Review found
+one pre-PR durable-state documentation finding, `M7-SHDR-F01`; this bounded
+four-file docs-only state-alignment successor addresses that finding. No PR
+exists and merge is not authorized.
 
 The frozen M7 execution contract is
 `docs/development/M7_CONTRACT.md`. Approved pre-freeze durable base:
@@ -67,13 +70,30 @@ Approved pre-freeze durable tree:
 
 `5b659f23f21d4fd96e4b5cb87f970b575b975ccf`
 
-Planned implementation branch:
+Implementation branch:
 
 `m7-alignment-mutation-concurrency-hardening`
 
-The Human subsequently authorized the exact-base implementation branch and
-bounded implementation under the frozen contract. Proof execution, PR, merge,
-and provider mutation remain separately governed. M7 freezes
+The Human authorized the exact-base implementation branch and bounded
+implementation under the frozen contract. The reviewed implementation epoch is
+`854137cd498569f7c3d770d3b82be51042080edd`, unique parent
+`945d9d4bbe081eedd11088315b5007d80d8910d4`.
+
+M7-EXI-01 established Gate 2 for that exact epoch using
+`Pacchifans69/linguagraph-m7-proof@4274eeae6211a1744ac63958a026ff95670f445b`
+(tree `2270f665b2659f88dcdd88bed216828e32e5a7ff`) on Alibaba ECS. The formal
+one-shot result was `PASS`: backend `602 passed`, Vitest `519 passed`,
+Playwright `32 passed`, Alembic head `0006`, and off-host artifact acceptance
+PASS. The retained proof archive SHA-256 is
+`2529a1e06989058c2a7acdac69374912ba2ccee32ba59c5438d2c746c8eed2a3`.
+The proof authorization is spent and the exact proof ECS plus its system disk
+were released after evidence retrieval.
+
+Because this docs-only successor changes the Product SHA/tree, the
+`854137cd...` exact-candidate proof does not automatically transfer to the
+successor. Fresh exact-candidate proof is therefore **PENDING** before PR
+readiness. This documentation update does not authorize proof execution,
+provider mutation, PR creation, or merge. M7 freezes
 `ParallelDocument → sorted participating TextVersion` as the canonical
 serialization order for scoped Alignment/TextVersion concurrency, with
 pre-lock reads limited to root locators and authoritative state re-resolved

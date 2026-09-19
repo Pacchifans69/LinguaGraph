@@ -535,7 +535,62 @@ Project/ParallelDocument deletion remains audit-only. An audit failure that
 requires production changes is a Human STOP condition rather than implicit
 scope expansion.
 
-Full Gate 2 still requires Alembic current/check at head `0006`, complete
-real-PostgreSQL pytest with required races unskipped, frontend lint/typecheck/
-Vitest/build, and retained M0–M6 Playwright regression. M6 hosted proof does
-not establish M7 Gate 2.
+For exact implementation epoch
+`854137cd498569f7c3d770d3b82be51042080edd` (tree
+`7b5306fbd37a158cd1fb688fd050d20cfc5aec74`), those requirements were
+established by the Human-approved M7-specific External Infrastructure
+Exception `M7-EXI-01` after the canonical GitHub Actions attempt (#124 /
+`35422565869`) failed before repository-defined steps (`steps=[]`, logs
+unavailable / `BlobNotFound`). The exception waived only the execution
+environment and no semantic requirement.
+
+Accepted hosted proof:
+
+```text
+proof repository  Pacchifans69/linguagraph-m7-proof
+proof_sha         4274eeae6211a1744ac63958a026ff95670f445b
+proof_tree        2270f665b2659f88dcdd88bed216828e32e5a7ff
+provider          Alibaba ECS
+adapter rc        0
+formal outcome    PASS
+```
+
+Established semantic/integrity result for that exact Product epoch:
+
+```text
+Python 3.13 / Node 24 / PostgreSQL 18      PASS
+exact SHA/tree/frozen-base provenance      PASS
+Alembic empty → 0006 / current / check     PASS
+backend pytest                             PASS (602 passed, zero required skips)
+required M7 concurrency matrix             PASS (15 / 15 retained JUnit cases)
+lint / typecheck                           PASS
+Vitest                                     PASS (35 files / 519 passed)
+production build                           PASS
+Playwright                                 PASS (32 passed / retries=0)
+dependency / candidate tree integrity      PASS
+disposable database cleanup                PASS
+final remote guards                        PASS
+off-host artifact acceptance               PASS
+```
+
+Deterministic archive SHA-256:
+
+`2529a1e06989058c2a7acdac69374912ba2ccee32ba59c5438d2c746c8eed2a3`
+
+Authorization SHA-256:
+
+`edab7ec43fb98874df4436e4eba9d77657b20464817d56dc5eb51e538375effe`
+
+The authorization is **SPENT / MUST NOT REUSE**. After off-host artifact
+verification, the exact proof ECS and its system disk were released.
+
+The proof-source README at `4274eeae...` retains preparation-time status text;
+the frozen source was not mutated after authorization. Post-run authority is
+the retained formal artifact archive plus the durable Product evidence ledger.
+
+Static Human Diff Review of `854137cd...` passed implementation
+correctness/scope but identified `M7-SHDR-F01`: stale durable lifecycle/Gate-2
+wording. The bounded four-file docs-only correction addressing that finding
+necessarily creates a new Product SHA/tree. Therefore the `854137cd...` proof
+does not automatically transfer to the docs-only successor; fresh
+exact-candidate proof remains required before PR readiness.

@@ -11,10 +11,13 @@ schema structure.
 
 ## Current milestone
 
-M7 — Alignment Mutation Concurrency Hardening — is **IMPLEMENTATION
-AUTHORIZED / IN PROGRESS** on
-`m7-alignment-mutation-concurrency-hardening`. Gate 2 is not yet established
-and no PR/merge is authorized.
+M7 — Alignment Mutation Concurrency Hardening — has completed bounded
+implementation and exact-implementation-epoch Gate 2 for
+`854137cd498569f7c3d770d3b82be51042080edd` (tree
+`7b5306fbd37a158cd1fb688fd050d20cfc5aec74`). Static Human Diff Review found
+one pre-PR durable-state documentation finding, `M7-SHDR-F01`; this bounded
+four-file docs-only state-alignment successor addresses it. No PR exists and
+merge is not authorized.
 
 Frozen contract:
 
@@ -28,7 +31,7 @@ Approved pre-freeze durable tree:
 
 `5b659f23f21d4fd96e4b5cb87f970b575b975ccf`
 
-Planned implementation branch:
+Implementation branch:
 
 `m7-alignment-mutation-concurrency-hardening`
 
@@ -39,9 +42,24 @@ mutation-authoritative state is re-resolved under those locks. Project and
 ParallelDocument deletion remain mandatory real-PostgreSQL audit surfaces, not
 authorized production redesign.
 
-The subsequent Human decision authorized the exact-base implementation
-branch and bounded implementation under `M7_CONTRACT.md`. Proof execution,
-PR, merge, and provider mutation remain separately governed.
+The exact implementation epoch is
+`854137cd498569f7c3d770d3b82be51042080edd`, unique parent
+`945d9d4bbe081eedd11088315b5007d80d8910d4`. M7-EXI-01 established Gate 2
+for that exact epoch with an Alibaba ECS one-shot hosted proof from
+`Pacchifans69/linguagraph-m7-proof@4274eeae6211a1744ac63958a026ff95670f445b`
+(tree `2270f665b2659f88dcdd88bed216828e32e5a7ff`). The formal result was
+`PASS`: backend `602 passed`, Vitest `519 passed`, Playwright `32 passed`,
+Alembic head `0006`, dependency/tree integrity PASS, and off-host artifact
+acceptance PASS. The retained archive SHA-256 is
+`2529a1e06989058c2a7acdac69374912ba2ccee32ba59c5438d2c746c8eed2a3`.
+The proof authorization is spent; after evidence retrieval the exact proof ECS
+and its system disk were released.
+
+This docs-only state-alignment successor changes Product SHA/tree, so the
+`854137cd...` proof does not automatically establish Gate 2 for the successor.
+Fresh exact-candidate proof remains **PENDING** before PR readiness. This
+documentation update authorizes no proof execution, provider mutation, PR, or
+merge.
 
 The latest completed implementation checkpoint remains M6 — Mode-Oriented
 Workbench Information Architecture — **COMPLETE / MERGED / CLOSED**. Gate 3
