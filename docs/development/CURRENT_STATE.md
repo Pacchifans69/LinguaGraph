@@ -1528,9 +1528,10 @@ Human Runtime Acceptance for that exact epoch (section 15).
 
 M5 is **COMPLETE / MERGED / CLOSED**.
 
-M6 is merged by rebase through PR #15, Gate 3 exact tree identity is PASS, and
-the post-merge durable-state closure is recorded below. The implementation
-branch remains retained pending separate exact-guarded cleanup authorization.
+M6 is **COMPLETE / MERGED / CLOSED**. PR #15 merged by rebase, Gate 3 exact
+tree identity passed, the post-merge durable-state closure completed, and the
+implementation branch cleanup passed under exact guards; the historical M6
+implementation branch is absent from GitHub.
 
 ## 15. M6 durable post-merge closure
 
