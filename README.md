@@ -11,11 +11,41 @@ schema structure.
 
 ## Current milestone
 
-M6 — Mode-Oriented Workbench Information Architecture — is **COMPLETE /
-MERGED / CLOSED**. Gate 3 exact tree identity, durable-state closure, and
-exact-guarded implementation-branch cleanup are complete.
+M7 — Alignment Mutation Concurrency Hardening — is **FROZEN / HUMAN APPROVED /
+IMPLEMENTATION NOT YET AUTHORIZED**.
 
-Durable implementation coordinates:
+Frozen contract:
+
+`docs/development/M7_CONTRACT.md`
+
+Approved pre-freeze durable base:
+
+`e0b50eb647ae8901a8ff574e7b4d1aa2d6c41107`
+
+Approved pre-freeze durable tree:
+
+`5b659f23f21d4fd96e4b5cb87f970b575b975ccf`
+
+Planned implementation branch:
+
+`m7-alignment-mutation-concurrency-hardening`
+
+M7 freezes a bounded backend correctness change: scoped Alignment topology
+mutations serialize on the owning `ParallelDocument`, participating
+`TextVersion` rows are then locked in deterministic UUID order, and
+mutation-authoritative state is re-resolved under those locks. Project and
+ParallelDocument deletion remain mandatory real-PostgreSQL audit surfaces, not
+authorized production redesign.
+
+This docs-only freeze does not authorize implementation, branch creation,
+ADR-015, proof execution, or provider mutation.
+
+The latest completed implementation checkpoint remains M6 — Mode-Oriented
+Workbench Information Architecture — **COMPLETE / MERGED / CLOSED**. Gate 3
+exact tree identity, durable-state closure, and exact-guarded
+implementation-branch cleanup are complete.
+
+Durable M6 implementation coordinates:
 
 ```text
 frozen Product main
@@ -236,7 +266,8 @@ Read these when reconstructing project state:
 - `docs/development/M3_CONTRACT.md` — completed frozen M3 execution contract;
 - `docs/development/M4_CONTRACT.md` — completed frozen M4 execution contract;
 - `docs/development/M5_CONTRACT.md` — completed frozen M5 execution contract;
-- `docs/development/M6_CONTRACT.md` — active frozen M6 execution contract;
+- `docs/development/M6_CONTRACT.md` — completed frozen M6 execution contract;
+- `docs/development/M7_CONTRACT.md` — active frozen M7 execution contract;
 - `docs/development/M0_7_CLOSEOUT.md` — M0.7 Gate 2/Human Review/merge/Gate 3
   evidence ledger;
 - `docs/architecture/ARCHITECTURE.md` — as-built architecture;
@@ -244,9 +275,9 @@ Read these when reconstructing project state:
 - `docs/testing/testing-strategy.md` — testing/evidence rules;
 - `docs/testing/manual-acceptance.md` — human M0 walkthrough.
 
-M6 is merged by rebase through PR #15 and durably recorded. The retained M6
-implementation branch may be deleted only by a separate exact-guarded Human
-authorization.
+M6 is **COMPLETE / MERGED / CLOSED**. PR #15 merged by rebase, Gate 3 exact
+tree identity passed, durable-state closure completed, and exact-guarded
+implementation-branch cleanup deleted the historical M6 branch.
 
 ## Repository layout
 

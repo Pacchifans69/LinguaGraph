@@ -31,6 +31,10 @@ The completed frozen M6 execution contract is:
 
 `docs/development/M6_CONTRACT.md`
 
+The active frozen M7 execution contract is:
+
+`docs/development/M7_CONTRACT.md`
+
 Before planning, modifying files, installing dependencies, or writing
 implementation code:
 
@@ -49,10 +53,34 @@ implementation code:
 
 ## Current phase
 
-M6 — Mode-Oriented Workbench Information Architecture — is **COMPLETE /
-MERGED / CLOSED**. Gate 2, Human review, PR #15 rebase merge, Gate 3 exact
-tree identity, durable-state closure, and exact-guarded implementation-branch
-cleanup have all completed.
+M7 — Alignment Mutation Concurrency Hardening — is **FROZEN / HUMAN APPROVED /
+IMPLEMENTATION NOT YET AUTHORIZED**.
+
+The frozen M7 execution contract is
+`docs/development/M7_CONTRACT.md`. Approved pre-freeze durable base:
+
+`e0b50eb647ae8901a8ff574e7b4d1aa2d6c41107`
+
+Approved pre-freeze durable tree:
+
+`5b659f23f21d4fd96e4b5cb87f970b575b975ccf`
+
+Planned implementation branch:
+
+`m7-alignment-mutation-concurrency-hardening`
+
+The freeze does not authorize branch creation, application/test changes,
+ADR-015, proof execution, or provider mutation. M7 freezes
+`ParallelDocument → sorted participating TextVersion` as the canonical
+serialization order for scoped Alignment/TextVersion concurrency, with
+pre-lock reads limited to root locators and authoritative state re-resolved
+under locks. Project/ParallelDocument deletion remains audit-only unless
+evidence is returned for separate Human scope review.
+
+The latest completed implementation checkpoint remains M6 — Mode-Oriented
+Workbench Information Architecture — **COMPLETE / MERGED / CLOSED**. Gate 2,
+Human review, PR #15 rebase merge, Gate 3 exact tree identity, durable-state
+closure, and exact-guarded implementation-branch cleanup have all completed.
 
 Durable M6 implementation provenance:
 

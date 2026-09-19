@@ -11,10 +11,51 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ## 0. Current durable status
 
-M6 — Mode-Oriented Workbench Information Architecture — is **COMPLETE /
-MERGED / CLOSED**. Gate 2, Human review, PR #15 rebase merge, Gate 3 exact
-tree identity, durable-state closure, and exact-guarded implementation-branch
-cleanup are complete.
+M7 — Alignment Mutation Concurrency Hardening — is **FROZEN / HUMAN APPROVED /
+IMPLEMENTATION NOT YET AUTHORIZED**.
+
+M7 freeze coordinates:
+
+- approved pre-freeze durable base:
+  `e0b50eb647ae8901a8ff574e7b4d1aa2d6c41107`;
+- approved pre-freeze durable tree:
+  `5b659f23f21d4fd96e4b5cb87f970b575b975ccf`;
+- governing frozen contract:
+  `docs/development/M7_CONTRACT.md`;
+- planned implementation branch:
+  `m7-alignment-mutation-concurrency-hardening`;
+- implementation branch:
+  **NOT CREATED / NOT AUTHORIZED BY FREEZE**;
+- implementation candidate:
+  **NONE**;
+- PR:
+  **NONE**;
+- migration:
+  **NONE AUTHORIZED; Alembic HEAD remains 0006**;
+- ADR obligation:
+  implementation must add ADR-015 — Document-Root Serialization for Alignment
+  Mutations; ADR-015 is deliberately absent from the docs-only freeze.
+
+Human-reviewed M7 contract decisions:
+
+- HCR-C1 bounded scope: **HUMAN ACCEPTED**;
+- HCR-C2 canonical serialization model: **HUMAN ACCEPTED**;
+- HCR-C3 concurrency outcomes: **HUMAN ACCEPTED**;
+- HCR-C4 proof matrix: **HUMAN ACCEPTED**;
+- HCR-C5 Project/ParallelDocument deletion boundary: **HUMAN ACCEPTED**;
+- canonical lock order:
+  `ParallelDocument → participating TextVersion rows sorted by UUID`;
+- pre-lock rule:
+  locator-only reads; mutation authority must be re-resolved under locks;
+- Project/ParallelDocument deletion:
+  mandatory real-PostgreSQL audit only; production redesign requires separate
+  Human scope review.
+
+The latest completed implementation checkpoint remains M6 — Mode-Oriented
+Workbench Information Architecture — **COMPLETE / MERGED / CLOSED**. Gate 2,
+Human review, PR #15 rebase merge, Gate 3 exact tree identity,
+durable-state closure, and exact-guarded implementation-branch cleanup are
+complete.
 
 Durable M6 coordinates:
 
@@ -193,7 +234,14 @@ recorded in section 13.
 
 ## 1. Repository checkpoint
 
-Current merged implementation checkpoint: **M6 — Mode-Oriented Workbench
+Active frozen execution checkpoint: **M7 — Alignment Mutation Concurrency
+Hardening**.
+
+Current M7 lifecycle state:
+
+**FROZEN / HUMAN APPROVED / IMPLEMENTATION NOT YET AUTHORIZED.**
+
+Latest merged implementation checkpoint: **M6 — Mode-Oriented Workbench
 Information Architecture**.
 
 Current M6 lifecycle state:
