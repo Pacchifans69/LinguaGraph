@@ -265,6 +265,60 @@ def test_c_r01_patch_patch_same_group_is_serial_equivalent(
         assert _all_groups_valid(session)
 
 
+def test_c_r01_partial_patch_omission_preserves_other_serialized_field(
+    db_engine,
+    db_session,
+) -> None:
+    """Disjoint concurrent PATCHes must compose under serial-equivalent semantics.
+
+    One request changes only note; the other changes only members. Whichever
+    request acquires the document root first, the later request must re-resolve
+    authoritative state and must not overwrite the field it omitted.
+    """
+
+    _project, document, en, de, fr, _it = _setup_versions(db_session)
+    group = alignment_service.create_alignment(
+        db_session,
+        document_id=document.id,
+        members=[_member(en.id), _member(de.id)],
+        note="original",
+    )
+    document_id = document.id
+    group_id = group.id
+    de_id, fr_id = de.id, fr.id
+
+    def note_only() -> None:
+        with _new_session(db_engine) as session:
+            alignment_service.update_alignment(
+                session,
+                group_id,
+                note="note-only",
+            )
+
+    def members_only() -> None:
+        with _new_session(db_engine) as session:
+            alignment_service.update_alignment(
+                session,
+                group_id,
+                members=[_member(de_id), _member(fr_id)],
+            )
+
+    outcomes = _run_pair_behind_document_gate(
+        db_engine,
+        document_id,
+        note_only,
+        members_only,
+    )
+    assert outcomes == {"left": "ok", "right": "ok"}
+
+    with _new_session(db_engine) as session:
+        final_group = session.get(AlignmentGroup, group_id)
+        assert final_group is not None
+        assert final_group.note == "note-only"
+        assert _group_version_ids(session, group_id) == {de_id, fr_id}
+        assert _all_groups_valid(session)
+
+
 def test_c_r02_patch_delete_same_group_has_stable_serial_outcome(
     db_engine,
     db_session,
