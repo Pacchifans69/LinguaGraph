@@ -188,7 +188,7 @@ Final exact-candidate Gate 2 evidence:
 - M6 Gate 2:
   **PASS / ESTABLISHED**.
 
-The current candidate is the bounded PR-review corrective successor of the
+The final M6 candidate is the bounded PR-review corrective successor of the
 earlier HRA-approved application epoch `a5a981db77e33905f2c71c234616c6779e3ebc6c`.
 Fresh Human Runtime Acceptance completed on that application epoch; the later
 bounded corrective successor received corrective Static Human Diff Review and
@@ -400,6 +400,8 @@ completed M4 occurrence-level lemma boundary remains defined by
 defined by `M5_CONTRACT.md` and ADR-013. The completed M6 information-
 architecture boundary is defined by `M6_CONTRACT.md`; ADR-014 records the
 accepted mode-oriented implementation decision without broadening that
-contract.
+contract. The completed M7 Alignment mutation-concurrency boundary is defined
+by `M7_CONTRACT.md`; ADR-015 records the accepted document-root serialization
+decision without broadening that contract.
 
 This file records workflow state and does not replace those authorities.

@@ -171,8 +171,11 @@ viewports.
 
 ## 2. Canonical release-baseline workflow configuration
 
-`.github/workflows/ci.yml` is the canonical M6 candidate release-baseline workflow
-configuration. Its semantic gates are:
+`.github/workflows/ci.yml` remains the canonical release-baseline workflow
+configuration. Its tracked comments and job name retain the historical M6
+label because M7 required no workflow-shape change; the full real-PostgreSQL
+pytest invocation nevertheless includes the M7 alignment-concurrency tests.
+Its semantic gates are:
 
 - Python 3.13;
 - `uv sync --frozen`;
@@ -180,6 +183,7 @@ configuration. Its semantic gates are:
 - `npm ci`;
 - PostgreSQL 18 service;
 - backend pytest with real PostgreSQL;
+- M7 alignment-concurrency coverage within that full backend suite;
 - fail-closed skipped-test guard;
 - Alembic empty-database upgrade/current/check with `0006 (head)` assertion;
 - frontend lint;
@@ -509,7 +513,7 @@ Retain as durable M6 evidence:
 See `docs/development/M0_7_CLOSEOUT.md` for the complete closeout ledger.
 
 
-## 10. M7 Alignment concurrency candidate
+## 10. M7 Alignment concurrency verification and evidence
 
 M7 adds no schema, API, frontend feature, dependency, or runtime change. Its
 checkpoint-specific correctness evidence is real-PostgreSQL concurrency

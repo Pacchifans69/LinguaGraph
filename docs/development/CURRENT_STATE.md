@@ -581,7 +581,7 @@ Recorded observations:
 
 ## 7. Current architecture and schema baseline
 
-Accepted ADRs: **ADR-001 through ADR-014**, frozen until a later governed
+Accepted ADRs: **ADR-001 through ADR-015**, frozen until a later governed
 decision changes them.
 
 Runtime baseline:
@@ -646,6 +646,18 @@ M5 deliberately does **not** include Lexeme/shared vocabulary identity, XPOS,
 morphology, syntax, generic EAV annotations, automatic lemmatization/POS
 annotation/alignment, NLP/LLM providers, or automatic re-anchoring.
 
+M6 reorganizes the Workbench into a mode-oriented composition with a persistent
+canonical Text Canvas, five task destinations, mount-preserved editor sessions,
+compact persistent Alignment Tray status, and mode-independent connectors while
+preserving M0–M5 backend/API/database and canonical-text semantics.
+
+M7 adds bounded Alignment mutation serialization without changing schema, API
+shape, frontend behavior, dependencies, or the runtime baseline. Scoped
+Alignment CREATE/PATCH/DELETE paths acquire the owning `ParallelDocument`
+first, then participating `TextVersion` rows in deterministic UUID order, and
+re-resolve mutation-authoritative state under those locks. ADR-015 records this
+accepted document-root serialization decision.
+
 ## 8. Verification entry points
 
 Local Windows run:
@@ -679,11 +691,11 @@ Canonical GitHub Actions workflow:
 The workflow remains canonical despite the current provider/pre-step execution
 blockage.
 
-The current candidate verification baseline is M6 / Alembic `0006` and
-includes:
+The current release-verification baseline is as built through M7 / Alembic
+`0006` and includes:
 
 ```text
-full real-PostgreSQL pytest + zero-skip guard
+full real-PostgreSQL pytest + zero-skip guard, including M7 Alignment concurrency coverage
 Alembic empty → 0006 / current / check
 npm ci
 lint
@@ -717,11 +729,12 @@ Open/non-blocking or explicitly deferred items:
   stdout can surface a low-level PowerShell/.NET diagnostic;
 - HRA-F09 — inherited connector lines can cross text glyphs under frozen
   routing;
-- accepted mutation serialization is not a general collaborative locking
-  protocol;
+- accepted M4/M5 TextVersion-root and M7 document-root mutation serialization
+  are bounded server-side correctness mechanisms, not a general collaborative
+  locking or conflict protocol;
 - later lexical ontology, automatic NLP/LLM behavior, authentication,
   collaboration, graph/vector infrastructure and connector-routing redesign
-  remain outside completed M6.
+  remain outside completed M7.
 
 Retained provider/proof evidence remains protected; proof/diagnostic cleanup
 remains deferred. It includes historical M0.7 diagnostics and:

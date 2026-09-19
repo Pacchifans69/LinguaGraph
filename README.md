@@ -303,7 +303,7 @@ Read these when reconstructing project state:
   specification and Definition of Done;
 - `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` — accepted
   pre-implementation engineering report;
-- `docs/adr/` — accepted as-built architecture decisions through ADR-014;
+- `docs/adr/` — accepted as-built architecture decisions through ADR-015;
 - `docs/development/CURRENT_STATE.md` — durable engineering handoff;
 - `docs/development/M1_CONTRACT.md` — completed frozen M1 contract;
 - `docs/development/M2_CONTRACT.md` — completed frozen M2 execution contract;
@@ -311,7 +311,7 @@ Read these when reconstructing project state:
 - `docs/development/M4_CONTRACT.md` — completed frozen M4 execution contract;
 - `docs/development/M5_CONTRACT.md` — completed frozen M5 execution contract;
 - `docs/development/M6_CONTRACT.md` — completed frozen M6 execution contract;
-- `docs/development/M7_CONTRACT.md` — active frozen M7 execution contract;
+- `docs/development/M7_CONTRACT.md` — completed frozen M7 execution contract;
 - `docs/development/M0_7_CLOSEOUT.md` — M0.7 Gate 2/Human Review/merge/Gate 3
   evidence ledger;
 - `docs/architecture/ARCHITECTURE.md` — as-built architecture;
@@ -319,9 +319,9 @@ Read these when reconstructing project state:
 - `docs/testing/testing-strategy.md` — testing/evidence rules;
 - `docs/testing/manual-acceptance.md` — human M0 walkthrough.
 
-M6 is **COMPLETE / MERGED / CLOSED**. PR #15 merged by rebase, Gate 3 exact
+M7 is **COMPLETE / MERGED / CLOSED**. PR #16 merged by rebase, Gate 3 exact
 tree identity passed, durable-state closure completed, and exact-guarded
-implementation-branch cleanup deleted the historical M6 branch.
+implementation-branch cleanup deleted the historical M7 branch.
 
 ## Repository layout
 
@@ -605,9 +605,21 @@ M5 does not introduce Lexeme identity, XPOS, morphology, syntax, generic EAV
 annotation, automatic POS tagging/lemmatization/alignment, NLP/LLM providers,
 or automatic re-anchoring.
 
+M6 reorganizes the Workbench into a mode-oriented composition with a persistent
+canonical Text Canvas, five task destinations, mount-preserved editor sessions,
+compact persistent Alignment Tray status, and mode-independent connectors while
+preserving M0–M5 backend/API/database and canonical-text semantics.
+
+M7 adds bounded server-side pessimistic serialization for Alignment mutations
+without changing schema, API shape, frontend behavior, dependencies, or the
+runtime baseline. Scoped Alignment CREATE/PATCH/DELETE paths acquire the owning
+`ParallelDocument` first, then participating `TextVersion` rows in deterministic
+UUID order, and re-resolve mutation-authoritative state under those locks
+(ADR-015).
+
 ## Known limitations / retained debt
 
-Retained debt and current M6 disposition:
+Retained debt and current post-M7 disposition:
 
 - `G2-X01` — **CLOSED / PASS** for final exact M6 candidate
   `6af2c25e172d81725b97037945e38c047fba9941`, established by accepted C5
@@ -623,12 +635,12 @@ Retained debt and current M6 disposition:
   text glyphs while binding correctness remains intact (`HRA-F09`).
 - A malformed/broken local Node command that resolves but emits no version
   stdout can produce a low-level PowerShell/.NET prerequisite diagnostic.
-- Existing mutation locking is not a general collaborative locking protocol;
-  M5 only extends the bounded TextVersion-root serialization required for
-  token/lemma/POS mutation.
+- Accepted M4/M5 TextVersion-root and M7 document-root mutation serialization
+  remain bounded server-side correctness mechanisms, not a general collaborative
+  locking or conflict protocol.
 - Later lexical ontology, automatic NLP/LLM features, authentication,
   collaboration, graph/vector/search infrastructure, advanced connector
-  routing and later workbench expansion remain outside completed M6.
+  routing and later workbench expansion remain outside completed M7.
 
 ## Completed M3 implementation boundary
 
