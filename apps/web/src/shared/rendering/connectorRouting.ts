@@ -412,19 +412,14 @@ function compareSearchState(
   );
 }
 
-function shortestPath(
+function shortestPathsFromGate(
   graph: RoutingGraph,
   start: Point,
-  target: Point,
   initialDirection: Direction,
-): PathResult | null {
+): Map<number, PathResult> {
   const startIndex = graph.nodeIndexByKey.get(pointKey(start));
-  const targetIndex = graph.nodeIndexByKey.get(pointKey(target));
-  if (startIndex === undefined || targetIndex === undefined) {
-    return null;
-  }
-  if (startIndex === targetIndex) {
-    return { length: 0, bends: 0, points: [start] };
+  if (startIndex === undefined) {
+    return new Map();
   }
 
   const best = new Map<string, SearchState>();
@@ -440,7 +435,6 @@ function shortestPath(
   best.set(startKey, startState);
   pending.set(startKey, startState);
 
-  let bestTarget: SearchState | null = null;
   while (pending.size > 0) {
     let currentKey: string | null = null;
     let current: SearchState | null = null;
@@ -457,19 +451,6 @@ function shortestPath(
       break;
     }
     pending.delete(currentKey);
-
-    if (current.node === targetIndex) {
-      if (
-        bestTarget === null ||
-        compareSearchState(current, bestTarget, graph.nodes) < 0
-      ) {
-        bestTarget = current;
-      }
-      continue;
-    }
-    if (bestTarget !== null && current.length > bestTarget.length) {
-      continue;
-    }
 
     for (const edge of graph.adjacency[current.node]) {
       const next: SearchState = {
@@ -492,34 +473,51 @@ function shortestPath(
     }
   }
 
-  if (bestTarget === null) {
-    return null;
+  const bestByNode = new Map<number, SearchState>();
+  for (const state of best.values()) {
+    const previous = bestByNode.get(state.node);
+    if (
+      previous === undefined ||
+      compareSearchState(state, previous, graph.nodes) < 0
+    ) {
+      bestByNode.set(state.node, state);
+    }
   }
-  return {
-    length: bestTarget.length,
-    bends: bestTarget.bends,
-    points: bestTarget.path.map((index) => graph.nodes[index]),
-  };
+
+  const paths = new Map<number, PathResult>();
+  for (const [node, state] of bestByNode) {
+    paths.set(node, {
+      length: state.length,
+      bends: state.bends,
+      points: state.path.map((index) => graph.nodes[index]),
+    });
+  }
+  return paths;
 }
 
-function routeForCandidate(
+interface PreparedCandidate {
+  candidate: PortCandidate;
+  pathsByHubNode: Map<number, PathResult>;
+}
+
+function routeForPreparedCandidate(
   member: RoutingMember,
-  candidate: PortCandidate,
-  hub: Point,
-  graph: RoutingGraph,
+  prepared: PreparedCandidate,
+  hubNode: number,
 ): CandidateRoute | null {
-  const initialDirection: Direction =
-    candidate.side === 'LEFT' || candidate.side === 'RIGHT' ? 'H' : 'V';
-  const path = shortestPath(graph, candidate.gate, hub, initialDirection);
-  if (path === null) {
+  const path = prepared.pathsByHubNode.get(hubNode);
+  if (path === undefined) {
     return null;
   }
-  const points = canonicalizeRoutePoints([candidate.port, ...path.points]);
+  const points = canonicalizeRoutePoints([
+    prepared.candidate.port,
+    ...path.points,
+  ]);
   return {
     route: { memberId: member.memberId, points },
-    totalCost: candidate.projectionDistance + routeLength(points),
+    totalCost: prepared.candidate.projectionDistance + routeLength(points),
     bends: bendCount(points),
-    sideRank: candidate.sideRank,
+    sideRank: prepared.candidate.sideRank,
   };
 }
 
@@ -532,15 +530,14 @@ function compareCandidateRoute(a: CandidateRoute, b: CandidateRoute): number {
   );
 }
 
-function bestRouteForMember(
+function bestPreparedRouteForMember(
   member: RoutingMember,
-  candidates: ReadonlyArray<PortCandidate>,
-  hub: Point,
-  graph: RoutingGraph,
+  candidates: ReadonlyArray<PreparedCandidate>,
+  hubNode: number,
 ): CandidateRoute | null {
   let best: CandidateRoute | null = null;
   for (const candidate of candidates) {
-    const route = routeForCandidate(member, candidate, hub, graph);
+    const route = routeForPreparedCandidate(member, candidate, hubNode);
     if (
       route !== null &&
       (best === null || compareCandidateRoute(route, best) < 0)
@@ -602,20 +599,35 @@ export function computeRoutedConnectorGeometry(
     desiredHub,
   );
 
+  // Each port/gate runs the deterministic graph search once. Hub scoring
+  // then reuses those results instead of re-running shortest-path search for
+  // every candidate hub on every scroll/resize frame.
+  const preparedByMember: PreparedCandidate[][] = candidatesByMember.map(
+    (candidates) =>
+      candidates.map((candidate) => ({
+        candidate,
+        pathsByHubNode: shortestPathsFromGate(
+          graph,
+          candidate.gate,
+          candidate.side === 'LEFT' || candidate.side === 'RIGHT' ? 'H' : 'V',
+        ),
+      })),
+  );
+
   let bestGeometry: RoutedConnectorGeometry | null = null;
   let bestTuple: [number, number, number, number, number] | null = null;
 
-  for (const hub of graph.nodes) {
+  for (let hubIndex = 0; hubIndex < graph.nodes.length; hubIndex += 1) {
+    const hub = graph.nodes[hubIndex];
     const routes: ConnectorRoute[] = [];
     let totalCost = 0;
     let totalBends = 0;
     let complete = true;
     for (let index = 0; index < members.length; index += 1) {
-      const bestRoute = bestRouteForMember(
+      const bestRoute = bestPreparedRouteForMember(
         members[index],
-        candidatesByMember[index],
-        hub,
-        graph,
+        preparedByMember[index],
+        hubIndex,
       );
       if (bestRoute === null) {
         complete = false;
