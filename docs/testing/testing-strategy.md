@@ -635,13 +635,17 @@ This does not move Gate 2 authority away from exact semantic candidate
 and this post-merge durable-state closure are evidence/lifecycle bookkeeping,
 not fresh semantic proof candidates.
 
-PR-event run #128 / `35442492489` and post-merge push run #129 /
-`35442844140` both failed before repository-defined steps
-(`runner_id=0`, `steps=[]`). They remain provider/pre-step diagnostics and
-do not supersede the accepted successor hosted proof.
+PR-event run #128 / `35442492489`, post-merge push run #129 /
+`35442844140`, and durable-closure push run #130 / `35444044021` failed
+before repository-defined steps (`runner_id=0`, `steps=[]`). They remain
+provider/pre-step diagnostics and do not supersede the accepted successor
+hosted proof.
 
-The retained implementation branch remains
-`m7-alignment-mutation-concurrency-hardening@d769e018064dd1d6a529f7e043c7163b7e92c3ed`
-until separately authorized exact-guarded cleanup. This docs-only post-merge
-closure requires no fresh hosted proof or runtime acceptance.
+The Human-authorized exact-guarded cleanup deleted only historical branch
+`m7-alignment-mutation-concurrency-hardening@d769e018064dd1d6a529f7e043c7163b7e92c3ed`.
+Post-delete verification and independent GitHub readback confirmed branch
+absence, durable Product `main@2e69f354c1134acbf9e2beb0c647f39a84499325`
+unchanged, proof `main@e749a0356d53db05961e6cb538bff605e53e79ec`
+unchanged, and PR #16 still merged. This final docs-only closeout record
+requires no fresh hosted proof or runtime acceptance.
 

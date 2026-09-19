@@ -11,10 +11,10 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ## 0. Current durable status
 
-M7 — Alignment Mutation Concurrency Hardening — is **MERGED / GATE 3 PASS /
-DURABLE-STATE CLOSURE RECORDED**. PR #16 merged by rebase after explicit Human
-Merge Decision. The terminal reviewed PR-head tree is exactly identical to the
-post-rebase implementation-main tree.
+M7 — Alignment Mutation Concurrency Hardening — is **COMPLETE / MERGED /
+CLOSED**. PR #16 merged by rebase after explicit Human Merge Decision; Gate 3
+passed by exact tree identity; post-merge durable-state closure and
+exact-guarded implementation-branch cleanup are complete.
 
 M7 durable coordinates:
 
@@ -60,21 +60,29 @@ M7 durable coordinates:
   `d28126bca178db8ee9d17c737b820eacf6403d34`;
 - Gate 3:
   **PASS / EXACT TREE IDENTITY** between terminal reviewed PR head and
-  post-rebase `main`;
-- post-merge GitHub Actions:
-  push run #129 / `35442844140`, job `105896565727`, `runner_id=0`,
-  repository-defined `steps=[]`; provider/pre-step diagnostic with no
-  semantic execution evidence;
-- implementation branch:
-  `m7-alignment-mutation-concurrency-hardening@d769e018064dd1d6a529f7e043c7163b7e92c3ed`
-  remains retained pending separate exact-guarded cleanup authorization;
+  post-rebase implementation `main`;
 - post-merge durable-state closure:
-  this docs-only closure commit; resolve its exact SHA/tree from Git history
+  `2e69f354c1134acbf9e2beb0c647f39a84499325`; tree
+  `fbc57302af2de73bbaa18edc276829d3c86d0dd6`;
+- post-merge GitHub Actions:
+  push run #129 / `35442844140` and durable-closure push run #130 /
+  `35444044021`, both `runner_id=0`, repository-defined `steps=[]`;
+  provider/pre-step diagnostics with no semantic execution evidence;
+- historical implementation branch:
+  `m7-alignment-mutation-concurrency-hardening@d769e018064dd1d6a529f7e043c7163b7e92c3ed`;
+- implementation-branch cleanup:
+  **PASS / EXACT-GUARDED / REMOTE BRANCH ABSENT**;
+- post-cleanup durable Product `main`:
+  unchanged at `2e69f354c1134acbf9e2beb0c647f39a84499325`;
+- post-cleanup proof repository `main`:
+  unchanged at `e749a0356d53db05961e6cb538bff605e53e79ec`;
+- final branch-cleanup durable record:
+  this docs-only closeout commit; resolve its exact SHA/tree from Git history
   after landing rather than embedding a self-referential identity here.
 
 `M7-SHDR-F01` and `M7-LSR-01` remain closed historical review records.
-The post-merge closure records already-established evidence and lifecycle state;
-it is not a new semantic proof candidate and requires no fresh hosted proof or
+The final closeout records already-established evidence and lifecycle state; it
+is not a new semantic proof candidate and requires no fresh hosted proof or
 runtime acceptance.
 
 Human-reviewed M7 contract decisions remain unchanged:
@@ -275,13 +283,12 @@ recorded in section 13.
 
 ## 1. Repository checkpoint
 
-Most recently merged checkpoint: **M7 — Alignment Mutation Concurrency
-Hardening**.
+Most recently completed implementation checkpoint: **M7 — Alignment Mutation
+Concurrency Hardening**.
 
 Current M7 lifecycle state:
 
-**MERGED BY REBASE / GATE 3 PASS / POST-MERGE DURABLE-STATE CLOSURE RECORDED /
-IMPLEMENTATION-BRANCH CLEANUP PENDING.**
+**COMPLETE / MERGED / CLOSED.**
 
 Previous completed implementation checkpoint: **M6 — Mode-Oriented Workbench
 Information Architecture**.
@@ -315,7 +322,7 @@ independently verified branch absence.
 | M4 Human-Reviewed Lemma Annotation Foundation | #13 | `ac1cd40ae190577783453050f2cbc209cd3958a6` | rebase → `4cc435893207cdd32216012ca887d338e1932250` |
 | M5 Human-Reviewed POS Annotation Foundation | #14 | `139f3349b8556f5dd13d5c2d8808fda4a79dc819` | rebase → `49163ee407c0dae7d9e20cc647cabc8ae98f75de`; Gate 3 exact tree identity PASS; branch cleanup PASS |
 | M6 Mode-Oriented Workbench Information Architecture | #15 | `6af2c25e172d81725b97037945e38c047fba9941` | rebase → `afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7`; Gate 3 exact tree identity PASS; durable closure `f66b6e51e0925d635a0c512969d60de497ed01d2`; branch cleanup PASS / EXACT-GUARDED |
-| M7 Alignment Mutation Concurrency Hardening | #16 | semantic `c7aae26e3abaa34b3756ffe96ee718beaf8524b3`; terminal reviewed PR head `d769e018064dd1d6a529f7e043c7163b7e92c3ed` | rebase → `f56b413f97742946b51e00a24b55f806cc5452f8`; Gate 3 exact tree identity PASS; durable closure recorded by this docs-only commit; branch cleanup pending |
+| M7 Alignment Mutation Concurrency Hardening | #16 | semantic `c7aae26e3abaa34b3756ffe96ee718beaf8524b3`; terminal reviewed PR head `d769e018064dd1d6a529f7e043c7163b7e92c3ed` | rebase → `f56b413f97742946b51e00a24b55f806cc5452f8`; Gate 3 exact tree identity PASS; durable closure `2e69f354c1134acbf9e2beb0c647f39a84499325` / tree `fbc57302af2de73bbaa18edc276829d3c86d0dd6`; branch cleanup PASS / EXACT-GUARDED |
 
 M0.5 and M0.6 merge commits preserved exact reviewed trees. M0.7 and M1–M7
 used repository-permitted rebase merge; their Gate 3 evidence bridges use exact
@@ -1907,10 +1914,9 @@ historical sections retain the evidence status applicable to their own epochs.
 
 ### 16.1 Lifecycle status
 
-**M7 — Alignment Mutation Concurrency Hardening: MERGED / GATE 3 PASS /
-DURABLE-STATE CLOSURE RECORDED.**
+**M7 — Alignment Mutation Concurrency Hardening: COMPLETE / MERGED / CLOSED.**
 
-Completed through this closure:
+Completed lifecycle:
 
 - repository reality reconstruction / Gate 1: PASS;
 - Human contract freeze: PASS;
@@ -1924,13 +1930,17 @@ Completed through this closure:
 - PR #16: **MERGED BY REBASE** after explicit Human Merge Decision;
 - Gate 3: **PASS / EXACT TREE IDENTITY**;
 - post-merge durable-state closure:
-  recorded by this docs-only commit; resolve its exact SHA/tree from Git history;
+  `2e69f354c1134acbf9e2beb0c647f39a84499325`; tree
+  `fbc57302af2de73bbaa18edc276829d3c86d0dd6`;
 - implementation-branch cleanup:
-  **PENDING separate Human authorization**.
+  **PASS / EXACT-GUARDED / REMOTE BRANCH ABSENT**;
+- final branch-cleanup durable record:
+  this docs-only closeout commit; resolve its exact SHA/tree from Git history
+  after landing.
 
-M7 is therefore merged and Gate 3 complete, but is not declared fully
-**COMPLETE / CLOSED** until exact-guarded branch cleanup is separately completed
-and durably recorded.
+M7 is **COMPLETE / MERGED / CLOSED**. The historical implementation branch is
+deleted; durable Product `main`, PR #16 merge state, and proof repository
+`main` remained unchanged across cleanup.
 
 ### 16.2 Frozen baseline, semantic candidate, PR head, merge, and Gate 3
 
@@ -2063,48 +2073,61 @@ For run #128 and #129, `runner_id=0` and `steps=[]`. These records are
 provider diagnostics, not application/test/lint/build/Playwright failure
 evidence, and they do not supersede the accepted exact-candidate hosted proof.
 
-### 16.6 Durable closure and cleanup boundary
+### 16.6 Durable closure and exact-guarded branch cleanup
 
-This docs-only commit is the M7 post-merge durable-state closure. Because a
-commit cannot embed its own identity without changing it, resolve the exact
-closure SHA/tree from Git history after landing.
+Post-merge durable-state closure landed as:
 
-Authorized closure scope is exactly:
+- commit:
+  `2e69f354c1134acbf9e2beb0c647f39a84499325`;
+- tree:
+  `fbc57302af2de73bbaa18edc276829d3c86d0dd6`;
+- parent:
+  `f56b413f97742946b51e00a24b55f806cc5452f8`;
+- scope:
+  exactly the seven approved durable documentation files.
 
-```text
-AGENTS.md
-README.md
-docs/README.md
-docs/api/api-contract.md
-docs/architecture/ARCHITECTURE.md
-docs/development/CURRENT_STATE.md
-docs/testing/testing-strategy.md
-```
+The subsequent Human-authorized implementation-branch cleanup used exact
+fail-closed guards:
 
-It changes no application code, tests, workflow, frozen contract, ADR,
-migration, dependency, lockfile, runtime, proof repository, or provider
-configuration. It does not require fresh semantic proof or runtime acceptance.
+1. durable Product `main` exactly
+   `2e69f354c1134acbf9e2beb0c647f39a84499325`;
+2. historical implementation branch exactly
+   `m7-alignment-mutation-concurrency-hardening@d769e018064dd1d6a529f7e043c7163b7e92c3ed`;
+3. PR #16 still `closed / merged`, with historical head `d769e018...`;
+4. proof repository `main` exactly
+   `e749a0356d53db05961e6cb538bff605e53e79ec`.
 
-The implementation branch remains retained at
-`m7-alignment-mutation-concurrency-hardening@d769e018064dd1d6a529f7e043c7163b7e92c3ed`.
+All guards passed. The operator deleted only
+`m7-alignment-mutation-concurrency-hardening`. Immediate post-delete
+verification showed:
 
-A future branch deletion requires a separate Human authorization guarded by:
+- remote implementation branch: **ABSENT**;
+- durable Product `main`:
+  **UNCHANGED** at `2e69f354c1134acbf9e2beb0c647f39a84499325`;
+- proof repository `main`:
+  **UNCHANGED** at `e749a0356d53db05961e6cb538bff605e53e79ec`;
+- PR #16:
+  still **CLOSED / MERGED**.
 
-1. durable `main` exactly equal to the landed closure commit;
-2. exact implementation branch equal to
-   `d769e018064dd1d6a529f7e043c7163b7e92c3ed`;
-3. PR #16 still merged;
-4. proof repository `main` still
-   `e749a0356d53db05961e6cb538bff605e53e79ec`;
-5. deletion of only that implementation branch;
-6. post-delete verification that durable `main` is unchanged and the branch
-   is absent.
+Independent GitHub readback then confirmed the same durable `main`, unchanged
+proof `main`, unchanged PR #16 merge state, and an empty branch search for the
+historical M7 implementation branch.
+
+This final five-file docs-only record closes the lifecycle bookkeeping created
+by branch deletion. It changes no application code, tests, architecture,
+contract, ADR, migration, dependency, lockfile, workflow, proof repository, or
+provider state. Its own exact commit/tree must be resolved from Git history
+after landing rather than embedded self-referentially. No fresh hosted proof or
+runtime acceptance is required.
 
 ### 16.7 Retention
 
 Retain PR #16, semantic candidate `c7aae26e...`, terminal reviewed PR head
-`d769e018...`, proof source `e749a035...`, deterministic archive/checksum,
-authorization hash, GitHub provider diagnostics, Gate 3 exact-tree evidence,
-and historical predecessor proof chronology. Earlier milestone sections retain
-the evidence status applicable to their own epochs.
+`d769e018...`, durable closure `2e69f354...` / tree `fbc57302...`, proof
+source `e749a035...`, deterministic archive/checksum, authorization hash,
+GitHub provider diagnostics, Gate 3 exact-tree evidence, branch-cleanup guards
+and absence verification, and historical predecessor proof chronology. The
+deleted implementation branch remains addressable historically through exact
+commit SHA `d769e018...`. Earlier milestone sections retain the evidence status
+applicable to their own epochs.
 

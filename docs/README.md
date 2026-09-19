@@ -20,16 +20,21 @@ not authoritative engineering state.
 
 ## Current milestone state
 
-**M7 — Alignment Mutation Concurrency Hardening: MERGED / GATE 3 PASS /
-DURABLE-STATE CLOSURE RECORDED.**
+**M7 — Alignment Mutation Concurrency Hardening: COMPLETE / MERGED / CLOSED.**
 
 PR #16 merged by rebase. The terminal reviewed PR-head tree
 `d28126bca178db8ee9d17c737b820eacf6403d34` is exactly identical to
-post-rebase `main@f56b413f97742946b51e00a24b55f806cc5452f8`, so M7 Gate 3 is
-**PASS / EXACT**. The implementation branch remains retained pending separate
-exact-guarded cleanup authorization. See
-`docs/development/CURRENT_STATE.md` for Gate 2 proof provenance and lifecycle
-details.
+post-rebase implementation `main@f56b413f97742946b51e00a24b55f806cc5452f8`,
+so M7 Gate 3 is **PASS / EXACT**. Post-merge durable-state closure is
+`2e69f354c1134acbf9e2beb0c647f39a84499325` (tree
+`fbc57302af2de73bbaa18edc276829d3c86d0dd6`). Exact-guarded cleanup deleted
+only historical branch
+`m7-alignment-mutation-concurrency-hardening@d769e018064dd1d6a529f7e043c7163b7e92c3ed`;
+the remote branch is absent and durable `main` / proof `main` remained
+unchanged.
+
+See `docs/development/CURRENT_STATE.md` for Gate 2 proof provenance and full
+lifecycle details.
 
 M0.7's historical External Infrastructure Exception remains recorded in its
 own closeout documents. Historical evidence classifications are not rewritten

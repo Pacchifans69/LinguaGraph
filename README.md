@@ -11,9 +11,10 @@ schema structure.
 
 ## Current milestone
 
-M7 — Alignment Mutation Concurrency Hardening — is **MERGED / GATE 3 PASS /
-DURABLE-STATE CLOSURE RECORDED**. PR #16 was merged by repository-permitted
-rebase after explicit Human Merge Decision.
+M7 — Alignment Mutation Concurrency Hardening — is **COMPLETE / MERGED /
+CLOSED**. PR #16 merged by repository-permitted rebase after explicit Human
+Merge Decision; Gate 3 passed by exact tree identity; post-merge durable-state
+closure and exact-guarded implementation-branch cleanup are complete.
 
 Durable M7 coordinates:
 
@@ -34,9 +35,17 @@ Durable M7 coordinates:
   `d28126bca178db8ee9d17c737b820eacf6403d34`);
 - Gate 3 terminal-reviewed-PR-head → post-rebase-main tree identity:
   **PASS / EXACT**;
-- implementation branch:
-  `m7-alignment-mutation-concurrency-hardening@d769e018064dd1d6a529f7e043c7163b7e92c3ed`
-  remains retained pending separate exact-guarded cleanup authorization.
+- post-merge durable-state closure:
+  `2e69f354c1134acbf9e2beb0c647f39a84499325` (tree
+  `fbc57302af2de73bbaa18edc276829d3c86d0dd6`);
+- historical implementation branch:
+  `m7-alignment-mutation-concurrency-hardening@d769e018064dd1d6a529f7e043c7163b7e92c3ed`;
+- implementation-branch cleanup:
+  **PASS / EXACT-GUARDED / REMOTE BRANCH ABSENT**;
+- post-cleanup durable `main`:
+  unchanged at `2e69f354c1134acbf9e2beb0c647f39a84499325`;
+- post-cleanup proof repository `main`:
+  unchanged at `e749a0356d53db05961e6cb538bff605e53e79ec`.
 
 M7 Gate 2 authority remains bound to exact semantic candidate
 `c7aae26e...`. Accepted successor proof source is
@@ -58,15 +67,22 @@ were verified absent.
 The terminal pre-PR evidence-ledger bridge `M7-LSR-01` remains historical
 provenance: it did not claim hosted proof for its own docs-only successor.
 PR #16 final Human Review passed with zero blocking findings before merge.
-Post-merge push run #129 / `35442844140` again failed before any
-repository-defined step (`runner_id=0`, `steps=[]`); it is retained as a
-provider/pre-step diagnostic and does not supersede accepted Gate 2 evidence.
+Post-merge push run #129 / `35442844140` and durable-closure push run #130 /
+`35444044021` both failed before repository-defined steps
+(`runner_id=0`, `steps=[]`); they remain provider/pre-step diagnostics and
+do not supersede accepted Gate 2 evidence.
 
-This post-merge durable-state closure is docs-only bookkeeping. Its exact
-closure SHA/tree must be resolved from Git history after landing rather than
+The Human-authorized cleanup fetched exact remote guards before deletion:
+durable `main@2e69f354...`, implementation branch `d769e018...`, merged
+PR #16, and proof `main@e749a035...`. It deleted only
+`m7-alignment-mutation-concurrency-hardening`. Post-delete verification
+confirmed branch absence, unchanged durable `main`, and unchanged proof
+`main`; an independent GitHub readback also returned no matching branch.
+
+This final branch-cleanup durable record is docs-only bookkeeping. Its own
+exact commit/tree must be resolved from Git history after landing rather than
 embedded self-referentially. It requires no fresh hosted proof or runtime
-acceptance. M7 is not yet **COMPLETE / CLOSED** because the retained
-implementation branch still requires separate exact-guarded deletion.
+acceptance.
 
 The previous completed implementation checkpoint is M6 — Mode-Oriented
 Workbench Information Architecture — **COMPLETE / MERGED / CLOSED**. Gate 3
