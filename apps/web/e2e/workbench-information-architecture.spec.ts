@@ -243,7 +243,7 @@ test('M6 task deck preserves canonical selection, mounted sessions and mode-inde
   const activate = page.getByRole('button', { name: /Activate alignment/ });
   await expect(activate).toBeVisible();
   await activate.click();
-  await expect(page.getByTestId('connector-overlay')).toBeVisible();
+  await expectConnectorsBoundToCanonicalPanels(page);
 
   const persisted = await (await request.get(`/api/v1/documents/${document.id}/workspace`)).json() as {
     spans: Array<{ text_version_id: string; start_offset: number; end_offset: number; exact_text: string }>;
@@ -272,10 +272,10 @@ test('M6 task deck preserves canonical selection, mounted sessions and mode-inde
   const reloadedActivate = page.getByRole('button', { name: /Activate alignment/ });
   await expect(reloadedActivate).toBeVisible();
   await reloadedActivate.click();
-  await expect(page.getByTestId('connector-overlay')).toBeVisible();
+  await expectConnectorsBoundToCanonicalPanels(page);
 
   await page.getByRole('tab', { name: 'Sentence' }).click();
-  await expect(page.getByTestId('connector-overlay')).toBeVisible();
+  await expectConnectorsBoundToCanonicalPanels(page);
   const englishSession = page.locator(`[data-session-key="${english.id}:sentence"]`);
   await englishSession.getByRole('button', { name: 'Start manual' }).click();
   await expect(englishSession.getByText('Unsaved preview')).toBeVisible();
@@ -396,20 +396,15 @@ async function expectWorkbenchToolsReachable(page: Page) {
 }
 
 /**
- * Relational connector invariant (M6-HRA-D01 sections 6 and 8E). While an
- * effective alignment is active:
- *
- * - every connector line stays inside the `.panels-container` coordinate
- *   container (the overlay is NOT reparented);
- * - each line's anchor resolves inside a DIFFERENT canonical panel body, so
- *   the binding survives geometry changes;
- * - both lines share the single computed group hub, which is the centroid of
- *   the two member anchors.
- *
- * Returns null when satisfied, otherwise the violated invariant.
+ * M8 connector invariant. Routes start on owning panel perimeters, remain
+ * orthogonal and never enter any visible panel-slot interior, while every
+ * visible member route converges on one shared hub.
  */
-async function connectorBindingViolation(page: Page): Promise<string | null> {
-  return await page.evaluate(() => {
+async function connectorBindingViolation(
+  page: Page,
+  expectedRoutes: number,
+): Promise<string | null> {
+  return await page.evaluate(({ expectedRoutes }) => {
     interface Point {
       x: number;
       y: number;
@@ -420,11 +415,39 @@ async function connectorBindingViolation(page: Page): Promise<string | null> {
       right: number;
       bottom: number;
     }
+    const tolerance = 1.5;
     const within = (point: Point, rect: Bounds): boolean =>
-      point.x >= rect.left - 1 &&
-      point.x <= rect.right + 1 &&
-      point.y >= rect.top - 1 &&
-      point.y <= rect.bottom + 1;
+      point.x >= rect.left - tolerance &&
+      point.x <= rect.right + tolerance &&
+      point.y >= rect.top - tolerance &&
+      point.y <= rect.bottom + tolerance;
+    const onBoundary = (point: Point, rect: Bounds): boolean =>
+      within(point, rect) &&
+      (Math.abs(point.x - rect.left) <= tolerance ||
+        Math.abs(point.x - rect.right) <= tolerance ||
+        Math.abs(point.y - rect.top) <= tolerance ||
+        Math.abs(point.y - rect.bottom) <= tolerance);
+    const entersInterior = (a: Point, b: Point, rect: Bounds): boolean => {
+      if (Math.abs(a.x - b.x) <= tolerance) {
+        if (!(a.x > rect.left + tolerance && a.x < rect.right - tolerance)) {
+          return false;
+        }
+        return (
+          Math.max(Math.min(a.y, b.y), rect.top + tolerance) <
+          Math.min(Math.max(a.y, b.y), rect.bottom - tolerance)
+        );
+      }
+      if (Math.abs(a.y - b.y) <= tolerance) {
+        if (!(a.y > rect.top + tolerance && a.y < rect.bottom - tolerance)) {
+          return false;
+        }
+        return (
+          Math.max(Math.min(a.x, b.x), rect.left + tolerance) <
+          Math.min(Math.max(a.x, b.x), rect.right - tolerance)
+        );
+      }
+      return true;
+    };
 
     const overlay = document.querySelector('[data-testid="connector-overlay"]');
     if (!(overlay instanceof SVGSVGElement)) {
@@ -434,9 +457,9 @@ async function connectorBindingViolation(page: Page): Promise<string | null> {
     if (overlayRect.width <= 0 || overlayRect.height <= 0) {
       return 'connector overlay has no geometry';
     }
-    const bodies = Array.from(document.querySelectorAll('.text-panel-body'))
-      .map((body) => {
-        const rect = body.getBoundingClientRect();
+    const panels = Array.from(document.querySelectorAll('.panel-slot'))
+      .map((panel) => {
+        const rect = panel.getBoundingClientRect();
         return {
           left: rect.left - overlayRect.left,
           top: rect.top - overlayRect.top,
@@ -445,69 +468,92 @@ async function connectorBindingViolation(page: Page): Promise<string | null> {
         };
       })
       .filter((rect) => rect.right > rect.left && rect.bottom > rect.top);
-    if (bodies.length < 2) {
-      return 'fewer than two canonical panel bodies carry geometry';
+    if (panels.length < 2) {
+      return 'fewer than two canonical panel slots carry geometry';
     }
-    const endpoints = Array.from(overlay.querySelectorAll('.connector-line')).map((line) => {
-      const read = (name: string): number => Number(line.getAttribute(name));
-      return {
-        anchor: { x: read('x1'), y: read('y1') },
-        hub: { x: read('x2'), y: read('y2') },
-      };
-    });
-    if (endpoints.length !== 2) {
-      return `expected 2 connector lines for 2 visible members, saw ${endpoints.length}`;
+
+    const routes = Array.from(overlay.querySelectorAll('.connector-route')).map(
+      (route) => {
+        const points = (route.getAttribute('points') ?? '')
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((pair) => {
+            const [x, y] = pair.split(',').map(Number);
+            return { x, y };
+          });
+        return { points };
+      },
+    );
+    if (routes.length !== expectedRoutes) {
+      return `expected ${expectedRoutes} connector routes, saw ${routes.length}`;
     }
+
     const bounds: Bounds = {
       left: 0,
       top: 0,
       right: overlayRect.width,
       bottom: overlayRect.height,
     };
-    for (const { anchor, hub } of endpoints) {
-      if (!within(anchor, bounds)) {
-        return `anchor ${anchor.x},${anchor.y} escapes the panels-container coordinate space`;
+    let sharedHub: Point | null = null;
+    for (const route of routes) {
+      if (route.points.length < 2) {
+        return 'a connector route has fewer than two points';
       }
-      if (!within(hub, bounds)) {
-        return `hub ${hub.x},${hub.y} escapes the panels-container coordinate space`;
+      const port = route.points[0]!;
+      const hub = route.points[route.points.length - 1]!;
+      if (!within(port, bounds) || !within(hub, bounds)) {
+        return 'a connector route escapes the panels-container coordinate space';
       }
-    }
-    const owningBodies = endpoints.map(({ anchor }) =>
-      bodies.filter((rect) => within(anchor, rect)),
-    );
-    if (owningBodies.some((owned) => owned.length === 0)) {
-      return 'a connector anchor does not resolve inside any canonical panel body';
-    }
-    const first = owningBodies[0]!;
-    const second = owningBodies[1]!;
-    if (first.some((rect) => second.includes(rect))) {
-      return 'both connector anchors resolve to the same canonical panel';
-    }
-    const lineOne = endpoints[0]!;
-    const lineTwo = endpoints[1]!;
-    if (
-      Math.abs(lineOne.hub.x - lineTwo.hub.x) > 1 ||
-      Math.abs(lineOne.hub.y - lineTwo.hub.y) > 1
-    ) {
-      return 'the two connector lines do not share one group hub';
-    }
-    const expectedHubX = (lineOne.anchor.x + lineTwo.anchor.x) / 2;
-    const expectedHubY = (lineOne.anchor.y + lineTwo.anchor.y) / 2;
-    if (
-      Math.abs(lineOne.hub.x - expectedHubX) > 1.5 ||
-      Math.abs(lineOne.hub.y - expectedHubY) > 1.5
-    ) {
-      return 'the group hub is not the centroid of the two member anchors';
+      if (!panels.some((panel) => onBoundary(port, panel))) {
+        return 'a connector route does not start on a canonical panel perimeter';
+      }
+      if (panels.some((panel) =>
+        hub.x > panel.left + tolerance &&
+        hub.x < panel.right - tolerance &&
+        hub.y > panel.top + tolerance &&
+        hub.y < panel.bottom - tolerance
+      )) {
+        return 'the shared connector hub lies inside a canonical panel';
+      }
+      if (
+        sharedHub !== null &&
+        (Math.abs(sharedHub.x - hub.x) > tolerance ||
+          Math.abs(sharedHub.y - hub.y) > tolerance)
+      ) {
+        return 'connector routes do not share one group hub';
+      }
+      sharedHub = hub;
+
+      for (let index = 1; index < route.points.length; index += 1) {
+        const a = route.points[index - 1]!;
+        const b = route.points[index]!;
+        if (
+          Math.abs(a.x - b.x) > tolerance &&
+          Math.abs(a.y - b.y) > tolerance
+        ) {
+          return 'a connector route contains a non-orthogonal segment';
+        }
+        if (panels.some((panel) => entersInterior(a, b, panel))) {
+          return 'a connector route enters a canonical panel interior';
+        }
+      }
     }
     return null;
-  });
+  }, { expectedRoutes });
 }
 
-async function expectConnectorsBoundToCanonicalPanels(page: Page) {
-  await expect(page.getByTestId('connector-overlay')).toBeVisible();
-  await expect(page.locator('.connector-line')).toHaveCount(2);
+async function expectConnectorsBoundToCanonicalPanels(
+  page: Page,
+  expectedRoutes = 2,
+) {
+  await expectConnectorsBoundToCanonicalPanels(page);
+  await expect(page.locator('.connector-route')).toHaveCount(expectedRoutes);
   await expect
-    .poll(async () => await connectorBindingViolation(page), { timeout: 10_000 })
+    .poll(
+      async () => await connectorBindingViolation(page, expectedRoutes),
+      { timeout: 10_000 },
+    )
     .toBeNull();
 }
 
@@ -863,6 +909,83 @@ test('M6-HRA-D01 keeps connectors bound across a viewport reflow', async ({ page
   // Back to the acceptance width: the connector set stays valid and bound.
   await page.setViewportSize({ width: 1440, height: 900 });
   await expectConnectorsBoundToCanonicalPanels(page);
+});
+
+test('M8 keeps a complete obstacle-free hyperedge across 4/3-panel and stacked layouts', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const document = await createDocument(request, 'M8 connector matrix');
+  const english = await createVersion(
+    request,
+    document.id,
+    'M8 Route English',
+    'en',
+    'Hello brave world.',
+  );
+  const german = await createVersion(
+    request,
+    document.id,
+    'M8 Route German',
+    'de',
+    'Hallo Welt.',
+  );
+  const french = await createVersion(
+    request,
+    document.id,
+    'M8 Route French',
+    'fr',
+    'Bonjour monde.',
+  );
+  const spanish = await createVersion(
+    request,
+    document.id,
+    'M8 Route Spanish',
+    'es',
+    'Hola mundo.',
+  );
+  const created = await request.post(`/api/v1/documents/${document.id}/alignments`, {
+    data: {
+      members: [
+        { text_version_id: english.id, start: 0, end: 5 },
+        { text_version_id: english.id, start: 6, end: 11 },
+        { text_version_id: german.id, start: 0, end: 5 },
+        { text_version_id: french.id, start: 0, end: 7 },
+        { text_version_id: spanish.id, start: 0, end: 4 },
+      ],
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+
+  await page.goto(`/documents/${document.id}/workspace`);
+  for (const label of [
+    'M8 Route English',
+    'M8 Route German',
+    'M8 Route French',
+    'M8 Route Spanish',
+  ]) {
+    await openVersion(page, label);
+  }
+  await page.getByRole('button', { name: /Activate alignment/ }).click();
+
+  await expect(page.locator('.panel-slot')).toHaveCount(4);
+  await expectConnectorsBoundToCanonicalPanels(page, 5);
+  await expectNoHorizontalOverflow(page);
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expectConnectorsBoundToCanonicalPanels(page, 5);
+  await expectNoHorizontalOverflow(page);
+
+  await page.setViewportSize({ width: 720, height: 900 });
+  await expectConnectorsBoundToCanonicalPanels(page, 5);
+  await expectNoHorizontalOverflow(page);
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole('button', { name: 'Hide M8 Route Spanish panel' }).click();
+  await expect(page.locator('.panel-slot')).toHaveCount(3);
+  await expectConnectorsBoundToCanonicalPanels(page, 4);
+
+  await page.getByRole('button', { name: 'Open M8 Route Spanish' }).click();
+  await expect(page.locator('.panel-slot')).toHaveCount(4);
+  await expectConnectorsBoundToCanonicalPanels(page, 5);
 });
 
 // ---------------------------------------------------------------------------
@@ -1264,17 +1387,17 @@ test('M6 keeps connectors bound across mode, reorder and hide/reopen', async ({ 
   await openVersion(page, 'M6 G English');
   await openVersion(page, 'M6 G German');
   await page.getByRole('button', { name: /Activate alignment/ }).click();
-  await expect(page.getByTestId('connector-overlay')).toBeVisible();
+  await expectConnectorsBoundToCanonicalPanels(page);
 
   // Linguistic modes keep the mode-independent connector visualization.
   await page.getByRole('tab', { name: 'Lemma' }).click();
-  await expect(page.getByTestId('connector-overlay')).toBeVisible();
+  await expectConnectorsBoundToCanonicalPanels(page);
   const englishLemma = session(page, english.id, 'lemma');
   await expect(englishLemma).toContainText('Hello');
 
   // Reorder keeps the active target, the mounted session and the connectors.
   await page.getByRole('button', { name: 'Move M6 G German left' }).click();
-  await expect(page.getByTestId('connector-overlay')).toBeVisible();
+  await expectConnectorsBoundToCanonicalPanels(page);
   await expect(page.getByRole('combobox', { name: 'Active text version' })).toHaveValue(english.id);
   await expect(session(page, english.id, 'lemma')).toContainText('Hello');
 
@@ -1283,7 +1406,7 @@ test('M6 keeps connectors bound across mode, reorder and hide/reopen', async ({ 
   await expect(page.getByRole('button', { name: 'Open M6 G English' })).toBeVisible();
   await page.getByRole('button', { name: 'Open M6 G English' }).click();
   await expect(page.locator('.panel-slot', { hasText: 'M6 G English' })).toBeVisible();
-  await expect(page.getByTestId('connector-overlay')).toBeVisible();
+  await expectConnectorsBoundToCanonicalPanels(page);
   await expect(session(page, english.id, 'lemma')).toContainText('Hello');
 });
 

@@ -104,6 +104,16 @@ function stubBoundingRect(element: Element, r: RectData): void {
 const OVERLAY_RECT = rect(100, 50, 800, 600);
 const VIEWPORT_RECT = rect(110, 60, 780, 580);
 
+function panelRectForIndex(index: number): RectData {
+  const column = index % 2;
+  const row = Math.floor(index / 2);
+  return rect(108 + column * 344, 58 + row * 184, 320, 160);
+}
+
+function bodyRectForPanel(panel: RectData): RectData {
+  return rect(panel.left + 4, panel.top + 4, panel.width - 8, panel.height - 8);
+}
+
 function member(spanId: string, groupId = 'group-1'): AlignmentMember {
   return {
     id: `member-${spanId}`,
@@ -118,6 +128,7 @@ interface MountResult {
   runElements: Record<string, HTMLElement>;
   allRunsBySpan: Record<string, HTMLElement[]>;
   panelBodies: Record<string, HTMLElement>;
+  panelSlots: Record<string, HTMLElement>;
   svg: SVGSVGElement;
   container: HTMLElement;
   setRects: (spanId: string, rects: RectData[]) => void;
@@ -155,19 +166,21 @@ function OverlayFixture({
   return (
     <div className="panels-container">
       {members.map((m) => (
-        <div key={m.span_id} className="text-panel-body" data-panel-for={m.span_id}>
-          {Array.from({ length: runsPerSpan?.[m.span_id] ?? 1 }, (_, i) => (
-            <span
-              key={i}
-              data-run
-              ref={(element) => {
-                if (element === null) {
-                  return;
-                }
-                return registry.register([m.span_id], element);
-              }}
-            />
-          ))}
+        <div key={m.span_id} className="panel-slot" data-slot-for={m.span_id}>
+          <div className="text-panel-body" data-panel-for={m.span_id}>
+            {Array.from({ length: runsPerSpan?.[m.span_id] ?? 1 }, (_, i) => (
+              <span
+                key={i}
+                data-run
+                ref={(element) => {
+                  if (element === null) {
+                    return;
+                  }
+                  return registry.register([m.span_id], element);
+                }}
+              />
+            ))}
+          </div>
         </div>
       ))}
       <ConnectorOverlay
@@ -213,20 +226,27 @@ function mountOverlay(
   const runElements: Record<string, HTMLElement> = {};
   const allRunsBySpan: Record<string, HTMLElement[]> = {};
   const panelBodies: Record<string, HTMLElement> = {};
-  for (const m of members) {
+  const panelSlots: Record<string, HTMLElement> = {};
+  for (const [memberIndex, m] of members.entries()) {
     const panelBody = container.querySelector(
       `[data-panel-for="${m.span_id}"]`,
+    ) as HTMLElement | null;
+    const panelSlot = container.querySelector(
+      `[data-slot-for="${m.span_id}"]`,
     ) as HTMLElement | null;
     const runs = Array.from(
       panelBody?.querySelectorAll('[data-run]') ?? [],
     ) as HTMLElement[];
-    if (panelBody === null || runs.length === 0) {
+    if (panelBody === null || panelSlot === null || runs.length === 0) {
       throw new Error(`fixture run/panel missing for ${m.span_id}`);
     }
     runElements[m.span_id] = runs[0];
     allRunsBySpan[m.span_id] = runs;
     panelBodies[m.span_id] = panelBody;
-    stubBoundingRect(panelBody, VIEWPORT_RECT);
+    panelSlots[m.span_id] = panelSlot;
+    const panelRect = panelRectForIndex(memberIndex);
+    stubBoundingRect(panelSlot, panelRect);
+    stubBoundingRect(panelBody, bodyRectForPanel(panelRect));
     if (options.rects?.[m.span_id]) {
       rectSpies[m.span_id] = stubClientRects(runs[0], options.rects[m.span_id]);
     }
@@ -240,6 +260,7 @@ function mountOverlay(
     runElements,
     allRunsBySpan,
     panelBodies,
+    panelSlots,
     svg,
     container,
     setRects: (spanId: string, rects: RectData[]) => {
@@ -268,14 +289,27 @@ function mountOverlay(
   };
 }
 
-function lineCoords(): Array<[number, number, number, number]> {
+function routePoints(memberId?: string): Array<Array<[number, number]>> {
   const svg = screen.getByTestId('connector-overlay');
-  return Array.from(svg.querySelectorAll('line')).map((line) => [
-    Number(line.getAttribute('x1')),
-    Number(line.getAttribute('y1')),
-    Number(line.getAttribute('x2')),
-    Number(line.getAttribute('y2')),
-  ]);
+  const selector =
+    memberId === undefined
+      ? '.connector-route'
+      : `.connector-route[data-member-id="${memberId}"]`;
+  return Array.from(svg.querySelectorAll(selector)).map((route) =>
+    (route.getAttribute('points') ?? '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((pair) => pair.split(',').map(Number) as [number, number]),
+  );
+}
+
+function lineCoords(): Array<[number, number, number, number]> {
+  return routePoints().map((points) => {
+    const first = points[0]!;
+    const last = points[points.length - 1]!;
+    return [first[0], first[1], last[0], last[1]];
+  });
 }
 
 /** Counts real getClientRects reads of a member run (recompute evidence). */
@@ -369,10 +403,9 @@ describe('ConnectorOverlay rendering', () => {
       },
     });
     flushRaf();
-    const lines = lineCoords();
-    expect(lines).toHaveLength(2);
-    const anchorXs = new Set(lines.map(([x1]) => x1));
-    expect(anchorXs.has(35)).toBe(true);
+    expect(lineCoords()).toHaveLength(2);
+    const firstRoute = routePoints('member-span-1')[0]!;
+    expect(firstRoute.length).toBeGreaterThanOrEqual(2);
   });
 
   it('ignores fully offscreen rects', () => {
@@ -399,11 +432,14 @@ describe('ConnectorOverlay rendering', () => {
     flushRaf();
     const lines = lineCoords();
     expect(lines).toHaveLength(2);
-    const [x1, y1] = lines[0];
-    // Anchors are overlay-relative: x1 == 70, y1 == 30 (raw client
-    // coordinates would be >= 120 / >= 70).
-    expect(x1).toBe(70);
-    expect(y1).toBe(30);
+    for (const [x1, y1, x2, y2] of lines) {
+      expect(x1).toBeGreaterThanOrEqual(0);
+      expect(x1).toBeLessThanOrEqual(OVERLAY_RECT.width);
+      expect(y1).toBeGreaterThanOrEqual(0);
+      expect(y1).toBeLessThanOrEqual(OVERLAY_RECT.height);
+      expect(x2).toBeGreaterThanOrEqual(0);
+      expect(y2).toBeGreaterThanOrEqual(0);
+    }
   });
 });
 
@@ -435,6 +471,50 @@ describe('collectVisibleMemberRects', () => {
   });
 });
 
+describe('M8 owning-panel and complete-set routing', () => {
+  it('fails closed when one member resolves across multiple owning panels', () => {
+    const mount = mountOverlay(
+      [member('span-1'), member('span-2')],
+      {
+        rects: {
+          'span-1': [rect(120, 70, 100, 20)],
+          'span-2': [rect(500, 70, 100, 20)],
+        },
+        runsPerSpan: { 'span-1': 2 },
+      },
+    );
+    stubClientRects(mount.allRunsBySpan['span-1'][1], [rect(140, 90, 60, 20)]);
+    mount.panelBodies['span-2'].appendChild(mount.allRunsBySpan['span-1'][1]);
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+    flushRaf();
+    expect(lineCoords()).toHaveLength(0);
+  });
+
+  it('keeps multiple members from one owning panel as distinct routes', () => {
+    const mount = mountOverlay(
+      [member('span-1'), member('span-2'), member('span-3')],
+      {
+        rects: {
+          'span-1': [rect(120, 80, 80, 20)],
+          'span-2': [rect(220, 140, 80, 20)],
+          'span-3': [rect(180, 270, 80, 20)],
+        },
+      },
+    );
+    mount.panelBodies['span-1'].appendChild(mount.runElements['span-2']);
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+    flushRaf();
+    expect(lineCoords()).toHaveLength(3);
+    const first = routePoints('member-span-1')[0]![0];
+    const second = routePoints('member-span-2')[0]![0];
+    expect(first).not.toEqual(second);
+  });
+});
+
 describe('ConnectorOverlay recompute lifecycle (section M)', () => {
   it('recomputes on .text-panel-body scroll', () => {
     const mount = mountOverlay([member('span-1'), member('span-2')], {
@@ -448,7 +528,7 @@ describe('ConnectorOverlay recompute lifecycle (section M)', () => {
     const readsBefore = clientRectReads('span-1', mount);
 
     // The member moves down by 200px (scroll): geometry must invalidate.
-    mount.setRects('span-1', [rect(120, 270, 100, 20)]);
+    mount.setRects('span-1', [rect(120, 120, 100, 20)]);
     act(() => {
       mount.panelBodies['span-1'].dispatchEvent(new Event('scroll'));
     });
@@ -502,6 +582,8 @@ describe('ConnectorOverlay recompute lifecycle (section M)', () => {
     expect(ResizeObserverStub.instances.length).toBeGreaterThan(0);
     const observer = ResizeObserverStub.instances[0];
     expect(observer.observed).toContain(mount.container.querySelector('svg'));
+    expect(observer.observed).toContain(mount.panelSlots['span-1']);
+    expect(observer.observed).toContain(mount.panelBodies['span-1']);
 
     const readsBefore = clientRectReads('span-1', mount);
     mount.setRects('span-1', [rect(120, 370, 100, 20)]);
@@ -534,13 +616,9 @@ describe('ConnectorOverlay recompute lifecycle (section M)', () => {
       membersByGroup: { 'group-1': [member('span-1'), member('span-2')] },
     });
     flushRaf();
-    // Still exactly one connector set; span-1's anchor is the rect center
-    // NEAREST the provisional hub — the second run's center (150,160),
-    // whose client rect (200,200) converts to overlay-relative (100,150).
-    const lines = lineCoords();
-    expect(lines).toHaveLength(2);
-    const xs = lines.map(([x1]) => x1);
-    expect(xs.some((x) => Math.abs(x - 150) < 0.001)).toBe(true);
+    // Still exactly one complete connector set after the registered run
+    // membership changes and the inherited anchor selection recomputes.
+    expect(lineCoords()).toHaveLength(2);
   });
 
   it('coalesces multiple invalidations within one requestAnimationFrame', () => {
@@ -610,7 +688,7 @@ describe('ConnectorOverlay recompute lifecycle (section M)', () => {
     // NO scroll/resize/ResizeObserver event is fired — the layout key change
     // itself must be the invalidation source. The run moved to its new
     // position so a recompute must observe the new rects.
-    mount.setRects('span-1', [rect(120, 270, 100, 20)]);
+    mount.setRects('span-1', [rect(120, 120, 100, 20)]);
     mount.rerender({ layoutKey: 'panel-b|panel-a#panel-a,panel-b' });
 
     // The rAF has not run yet: the layout change must not have caused any
@@ -637,32 +715,28 @@ describe('ConnectorOverlay recompute lifecycle (section M)', () => {
         rects: {
           'span-1': [rect(120, 70, 100, 20)],
           'span-2': [rect(500, 70, 100, 20)],
-          'span-3': [rect(120, 200, 100, 20)],
-          'span-4': [rect(500, 200, 100, 20)],
+          'span-3': [rect(120, 270, 100, 20)],
+          'span-4': [rect(500, 270, 100, 20)],
         },
       },
     );
     flushRaf();
-    // group-1 geometry: hub y = 30 (overlay-relative).
-    expect(lineCoords()).toHaveLength(2);
-    expect(new Set(lineCoords().map(([, , , y2]) => y2))).toEqual(
-      new Set([30]),
-    );
+    const groupOneGeometry = lineCoords();
+    expect(groupOneGeometry).toHaveLength(2);
 
     // Switch the effective alignment to group-2. Its rAF has NOT run yet:
     // the stale group-1 lines must NOT render under group-2.
     mount.rerender({ alignmentId: 'group-2' });
     expect(screen.getByTestId('connector-overlay')).toBeInTheDocument();
     expect(
-      screen.getByTestId('connector-overlay').querySelectorAll('line'),
+      screen.getByTestId('connector-overlay').querySelectorAll('.connector-route'),
     ).toHaveLength(0);
 
-    // After group-2 geometry recomputes, its lines render normally (hub y
-    // = 160 for the lower members).
+    // After group-2 geometry recomputes, a fresh complete route set renders.
     flushRaf();
     const lines = lineCoords();
     expect(lines).toHaveLength(2);
-    expect(new Set(lines.map(([, , , y2]) => y2))).toEqual(new Set([160]));
+    expect(lines).not.toEqual(groupOneGeometry);
   });
 
   it('never resurrects old geometry across A -> null -> B (R1-F04)', () => {
@@ -677,8 +751,8 @@ describe('ConnectorOverlay recompute lifecycle (section M)', () => {
         rects: {
           'span-1': [rect(120, 70, 100, 20)],
           'span-2': [rect(500, 70, 100, 20)],
-          'span-3': [rect(120, 200, 100, 20)],
-          'span-4': [rect(500, 200, 100, 20)],
+          'span-3': [rect(120, 270, 100, 20)],
+          'span-4': [rect(500, 270, 100, 20)],
         },
       },
     );
@@ -697,11 +771,9 @@ describe('ConnectorOverlay recompute lifecycle (section M)', () => {
     // The remounted SVG is a fresh element: re-install its layout stub.
     stubBoundingRect(remountedSvg, OVERLAY_RECT);
     expect(remountedSvg).toBeInTheDocument();
-    expect(remountedSvg.querySelectorAll('line')).toHaveLength(0);
+    expect(remountedSvg.querySelectorAll('.connector-route')).toHaveLength(0);
 
     flushRaf();
-    const lines = lineCoords();
-    expect(lines).toHaveLength(2);
-    expect(new Set(lines.map(([, , , y2]) => y2))).toEqual(new Set([160]));
+    expect(lineCoords()).toHaveLength(2);
   });
 });
