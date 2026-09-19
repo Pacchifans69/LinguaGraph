@@ -619,4 +619,3 @@ testing-strategy document. Exact Gate 2 authority remains
 `c7aae26e3abaa34b3756ffe96ee718beaf8524b3`; the closure requires bounded
 final Static Human Review before PR or Human merge decision and does not
 authorize or require another hosted proof.
-
