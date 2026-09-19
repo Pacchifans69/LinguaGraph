@@ -1,10 +1,11 @@
-# LinguaGraph — Testing Strategy (M6 durable implementation)
+# LinguaGraph — Testing Strategy (M7 pre-PR evidence state)
 
 This document describes the inherited M0/M1 testing architecture, M2/M3
 segmentation coverage, M4 lemma-annotation coverage, M5 coarse-POS coverage,
-M6 mode-oriented Workbench coverage,
-and the rules for what counts as evidence. It is descriptive, not a new authority: the accepted
-pre-implementation report and frozen milestone contracts remain authoritative.
+M6 mode-oriented Workbench coverage, M7 alignment-concurrency coverage, and
+the rules for what counts as evidence. It is descriptive, not a new authority:
+the accepted pre-implementation report and frozen milestone contracts remain
+authoritative.
 
 ## 1. Test levels
 
@@ -535,27 +536,44 @@ Project/ParallelDocument deletion remains audit-only. An audit failure that
 requires production changes is a Human STOP condition rather than implicit
 scope expansion.
 
-For exact implementation epoch
+For the predecessor implementation epoch
 `854137cd498569f7c3d770d3b82be51042080edd` (tree
-`7b5306fbd37a158cd1fb688fd050d20cfc5aec74`), those requirements were
-established by the Human-approved M7-specific External Infrastructure
-Exception `M7-EXI-01` after the canonical GitHub Actions attempt (#124 /
-`35422565869`) failed before repository-defined steps (`steps=[]`, logs
-unavailable / `BlobNotFound`). The exception waived only the execution
-environment and no semantic requirement.
+`7b5306fbd37a158cd1fb688fd050d20cfc5aec74`), the required M7 semantics were
+first established under the Human-approved M7-specific External Infrastructure
+Exception `M7-EXI-01` after canonical GitHub Actions run #124 /
+`35422565869` failed before repository-defined steps. Historical accepted
+proof source `4274eeae6211a1744ac63958a026ff95670f445b` (tree
+`2270f665b2659f88dcdd88bed216828e32e5a7ff`) remains exact evidence for that
+epoch, with archive SHA-256
+`2529a1e06989058c2a7acdac69374912ba2ccee32ba59c5438d2c746c8eed2a3`.
+It does not serve as the final successor proof.
 
-Accepted hosted proof:
+Static Human Diff Review then identified `M7-SHDR-F01` in the durable
+lifecycle documentation. The bounded four-file state-alignment correction
+created final semantic candidate
+`c7aae26e3abaa34b3756ffe96ee718beaf8524b3` (tree
+`1afa65b74a41ef43699425bbcc3ccbb30cb64658`, unique parent
+`854137cd498569f7c3d770d3b82be51042080edd`). Because that was a new Product
+tree, fresh exact-candidate evidence was required and was obtained.
+
+Canonical GitHub Actions successor run #125 / `35436499631` targeted exact
+`c7aae26e...` but failed before repository-defined steps
+(`runner_id=0`, `steps=[]`), providing no semantic evidence. The separately
+Human-authorized successor M7-EXI-01 path used this exact proof source:
 
 ```text
 proof repository  Pacchifans69/linguagraph-m7-proof
-proof_sha         4274eeae6211a1744ac63958a026ff95670f445b
-proof_tree        2270f665b2659f88dcdd88bed216828e32e5a7ff
+proof_sha         e749a0356d53db05961e6cb538bff605e53e79ec
+proof_tree        c8561e2624ea6c602a664eaf7393f8fb6fc74a8f
+proof_parent      186fc97b8213b9b2902ccabc1ff2efb937c333c2
 provider          Alibaba ECS
+instance          i-j6c6wx48n07xnkpoxsjc
 adapter rc        0
 formal outcome    PASS
 ```
 
-Established semantic/integrity result for that exact Product epoch:
+Established semantic/integrity result for exact Product candidate
+`c7aae26e...`:
 
 ```text
 Python 3.13 / Node 24 / PostgreSQL 18      PASS
@@ -571,26 +589,34 @@ dependency / candidate tree integrity      PASS
 disposable database cleanup                PASS
 final remote guards                        PASS
 off-host artifact acceptance               PASS
+artifact manifest                          PASS (47 / 47)
 ```
 
 Deterministic archive SHA-256:
 
-`2529a1e06989058c2a7acdac69374912ba2ccee32ba59c5438d2c746c8eed2a3`
+`159f07b0fc30fb0526228f1a781cf8f8daf533605853aba6b37817a283656ed0`
 
 Authorization SHA-256:
 
-`edab7ec43fb98874df4436e4eba9d77657b20464817d56dc5eb51e538375effe`
+`426760ce9875a6f127f73df1e4bc24c9f27fc67889d2363cf543ea1444618dcb`
 
-The authorization is **SPENT / MUST NOT REUSE**. After off-host artifact
-verification, the exact proof ECS and its system disk were released.
+The authorization is **SPENT / MUST NOT REUSE**. After off-host archive and
+manifest acceptance, exact proof ECS `i-j6c6wx48n07xnkpoxsjc` and exact
+system disk `d-j6c6wx48n07xnkpm461g` were released and both were verified
+absent.
 
-The proof-source README at `4274eeae...` retains preparation-time status text;
-the frozen source was not mutated after authorization. Post-run authority is
-the retained formal artifact archive plus the durable Product evidence ledger.
+The executable proof-source README at `e749a035...` intentionally retains its
+pre-run status because the exact source was frozen before authorization.
+Post-run authority is the retained formal archive plus the Product evidence
+ledger.
 
-Static Human Diff Review of `854137cd...` passed implementation
-correctness/scope but identified `M7-SHDR-F01`: stale durable lifecycle/Gate-2
-wording. The bounded four-file docs-only correction addressing that finding
-necessarily creates a new Product SHA/tree. Therefore the `854137cd...` proof
-does not automatically transfer to the docs-only successor; fresh
-exact-candidate proof remains required before PR readiness.
+Human Pre-PR lifecycle-state consistency review established `M7-LSR-01`:
+recording the already-established proof result in durable state necessarily
+creates a docs-only successor, so the terminal post-proof evidence-ledger
+closure is not treated as another semantic proof candidate. It may change only
+`README.md`, `AGENTS.md`, `docs/development/CURRENT_STATE.md`, and this
+testing-strategy document. Exact Gate 2 authority remains
+`c7aae26e3abaa34b3756ffe96ee718beaf8524b3`; the closure requires bounded
+final Static Human Review before PR or Human merge decision and does not
+authorize or require another hosted proof.
+

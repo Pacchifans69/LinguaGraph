@@ -54,12 +54,12 @@ implementation code:
 ## Current phase
 
 M7 — Alignment Mutation Concurrency Hardening — has completed bounded
-implementation and exact-implementation-epoch Gate 2 for
-`854137cd498569f7c3d770d3b82be51042080edd` (tree
-`7b5306fbd37a158cd1fb688fd050d20cfc5aec74`). Static Human Diff Review found
-one pre-PR durable-state documentation finding, `M7-SHDR-F01`; this bounded
-four-file docs-only state-alignment successor addresses that finding. No PR
-exists and merge is not authorized.
+implementation and fresh exact-candidate Gate 2 for semantic candidate
+`c7aae26e3abaa34b3756ffe96ee718beaf8524b3` (tree
+`1afa65b74a41ef43699425bbcc3ccbb30cb64658`, unique parent
+`854137cd498569f7c3d770d3b82be51042080edd`). M7 Gate 2 is **PASS /
+ESTABLISHED** for that exact candidate. No PR exists and merge is not
+authorized.
 
 The frozen M7 execution contract is
 `docs/development/M7_CONTRACT.md`. Approved pre-freeze durable base:
@@ -74,29 +74,47 @@ Implementation branch:
 
 `m7-alignment-mutation-concurrency-hardening`
 
-The Human authorized the exact-base implementation branch and bounded
-implementation under the frozen contract. The reviewed implementation epoch is
+The reviewed implementation epoch
 `854137cd498569f7c3d770d3b82be51042080edd`, unique parent
-`945d9d4bbe081eedd11088315b5007d80d8910d4`.
-
-M7-EXI-01 established Gate 2 for that exact epoch using
+`945d9d4bbe081eedd11088315b5007d80d8910d4`, retains historical exact-epoch
+M7-EXI-01 proof from
 `Pacchifans69/linguagraph-m7-proof@4274eeae6211a1744ac63958a026ff95670f445b`
-(tree `2270f665b2659f88dcdd88bed216828e32e5a7ff`) on Alibaba ECS. The formal
-one-shot result was `PASS`: backend `602 passed`, Vitest `519 passed`,
-Playwright `32 passed`, Alembic head `0006`, and off-host artifact acceptance
-PASS. The retained proof archive SHA-256 is
-`2529a1e06989058c2a7acdac69374912ba2ccee32ba59c5438d2c746c8eed2a3`.
-The proof authorization is spent and the exact proof ECS plus its system disk
-were released after evidence retrieval.
+(tree `2270f665b2659f88dcdd88bed216828e32e5a7ff`, archive SHA-256
+`2529a1e06989058c2a7acdac69374912ba2ccee32ba59c5438d2c746c8eed2a3`).
+That predecessor evidence is retained and does not substitute for the final
+successor proof.
 
-Because this docs-only successor changes the Product SHA/tree, the
-`854137cd...` exact-candidate proof does not automatically transfer to the
-successor. Fresh exact-candidate proof is therefore **PENDING** before PR
-readiness. This documentation update does not authorize proof execution,
-provider mutation, PR creation, or merge. M7 freezes
-`ParallelDocument → sorted participating TextVersion` as the canonical
-serialization order for scoped Alignment/TextVersion concurrency, with
-pre-lock reads limited to root locators and authoritative state re-resolved
+For exact successor `c7aae26e...`, canonical GitHub Actions run #125 /
+`35436499631` failed before repository-defined steps (`runner_id=0`,
+`steps=[]`) and supplied no semantic evidence. The separately authorized
+successor M7-EXI-01 proof used
+`Pacchifans69/linguagraph-m7-proof@e749a0356d53db05961e6cb538bff605e53e79ec`
+(tree `c8561e2624ea6c602a664eaf7393f8fb6fc74a8f`) and completed **PASS** on
+Alibaba ECS: backend `602 passed`, required M7 concurrency matrix `15 / 15`,
+Vitest `519 passed`, Playwright `32 passed / retries=0`, Alembic `0006`,
+dependency/tree integrity PASS, cleanup PASS, and off-host artifact acceptance
+PASS. The deterministic archive SHA-256 is
+`159f07b0fc30fb0526228f1a781cf8f8daf533605853aba6b37817a283656ed0`;
+manifest verification is **47 / 47**. Authorization SHA-256
+`426760ce9875a6f127f73df1e4bc24c9f27fc67889d2363cf543ea1444618dcb` is
+**SPENT / MUST NOT REUSE**. Exact proof ECS `i-j6c6wx48n07xnkpoxsjc` and
+system disk `d-j6c6wx48n07xnkpm461g` were released and independently verified
+absent after off-host evidence acceptance.
+
+`M7-SHDR-F01` is closed by the bounded docs-only state-alignment successor.
+Human Pre-PR lifecycle-state consistency review then established `M7-LSR-01`
+for the unavoidable post-proof status update. This terminal evidence-ledger
+closure may change only `README.md`, `AGENTS.md`,
+`docs/development/CURRENT_STATE.md`, and
+`docs/testing/testing-strategy.md`. It is not a new semantic proof candidate:
+formal Gate 2 authority remains exact `c7aae26e...`, and no hosted rerun is
+required merely to record the already-established result. The closure must
+receive bounded final Static Human Review before PR creation or Human merge
+decision.
+
+M7 freezes `ParallelDocument → sorted participating TextVersion` as the
+canonical serialization order for scoped Alignment/TextVersion concurrency,
+with pre-lock reads limited to root locators and authoritative state re-resolved
 under locks. Project/ParallelDocument deletion remains audit-only unless
 evidence is returned for separate Human scope review.
 
