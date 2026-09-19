@@ -11,10 +11,13 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ## 0. Current durable status
 
-M7 — Alignment Mutation Concurrency Hardening — is **IMPLEMENTATION
-AUTHORIZED / IN PROGRESS** on
-`m7-alignment-mutation-concurrency-hardening`. Gate 2 is not yet established,
-there is no PR, and merge is not authorized.
+M7 — Alignment Mutation Concurrency Hardening — has completed bounded
+implementation and exact-implementation-epoch Gate 2 for
+`854137cd498569f7c3d770d3b82be51042080edd`. Static Human Diff Review passed
+implementation correctness/scope and identified one blocking pre-PR
+durable-state documentation finding, `M7-SHDR-F01`. This bounded four-file
+docs-only state-alignment successor addresses that finding. There is no PR and
+merge is not authorized.
 
 M7 freeze coordinates:
 
@@ -32,7 +35,50 @@ M7 freeze coordinates:
 - implementation:
   **HUMAN AUTHORIZED / BOUNDED BY M7_CONTRACT.md**;
 - implementation candidate:
-  **IN PROGRESS / exact candidate not yet frozen**;
+  exact reviewed / independently proven implementation epoch
+  `854137cd498569f7c3d770d3b82be51042080edd`; tree
+  `7b5306fbd37a158cd1fb688fd050d20cfc5aec74`; unique parent
+  `945d9d4bbe081eedd11088315b5007d80d8910d4`;
+- exact-epoch Gate 2:
+  **PASS / ESTABLISHED** under the Human-approved M7-specific External
+  Infrastructure Exception `M7-EXI-01`;
+- canonical GitHub Actions exact-candidate attempt:
+  Product run #124 / `35422565869`, exact head `854137cd...`, repository-defined
+  job steps `[]`, logs unavailable / `BlobNotFound`; classified provider /
+  pre-step failure and providing no semantic evidence;
+- accepted hosted proof:
+  `Pacchifans69/linguagraph-m7-proof@4274eeae6211a1744ac63958a026ff95670f445b`;
+  proof tree `2270f665b2659f88dcdd88bed216828e32e5a7ff`;
+  Alibaba ECS formal one-shot result **PASS**;
+- semantic counts:
+  backend `602 passed` with zero required skips; Vitest `35 files / 519 passed`;
+  Playwright `32 passed / retries=0`; required M7 concurrency matrix `15 / 15`
+  present in retained JUnit evidence;
+- migration/integrity:
+  Alembic head `0006`; empty → head/current/check PASS; dependency hashes,
+  candidate cleanliness, disposable-database cleanup, final remote/tree guards,
+  and artifact manifest PASS;
+- retained proof archive SHA-256:
+  `2529a1e06989058c2a7acdac69374912ba2ccee32ba59c5438d2c746c8eed2a3`;
+- authorization SHA-256:
+  `edab7ec43fb98874df4436e4eba9d77657b20464817d56dc5eb51e538375effe` —
+  **SPENT / MUST NOT REUSE**;
+- off-host artifact acceptance:
+  **PASS / exact archive hash match**;
+- provider lifecycle:
+  exact proof ECS `i-j6c13vpnkuq6xbbhyxzw` and exact system disk
+  `d-j6c13vpnkuq6xbbjtrb7` were released after evidence retrieval and off-host
+  verification; they are not retained proof infrastructure;
+- Static Human Diff Review:
+  implementation correctness/scope **PASS**; `M7-SHDR-F01` identified stale
+  lifecycle/Gate-2 wording in the durable four-file state surface; this
+  docs-only successor addresses that finding;
+- docs-only successor exactness:
+  this correction creates a new Product SHA/tree. Resolve its exact SHA/tree
+  from Git history after landing. The `854137cd...` proof is evidence only for
+  the exact implementation epoch and does **not** automatically transfer to
+  this successor; fresh exact-candidate proof is **PENDING** before PR
+  readiness;
 - PR:
   **NONE**;
 - migration:
@@ -56,6 +102,12 @@ Human-reviewed M7 contract decisions:
 - Project/ParallelDocument deletion:
   mandatory real-PostgreSQL audit only; production redesign requires separate
   Human scope review.
+
+The proof repository README at exact proof source `4274eeae...` intentionally
+retains preparation-time status text because the proof source was frozen before
+the one-shot execution. It is not the post-run status authority. The retained
+formal proof artifacts, off-host archive verification, and this durable Product
+ledger record the execution result.
 
 The latest completed implementation checkpoint remains M6 — Mode-Oriented
 Workbench Information Architecture — **COMPLETE / MERGED / CLOSED**. Gate 2,
