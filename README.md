@@ -11,79 +11,64 @@ schema structure.
 
 ## Current milestone
 
-M7 — Alignment Mutation Concurrency Hardening — has completed bounded
-implementation and fresh exact-candidate Gate 2 for the docs-only successor
-`c7aae26e3abaa34b3756ffe96ee718beaf8524b3` (tree
-`1afa65b74a41ef43699425bbcc3ccbb30cb64658`, unique parent
-`854137cd498569f7c3d770d3b82be51042080edd`). The earlier implementation
-Static Human Diff Review identified `M7-SHDR-F01`; the bounded four-file
-state-alignment successor closed that finding and then received its own fresh
-exact-candidate hosted proof. M7 Gate 2 is now **PASS / ESTABLISHED** for the
-exact semantic candidate `c7aae26e...`. No PR exists and merge is not
-authorized.
+M7 — Alignment Mutation Concurrency Hardening — is **MERGED / GATE 3 PASS /
+DURABLE-STATE CLOSURE RECORDED**. PR #16 was merged by repository-permitted
+rebase after explicit Human Merge Decision.
 
-Frozen contract:
+Durable M7 coordinates:
 
-`docs/development/M7_CONTRACT.md`
+- frozen pre-M7 Product `main`:
+  `3f08eca99f03180eef9dcd7008287892f0e6501d` (tree
+  `024213fa76c555ce4709e43117015149272ac61e`);
+- exact proven semantic candidate:
+  `c7aae26e3abaa34b3756ffe96ee718beaf8524b3` (tree
+  `1afa65b74a41ef43699425bbcc3ccbb30cb64658`, parent
+  `854137cd498569f7c3d770d3b82be51042080edd`);
+- terminal reviewed PR head:
+  `d769e018064dd1d6a529f7e043c7163b7e92c3ed` (tree
+  `d28126bca178db8ee9d17c737b820eacf6403d34`);
+- PR #16:
+  **MERGED BY REBASE**;
+- post-rebase implementation `main`:
+  `f56b413f97742946b51e00a24b55f806cc5452f8` (tree
+  `d28126bca178db8ee9d17c737b820eacf6403d34`);
+- Gate 3 terminal-reviewed-PR-head → post-rebase-main tree identity:
+  **PASS / EXACT**;
+- implementation branch:
+  `m7-alignment-mutation-concurrency-hardening@d769e018064dd1d6a529f7e043c7163b7e92c3ed`
+  remains retained pending separate exact-guarded cleanup authorization.
 
-Approved pre-freeze durable base:
-
-`e0b50eb647ae8901a8ff574e7b4d1aa2d6c41107`
-
-Approved pre-freeze durable tree:
-
-`5b659f23f21d4fd96e4b5cb87f970b575b975ccf`
-
-Implementation branch:
-
-`m7-alignment-mutation-concurrency-hardening`
-
-M7 freezes a bounded backend correctness change: scoped Alignment topology
-mutations serialize on the owning `ParallelDocument`, participating
-`TextVersion` rows are then locked in deterministic UUID order, and
-mutation-authoritative state is re-resolved under those locks. Project and
-ParallelDocument deletion remain mandatory real-PostgreSQL audit surfaces, not
-authorized production redesign.
-
-The predecessor implementation epoch
-`854137cd498569f7c3d770d3b82be51042080edd` (tree
-`7b5306fbd37a158cd1fb688fd050d20cfc5aec74`) retains its own historical
-M7-EXI-01 evidence from
-`Pacchifans69/linguagraph-m7-proof@4274eeae6211a1744ac63958a026ff95670f445b`
-(tree `2270f665b2659f88dcdd88bed216828e32e5a7ff`), archive SHA-256
-`2529a1e06989058c2a7acdac69374912ba2ccee32ba59c5438d2c746c8eed2a3`.
-That evidence remains exact to `854137cd...`; it is retained history, not the
-final successor proof.
-
-For final exact semantic candidate `c7aae26e...`, canonical GitHub Actions
-run #125 / `35436499631` again failed before repository-defined steps
-(`runner_id=0`, `steps=[]`) and provided no semantic execution evidence.
-Under the separately Human-authorized M7-EXI-01 successor path, proof source
+M7 Gate 2 authority remains bound to exact semantic candidate
+`c7aae26e...`. Accepted successor proof source is
 `Pacchifans69/linguagraph-m7-proof@e749a0356d53db05961e6cb538bff605e53e79ec`
-(tree `c8561e2624ea6c602a664eaf7393f8fb6fc74a8f`) executed on the exact fresh
-Alibaba ECS binding and completed **PASS**: backend `602 passed`, required M7
-concurrency matrix `15 / 15`, Vitest `519 passed`, Playwright `32 passed /
-retries=0`, Alembic head `0006`, dependency/tree integrity PASS,
-disposable-database cleanup PASS, and off-host artifact acceptance PASS. The
-deterministic archive SHA-256 is
-`159f07b0fc30fb0526228f1a781cf8f8daf533605853aba6b37817a283656ed0`;
-the artifact manifest is **47 / 47**. Authorization SHA-256
-`426760ce9875a6f127f73df1e4bc24c9f27fc67889d2363cf543ea1444618dcb` is
-**SPENT / MUST NOT REUSE**. Fresh proof ECS `i-j6c6wx48n07xnkpoxsjc` and
-system disk `d-j6c6wx48n07xnkpm461g` were released after off-host evidence
-acceptance, and both exact resources were then verified absent.
+(tree `c8561e2624ea6c602a664eaf7393f8fb6fc74a8f`). Formal evidence is
+**PASS**: backend `602 passed`, required M7 concurrency matrix `15 / 15`,
+Vitest `519 passed`, Playwright `32 passed / retries=0`, Alembic `0006`,
+dependency/tree integrity PASS, disposable-database cleanup PASS, off-host
+artifact acceptance PASS, and artifact manifest `47 / 47`. Deterministic
+archive SHA-256:
+`159f07b0fc30fb0526228f1a781cf8f8daf533605853aba6b37817a283656ed0`.
+Authorization SHA-256
+`426760ce9875a6f127f73df1e4bc24c9f27fc67889d2363cf543ea1444618dcb`
+is **SPENT / MUST NOT REUSE**. Exact proof ECS
+`i-j6c6wx48n07xnkpoxsjc` and system disk
+`d-j6c6wx48n07xnkpm461g` were released after off-host acceptance and both
+were verified absent.
 
-Human Pre-PR lifecycle-state consistency review identified the unavoidable
-post-proof recording issue as `M7-LSR-01`. This terminal post-proof
-evidence-ledger closure is deliberately limited to the four durable
-state/evidence documents. It records the already-established proof result; it
-is **not** a new semantic proof candidate and does not claim that the closure
-tip itself executed hosted tests. Gate 2 authority remains bound to exact
-semantic candidate `c7aae26e...`. The closure requires bounded final Static
-Human Review before PR creation or any Human merge decision; it does not
-authorize another hosted proof, PR, or merge.
+The terminal pre-PR evidence-ledger bridge `M7-LSR-01` remains historical
+provenance: it did not claim hosted proof for its own docs-only successor.
+PR #16 final Human Review passed with zero blocking findings before merge.
+Post-merge push run #129 / `35442844140` again failed before any
+repository-defined step (`runner_id=0`, `steps=[]`); it is retained as a
+provider/pre-step diagnostic and does not supersede accepted Gate 2 evidence.
 
-The latest completed implementation checkpoint remains M6 — Mode-Oriented
+This post-merge durable-state closure is docs-only bookkeeping. Its exact
+closure SHA/tree must be resolved from Git history after landing rather than
+embedded self-referentially. It requires no fresh hosted proof or runtime
+acceptance. M7 is not yet **COMPLETE / CLOSED** because the retained
+implementation branch still requires separate exact-guarded deletion.
+
+The previous completed implementation checkpoint is M6 — Mode-Oriented
 Workbench Information Architecture — **COMPLETE / MERGED / CLOSED**. Gate 3
 exact tree identity, durable-state closure, and exact-guarded
 implementation-branch cleanup are complete.

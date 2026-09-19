@@ -20,14 +20,20 @@ not authoritative engineering state.
 
 ## Current milestone state
 
-**M0 — Manual Alignment Workbench: COMPLETE**
+**M7 — Alignment Mutation Concurrency Hardening: MERGED / GATE 3 PASS /
+DURABLE-STATE CLOSURE RECORDED.**
 
-**M0.7 — Hardening: COMPLETE / MERGED / CLOSED**
+PR #16 merged by rebase. The terminal reviewed PR-head tree
+`d28126bca178db8ee9d17c737b820eacf6403d34` is exactly identical to
+post-rebase `main@f56b413f97742946b51e00a24b55f806cc5452f8`, so M7 Gate 3 is
+**PASS / EXACT**. The implementation branch remains retained pending separate
+exact-guarded cleanup authorization. See
+`docs/development/CURRENT_STATE.md` for Gate 2 proof provenance and lifecycle
+details.
 
-M0.7 closeout includes a narrow approved External Infrastructure Exception:
-GitHub-hosted-runner proof remains `BLOCKED / EXTERNAL` and `G2-X01` remains
-`OPEN / EXTERNAL`; exact independent CircleCI proof passed. This distinction
-is durable and must not be rewritten as “GitHub Actions PASS”.
+M0.7's historical External Infrastructure Exception remains recorded in its
+own closeout documents. Historical evidence classifications are not rewritten
+by later milestone success.
 
 ## Document map
 
@@ -37,9 +43,9 @@ is durable and must not be rewritten as “GitHub Actions PASS”.
 | `docs/development/M0_7_CLOSEOUT.md` | M0.7 Gate 2 exception, Human Review/HRA, rebase-merge provenance and Gate 3 closeout ledger |
 | `docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md` | Authoritative frozen M0 specification and Definition of Done |
 | `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` | Accepted pre-implementation engineering report |
-| `docs/adr/ADR-001…ADR-009` | Accepted architecture decisions |
-| `docs/architecture/ARCHITECTURE.md` | As-built M0 architecture |
-| `docs/api/api-contract.md` | As-built HTTP API surface |
+| `docs/adr/ADR-001…ADR-015` | Accepted architecture decisions through M7 |
+| `docs/architecture/ARCHITECTURE.md` | As-built architecture through M7 |
+| `docs/api/api-contract.md` | As-built HTTP API surface through M7 |
 | `docs/testing/testing-strategy.md` | Test architecture plus local/GitHub/external evidence semantics |
 | `docs/testing/manual-acceptance.md` | Human-executable M0 walkthrough used for M0.7 HRA |
 | `AGENTS.md` (repository root) | Agent working rules and current phase |

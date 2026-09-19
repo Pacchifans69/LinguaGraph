@@ -1,7 +1,7 @@
-# LinguaGraph — Architecture (M7 implementation candidate)
+# LinguaGraph — Architecture (as built through M7)
 
-This document describes the M7 implementation candidate on top of the
-completed M6 boundary. It is a description, not a new authority: the accepted
+This document describes the architecture as built through the completed M7
+boundary on top of M0–M6. It is a description, not a new authority: the accepted
 ADRs (`docs/adr/ADR-001…ADR-015`) and the authoritative
 pre-implementation documents
 (`docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md`,
@@ -225,7 +225,7 @@ contract and `docs/development/CURRENT_STATE.md` for the schema summary.
   (`linguagraph_*` / `linguagraph_e2e_<12 hex>`); `assert_disposable_db_url`
   fails closed; the E2E frontend proxy is pinned to the isolated E2E API.
 
-## 4. M7 Alignment concurrency candidate
+## 4. M7 Alignment concurrency (as built)
 
 M7 closes the retained Alignment concurrency debt without changing schema or
 HTTP contracts. Scoped Alignment CREATE/PATCH/DELETE operations acquire the

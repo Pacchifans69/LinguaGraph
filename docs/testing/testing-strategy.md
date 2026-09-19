@@ -1,4 +1,4 @@
-# LinguaGraph — Testing Strategy (M7 pre-PR evidence state)
+# LinguaGraph — Testing Strategy (as built through M7; Gate 3 complete)
 
 This document describes the inherited M0/M1 testing architecture, M2/M3
 segmentation coverage, M4 lemma-annotation coverage, M5 coarse-POS coverage,
@@ -619,3 +619,29 @@ testing-strategy document. Exact Gate 2 authority remains
 `c7aae26e3abaa34b3756ffe96ee718beaf8524b3`; the closure requires bounded
 final Static Human Review before PR or Human merge decision and does not
 authorize or require another hosted proof.
+
+
+### 10.1 M7 post-merge evidence bridge
+
+PR #16 merged by rebase after explicit Human Merge Decision. The terminal
+reviewed PR head
+`d769e018064dd1d6a529f7e043c7163b7e92c3ed` and post-rebase
+`main@f56b413f97742946b51e00a24b55f806cc5452f8` share exact tree
+`d28126bca178db8ee9d17c737b820eacf6403d34`; M7 Gate 3 is therefore
+**PASS / EXACT**.
+
+This does not move Gate 2 authority away from exact semantic candidate
+`c7aae26e3abaa34b3756ffe96ee718beaf8524b3`. The M7-LSR-01 docs-only bridge
+and this post-merge durable-state closure are evidence/lifecycle bookkeeping,
+not fresh semantic proof candidates.
+
+PR-event run #128 / `35442492489` and post-merge push run #129 /
+`35442844140` both failed before repository-defined steps
+(`runner_id=0`, `steps=[]`). They remain provider/pre-step diagnostics and
+do not supersede the accepted successor hosted proof.
+
+The retained implementation branch remains
+`m7-alignment-mutation-concurrency-hardening@d769e018064dd1d6a529f7e043c7163b7e92c3ed`
+until separately authorized exact-guarded cleanup. This docs-only post-merge
+closure requires no fresh hosted proof or runtime acceptance.
+

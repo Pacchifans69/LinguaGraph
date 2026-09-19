@@ -1,12 +1,12 @@
-# LinguaGraph — API Contract (as built through M6)
+# LinguaGraph — API Contract (as built through M7)
 
 This document describes the API surface as actually implemented. It is a
 description, not a new authority: the authoritative contract is
 `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` section 9 and the
 accepted ADRs and frozen milestone contracts. It documents the API surface
-as built through M6. M6 changes no backend route, request/response contract,
-schema, or migration, so the endpoint surface remains the M5 implementation
-surface.
+as built through M7. M6 and M7 add no backend route, request/response shape,
+schema, or migration; M7 changes backend mutation concurrency only, so the
+HTTP endpoint surface remains unchanged from the completed M5 API boundary.
 
 ## 1. Base and conventions
 
