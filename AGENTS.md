@@ -35,6 +35,10 @@ The completed frozen M7 execution contract is:
 
 `docs/development/M7_CONTRACT.md`
 
+The active frozen M8 execution contract is:
+
+`docs/development/M8_CONTRACT.md`
+
 Before planning, modifying files, installing dependencies, or writing
 implementation code:
 
@@ -52,6 +56,33 @@ implementation code:
    contract.
 
 ## Current phase
+
+M8 — Alignment Connector Obstacle-Avoiding Routing — is **FROZEN / HUMAN
+APPROVED / IMPLEMENTATION NOT YET AUTHORIZED**.
+
+The frozen M8 execution contract is
+`docs/development/M8_CONTRACT.md`. Approved pre-freeze durable base:
+
+`7f4975a0bc2374eedb2c5b00dc187ce8c3b6f4ed`
+
+Approved pre-freeze durable tree:
+
+`5b5aeeb789623dfd9a14032efe5ef923d5d2a8c7`
+
+Planned implementation branch:
+
+`m8-alignment-connector-obstacle-avoiding-routing`
+
+The freeze does not authorize branch creation, frontend/test changes, ADR-016,
+proof execution, proof-repository mutation, or provider mutation. M8 targets
+retained `HRA-F09` by replacing direct member-to-hub straight connectors with
+deterministic span-derived panel-perimeter ports and orthogonal routing that
+avoids every visible `.panel-slot` interior while preserving N:M shared-hub,
+RenderedSpanRegistry, clipping, and mode-independent connector semantics.
+`HRA-F09` remains OPEN until exact-candidate automated/browser evidence and
+explicit Human Runtime Acceptance pass.
+
+The latest completed implementation checkpoint remains M7.
 
 M7 — Alignment Mutation Concurrency Hardening — is **COMPLETE / MERGED /
 CLOSED**. PR #16 merged by repository-permitted rebase after explicit Human

@@ -11,6 +11,49 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ## 0. Current durable status
 
+M8 — Alignment Connector Obstacle-Avoiding Routing — is **FROZEN / HUMAN
+APPROVED / IMPLEMENTATION NOT YET AUTHORIZED**.
+
+M8 freeze coordinates:
+
+- approved pre-freeze durable base:
+  `7f4975a0bc2374eedb2c5b00dc187ce8c3b6f4ed`;
+- approved pre-freeze durable tree:
+  `5b5aeeb789623dfd9a14032efe5ef923d5d2a8c7`;
+- governing frozen contract:
+  `docs/development/M8_CONTRACT.md`;
+- planned implementation branch:
+  `m8-alignment-connector-obstacle-avoiding-routing`;
+- implementation branch:
+  **NOT CREATED / NOT AUTHORIZED BY FREEZE**;
+- implementation candidate:
+  **NONE**;
+- PR:
+  **NONE**;
+- migration:
+  **NONE AUTHORIZED; Alembic HEAD remains 0006**;
+- dependency/runtime change:
+  **NONE AUTHORIZED**;
+- ADR obligation:
+  implementation must add ADR-016 — Panel-Perimeter Obstacle-Avoiding
+  Alignment Routing; ADR-016 is deliberately absent from the docs-only freeze;
+- retained Human finding:
+  `HRA-F09` remains **OPEN / ACTIVE M8 TARGET** until exact-candidate routing
+  evidence and Human Runtime Acceptance pass.
+
+Human-reviewed M8 contract decisions freeze a presentation-only routing
+change: visible AlignmentMembers retain RenderedSpanRegistry identity and
+inherited clipping/member-rect selection; each visible member derives an
+owning-panel perimeter port; every visible `.panel-slot` is a routing obstacle;
+the canonical canvas reserves 8px internally for routing with 4px obstacle
+clearance; deterministic orthogonal routes converge on one shared free-space
+hub; incomplete route sets fail closed as a whole; geometry provenance is
+`alignmentId + layoutKey`; connector geometry remains ephemeral and
+unpersisted. No backend/API/schema/Alembic/dependency change is authorized.
+
+The latest completed implementation checkpoint remains M7 — Alignment
+Mutation Concurrency Hardening — **COMPLETE / MERGED / CLOSED**.
+
 M7 — Alignment Mutation Concurrency Hardening — is **COMPLETE / MERGED /
 CLOSED**. PR #16 merged by rebase after explicit Human Merge Decision; Gate 3
 passed by exact tree identity; post-merge durable-state closure and
@@ -282,6 +325,13 @@ M4 — Human-Reviewed Lemma Annotation Foundation — is
 recorded in section 13.
 
 ## 1. Repository checkpoint
+
+Active frozen execution checkpoint: **M8 — Alignment Connector
+Obstacle-Avoiding Routing**.
+
+Current M8 lifecycle state:
+
+**FROZEN / HUMAN APPROVED / IMPLEMENTATION NOT YET AUTHORIZED.**
 
 Most recently completed implementation checkpoint: **M7 — Alignment Mutation
 Concurrency Hardening**.

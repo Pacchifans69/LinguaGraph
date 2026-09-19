@@ -11,6 +11,40 @@ schema structure.
 
 ## Current milestone
 
+M8 — Alignment Connector Obstacle-Avoiding Routing — is **FROZEN / HUMAN
+APPROVED / IMPLEMENTATION NOT YET AUTHORIZED**.
+
+Frozen contract:
+
+`docs/development/M8_CONTRACT.md`
+
+Approved pre-freeze durable base:
+
+`7f4975a0bc2374eedb2c5b00dc187ce8c3b6f4ed`
+
+Approved pre-freeze durable tree:
+
+`5b5aeeb789623dfd9a14032efe5ef923d5d2a8c7`
+
+Planned implementation branch:
+
+`m8-alignment-connector-obstacle-avoiding-routing`
+
+M8 is a bounded frontend routing-hardening checkpoint targeting retained
+`HRA-F09`. It freezes deterministic panel-perimeter obstacle-avoiding routing
+for the effective Alignment while preserving Alignment/Span persistence,
+RenderedSpanRegistry identity authority, N:M shared-hub semantics, canonical
+text/Selection behavior, backend/API/schema, Alembic `0006`, dependencies, and
+runtime baseline. The exact routing reserve is presentation-only and no
+connector geometry becomes persisted authority.
+
+This docs-only freeze does not authorize implementation, branch creation,
+ADR-016, proof execution, proof-repository mutation, or provider mutation.
+`HRA-F09` remains OPEN until the exact implementation candidate passes the
+frozen automated/browser evidence and explicit Human Runtime Acceptance.
+
+The latest completed implementation checkpoint remains M7.
+
 M7 — Alignment Mutation Concurrency Hardening — is **COMPLETE / MERGED /
 CLOSED**. PR #16 merged by repository-permitted rebase after explicit Human
 Merge Decision; Gate 3 passed by exact tree identity; post-merge durable-state
@@ -312,6 +346,7 @@ Read these when reconstructing project state:
 - `docs/development/M5_CONTRACT.md` — completed frozen M5 execution contract;
 - `docs/development/M6_CONTRACT.md` — completed frozen M6 execution contract;
 - `docs/development/M7_CONTRACT.md` — completed frozen M7 execution contract;
+- `docs/development/M8_CONTRACT.md` — active frozen M8 execution contract;
 - `docs/development/M0_7_CLOSEOUT.md` — M0.7 Gate 2/Human Review/merge/Gate 3
   evidence ledger;
 - `docs/architecture/ARCHITECTURE.md` — as-built architecture;
