@@ -446,13 +446,17 @@ describe('ConnectorOverlay rendering', () => {
 describe('collectVisibleMemberRects', () => {
   it('flattens rects across multiple run elements (span split across runs)', () => {
     const container = document.createElement('div');
+    const panelSlot = document.createElement('div');
+    panelSlot.className = 'panel-slot';
+    stubBoundingRect(panelSlot, rect(108, 58, 784, 584));
     const panelBody = document.createElement('div');
     panelBody.className = 'text-panel-body';
     stubBoundingRect(panelBody, VIEWPORT_RECT);
     const runA = document.createElement('span');
     const runB = document.createElement('span');
     panelBody.append(runA, runB);
-    container.appendChild(panelBody);
+    panelSlot.appendChild(panelBody);
+    container.appendChild(panelSlot);
     document.body.appendChild(container);
     stubClientRects(runA, [rect(120, 70, 100, 20)]);
     stubClientRects(runB, [rect(240, 70, 100, 20)]);

@@ -547,7 +547,7 @@ async function expectConnectorsBoundToCanonicalPanels(
   page: Page,
   expectedRoutes = 2,
 ) {
-  await expectConnectorsBoundToCanonicalPanels(page);
+  await expect(page.getByTestId('connector-overlay')).toBeVisible();
   await expect(page.locator('.connector-route')).toHaveCount(expectedRoutes);
   await expect
     .poll(
