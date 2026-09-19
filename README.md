@@ -11,8 +11,10 @@ schema structure.
 
 ## Current milestone
 
-M7 — Alignment Mutation Concurrency Hardening — is **FROZEN / HUMAN APPROVED /
-IMPLEMENTATION NOT YET AUTHORIZED**.
+M7 — Alignment Mutation Concurrency Hardening — is **IMPLEMENTATION
+AUTHORIZED / IN PROGRESS** on
+`m7-alignment-mutation-concurrency-hardening`. Gate 2 is not yet established
+and no PR/merge is authorized.
 
 Frozen contract:
 
@@ -37,8 +39,9 @@ mutation-authoritative state is re-resolved under those locks. Project and
 ParallelDocument deletion remain mandatory real-PostgreSQL audit surfaces, not
 authorized production redesign.
 
-This docs-only freeze does not authorize implementation, branch creation,
-ADR-015, proof execution, or provider mutation.
+The subsequent Human decision authorized the exact-base implementation
+branch and bounded implementation under `M7_CONTRACT.md`. Proof execution,
+PR, merge, and provider mutation remain separately governed.
 
 The latest completed implementation checkpoint remains M6 — Mode-Oriented
 Workbench Information Architecture — **COMPLETE / MERGED / CLOSED**. Gate 3

@@ -386,11 +386,12 @@ def test_concurrent_same_coordinate_get_or_create(db_session, db_engine) -> None
 
     Setup runs through the ``db_session`` fixture so its per-test TRUNCATE
     gives this test the same clean domain state as the rest of the
-    integration suite (HR-F02). The two concurrent service calls then run in
-    their own worker Sessions/transactions on the same engine; the
-    PostgreSQL ``ON CONFLICT DO NOTHING RETURNING`` path lets the loser
-    reuse the winner's Span without aborting its own outer transaction. The
-    assertion holds for every interleaving.
+    integration suite (HR-F02). Under M7, same-document Alignment CREATE
+    calls serialize on the ParallelDocument root; the later transaction then
+    reuses the winner's persisted coordinate Span. The PostgreSQL
+    ``ON CONFLICT DO NOTHING RETURNING`` implementation remains retained for
+    other legitimate coordinate-insert races. The assertion holds for every
+    service-call interleaving.
     """
     project = make_project(db_session)
     document = make_document(db_session, project.id)

@@ -25,6 +25,7 @@ from app.db.models import (
     TextVersion,
 )
 from app.services.alignment_invariants import MemberRef, alignment_group_is_valid
+from app.services.alignment_locking import lock_parallel_document, lock_text_versions
 from app.text.bcp47 import validate_language_tag
 from app.text.canonical import canonicalize_text
 
@@ -53,6 +54,37 @@ def _require_document(db: Session, document_id: uuid.UUID) -> None:
         raise DomainError(
             "NOT_FOUND", "document not found", {"document_id": str(document_id)}
         )
+
+
+def _text_version_not_found(text_version_id: uuid.UUID) -> DomainError:
+    return DomainError(
+        "NOT_FOUND",
+        "text version not found",
+        {"text_version_id": str(text_version_id)},
+    )
+
+
+def _lock_text_version_under_document_root(
+    db: Session, text_version_id: uuid.UUID
+) -> TextVersion:
+    """Apply the frozen M7 locator → document → TextVersion lock order."""
+
+    document_id = db.scalar(
+        select(TextVersion.document_id).where(
+            TextVersion.id == text_version_id
+        )
+    )
+    if document_id is None:
+        raise _text_version_not_found(text_version_id)
+
+    document = lock_parallel_document(db, document_id)
+    if document is None:
+        raise _text_version_not_found(text_version_id)
+
+    version = lock_text_versions(db, [text_version_id]).get(text_version_id)
+    if version is None or version.document_id != document_id:
+        raise _text_version_not_found(text_version_id)
+    return version
 
 
 def create_text_version(
@@ -139,32 +171,21 @@ def update_text_version_metadata(
 def replace_content(
     db: Session, text_version_id: uuid.UUID, *, content: str
 ) -> TextVersion:
-    """Replace the content of an unannotated text version (ADR-005).
+    """Replace unannotated content under the M7 document→version lock order."""
 
-    Blocked with ``TEXT_HAS_ANNOTATIONS`` as soon as the version owns any
-    Span or persisted segmentation layer: replacing content under existing
-    coordinates would silently corrupt offsets/derived text. Annotated
-    versions can only be removed via
-    :func:`delete_text_version` with ``force=True``.
-    """
     canonical = canonicalize_text(
         content, max_codepoints=get_settings().max_text_version_codepoints
     )
     with write_transaction(db):
-        version = db.scalar(
-            select(TextVersion)
-            .where(TextVersion.id == text_version_id)
-            .with_for_update()
+        version = _lock_text_version_under_document_root(
+            db, text_version_id
         )
-        if version is None:
-            raise DomainError(
-                "NOT_FOUND",
-                "text version not found",
-                {"text_version_id": str(text_version_id)},
-            )
+
         has_spans = (
             db.scalars(
-                select(Span.id).where(Span.text_version_id == version.id).limit(1)
+                select(Span.id).where(
+                    Span.text_version_id == version.id
+                ).limit(1)
             ).first()
             is not None
         )
@@ -182,6 +203,7 @@ def replace_content(
                 "annotated text versions are immutable; delete with force=true to reset",
                 {"text_version_id": str(text_version_id)},
             )
+
         version.content = canonical.content
         version.content_hash = canonical.content_hash
     return version
@@ -207,17 +229,9 @@ def delete_text_version(
     (report section 4).
     """
     with write_transaction(db):
-        version = db.scalar(
-            select(TextVersion)
-            .where(TextVersion.id == text_version_id)
-            .with_for_update()
+        version = _lock_text_version_under_document_root(
+            db, text_version_id
         )
-        if version is None:
-            raise DomainError(
-                "NOT_FOUND",
-                "text version not found",
-                {"text_version_id": str(text_version_id)},
-            )
 
         has_segmentation = (
             db.scalars(
