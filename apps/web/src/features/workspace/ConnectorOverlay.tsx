@@ -182,7 +182,7 @@ export function ConnectorOverlay({
         rafRef.current = null;
       }
     };
-  }, [alignmentId, layoutKey, schedule]);
+  }, [alignmentId, layoutKey, membersByGroup, registry, schedule]);
 
   if (alignmentId === null) {
     return null;
