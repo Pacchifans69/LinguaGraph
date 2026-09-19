@@ -38,16 +38,17 @@ def lock_text_versions(
     if not ids:
         return {}
 
-    rows = list(
-        db.scalars(
+    locked: dict[uuid.UUID, TextVersion] = {}
+    for text_version_id in ids:
+        row = db.scalar(
             select(TextVersion)
-            .where(TextVersion.id.in_(ids))
-            .order_by(TextVersion.id)
+            .where(TextVersion.id == text_version_id)
             .execution_options(populate_existing=True)
             .with_for_update()
-        ).all()
-    )
-    return {row.id: row for row in rows}
+        )
+        if row is not None:
+            locked[row.id] = row
+    return locked
 
 
 __all__ = ["lock_parallel_document", "lock_text_versions"]

@@ -508,7 +508,7 @@ Retain as durable M6 evidence:
 See `docs/development/M0_7_CLOSEOUT.md` for the complete closeout ledger.
 
 
-## 9. M7 Alignment concurrency candidate
+## 10. M7 Alignment concurrency candidate
 
 M7 adds no schema, API, frontend feature, dependency, or runtime change. Its
 checkpoint-specific correctness evidence is real-PostgreSQL concurrency

@@ -788,3 +788,166 @@ def test_c_a02_alignment_mutation_vs_delete_project_audit(
         assert session.get(ParallelDocument, document_id) is None
         assert list(session.scalars(select(AlignmentGroup)).all()) == []
         assert list(session.scalars(select(AlignmentMember)).all()) == []
+
+
+def _audit_parent_delete_first_fails_alignment_closed(
+    db_engine,
+    *,
+    delete_sql: str,
+    delete_id: uuid.UUID,
+    alignment_operation: Callable[[], None],
+) -> None:
+    """Hold an uncommitted parent cascade, then prove Alignment fails closed."""
+
+    controller = _new_session(db_engine)
+    controller.begin()
+    controller.execute(text(delete_sql), {"id": delete_id})
+
+    outcome: dict[str, object] = {}
+    worker = threading.Thread(
+        target=lambda: _capture(outcome, "alignment", alignment_operation)
+    )
+    try:
+        worker.start()
+        time.sleep(BLOCK_WAIT_SECONDS)
+        assert worker.is_alive(), (
+            "Alignment should wait on the parent deletion's row/cascade locks"
+        )
+
+        controller.commit()
+        worker.join(timeout=JOIN_TIMEOUT_SECONDS)
+        assert not worker.is_alive(), "Alignment worker did not finish"
+    finally:
+        if controller.in_transaction():
+            controller.rollback()
+        controller.close()
+
+    assert outcome == {"alignment": "NOT_FOUND"}
+
+
+def test_c_a01_delete_parallel_document_first_yields_not_found(
+    db_engine,
+    db_session,
+) -> None:
+    _project, document, en, de, fr, _it = _setup_versions(db_session)
+    group = alignment_service.create_alignment(
+        db_session,
+        document_id=document.id,
+        members=[_member(en.id), _member(de.id)],
+    )
+    document_id = document.id
+    group_id = group.id
+    en_id, fr_id = en.id, fr.id
+
+    def patch() -> None:
+        with _new_session(db_engine) as session:
+            alignment_service.update_alignment(
+                session,
+                group_id,
+                members=[_member(en_id), _member(fr_id)],
+            )
+
+    _audit_parent_delete_first_fails_alignment_closed(
+        db_engine,
+        delete_sql="DELETE FROM parallel_documents WHERE id = :id",
+        delete_id=document_id,
+        alignment_operation=patch,
+    )
+
+    with _new_session(db_engine) as session:
+        assert session.get(ParallelDocument, document_id) is None
+        assert session.get(AlignmentGroup, group_id) is None
+
+
+def test_c_a02_delete_project_first_yields_not_found(
+    db_engine,
+    db_session,
+) -> None:
+    project, document, en, de, fr, _it = _setup_versions(db_session)
+    group = alignment_service.create_alignment(
+        db_session,
+        document_id=document.id,
+        members=[_member(en.id), _member(de.id)],
+    )
+    project_id = project.id
+    document_id = document.id
+    group_id = group.id
+    en_id, fr_id = en.id, fr.id
+
+    def patch() -> None:
+        with _new_session(db_engine) as session:
+            alignment_service.update_alignment(
+                session,
+                group_id,
+                members=[_member(en_id), _member(fr_id)],
+            )
+
+    _audit_parent_delete_first_fails_alignment_closed(
+        db_engine,
+        delete_sql="DELETE FROM projects WHERE id = :id",
+        delete_id=project_id,
+        alignment_operation=patch,
+    )
+
+    with _new_session(db_engine) as session:
+        assert session.get(Project, project_id) is None
+        assert session.get(ParallelDocument, document_id) is None
+        assert session.get(AlignmentGroup, group_id) is None
+
+
+def test_cross_document_input_is_rejected_before_text_version_lock(
+    db_session,
+    monkeypatch,
+) -> None:
+    project = make_project(db_session)
+    doc_a = make_document(db_session, project.id, title="A")
+    doc_b = make_document(db_session, project.id, title="B")
+    en_a = make_version(
+        db_session,
+        doc_a.id,
+        language_tag="en",
+        label="EN A",
+        content="AAAAA",
+    )
+    de_a = make_version(
+        db_session,
+        doc_a.id,
+        language_tag="de",
+        label="DE A",
+        content="BBBBB",
+    )
+    en_b = make_version(
+        db_session,
+        doc_b.id,
+        language_tag="en",
+        label="EN B",
+        content="CCCCC",
+    )
+
+    calls: list[list[uuid.UUID]] = []
+    original_lock = alignment_service.lock_text_versions
+
+    def observed_lock(db: Session, ids):
+        captured = list(ids)
+        calls.append(captured)
+        return original_lock(db, captured)
+
+    monkeypatch.setattr(
+        alignment_service,
+        "lock_text_versions",
+        observed_lock,
+    )
+
+    with pytest.raises(DomainError) as excinfo:
+        alignment_service.create_alignment(
+            db_session,
+            document_id=doc_a.id,
+            members=[
+                _member(en_a.id),
+                _member(de_a.id),
+                _member(en_b.id),
+            ],
+        )
+
+    assert excinfo.value.code == "CROSS_DOCUMENT_ALIGNMENT"
+    assert calls == []

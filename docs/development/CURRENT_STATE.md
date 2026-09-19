@@ -38,8 +38,9 @@ M7 freeze coordinates:
 - migration:
   **NONE AUTHORIZED; Alembic HEAD remains 0006**;
 - ADR obligation:
-  implementation must add ADR-015 — Document-Root Serialization for Alignment
-  Mutations; ADR-015 is deliberately absent from the docs-only freeze.
+  ADR-015 — Document-Root Serialization for Alignment Mutations — is present
+  in the current implementation candidate; it was deliberately absent from
+  the docs-only freeze.
 
 Human-reviewed M7 contract decisions:
 
