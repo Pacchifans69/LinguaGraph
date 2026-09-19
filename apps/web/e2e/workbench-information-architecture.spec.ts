@@ -403,8 +403,9 @@ async function expectWorkbenchToolsReachable(page: Page) {
 async function connectorBindingViolation(
   page: Page,
   expectedRoutes: number,
+  expectedPanelByMember: Record<string, string> = {},
 ): Promise<string | null> {
-  return await page.evaluate(({ expectedRoutes }) => {
+  return await page.evaluate(({ expectedRoutes, expectedPanelByMember }) => {
     interface Point {
       x: number;
       y: number;
@@ -482,7 +483,10 @@ async function connectorBindingViolation(
             const [x, y] = pair.split(',').map(Number);
             return { x, y };
           });
-        return { points };
+        return {
+          memberId: route.getAttribute('data-member-id') ?? '',
+          points,
+        };
       },
     );
     if (routes.length !== expectedRoutes) {
@@ -507,6 +511,31 @@ async function connectorBindingViolation(
       }
       if (!panels.some((panel) => onBoundary(port, panel))) {
         return 'a connector route does not start on a canonical panel perimeter';
+      }
+      const expectedTextVersionId = expectedPanelByMember[route.memberId];
+      if (expectedTextVersionId !== undefined) {
+        const expectedPanel = Array.from(
+          document.querySelectorAll('.panel-slot'),
+        ).find((panel) => {
+          const textPanel = panel.querySelector('.text-panel');
+          return (
+            textPanel?.getAttribute('data-text-version-id') ===
+            expectedTextVersionId
+          );
+        });
+        if (!(expectedPanel instanceof HTMLElement)) {
+          return `expected owning panel for member ${route.memberId} is not visible`;
+        }
+        const expectedRect = expectedPanel.getBoundingClientRect();
+        const expectedBounds = {
+          left: expectedRect.left - overlayRect.left,
+          top: expectedRect.top - overlayRect.top,
+          right: expectedRect.right - overlayRect.left,
+          bottom: expectedRect.bottom - overlayRect.top,
+        };
+        if (!onBoundary(port, expectedBounds)) {
+          return `member ${route.memberId} starts on the wrong panel perimeter`;
+        }
       }
       if (panels.some((panel) =>
         hub.x > panel.left + tolerance &&
@@ -540,18 +569,24 @@ async function connectorBindingViolation(
       }
     }
     return null;
-  }, { expectedRoutes });
+  }, { expectedRoutes, expectedPanelByMember });
 }
 
 async function expectConnectorsBoundToCanonicalPanels(
   page: Page,
   expectedRoutes = 2,
+  expectedPanelByMember: Record<string, string> = {},
 ) {
   await expect(page.getByTestId('connector-overlay')).toBeVisible();
   await expect(page.locator('.connector-route')).toHaveCount(expectedRoutes);
   await expect
     .poll(
-      async () => await connectorBindingViolation(page, expectedRoutes),
+      async () =>
+        await connectorBindingViolation(
+          page,
+          expectedRoutes,
+          expectedPanelByMember,
+        ),
       { timeout: 10_000 },
     )
     .toBeNull();
@@ -954,6 +989,15 @@ test('M8 keeps a complete obstacle-free hyperedge across 4/3-panel and stacked l
     },
   });
   expect(created.ok()).toBeTruthy();
+  const createdAlignment = await created.json() as {
+    members: Array<{ id: string; text_version_id: string }>;
+  };
+  const expectedPanelByMember = Object.fromEntries(
+    createdAlignment.members.map((member) => [
+      member.id,
+      member.text_version_id,
+    ]),
+  );
 
   await page.goto(`/documents/${document.id}/workspace`);
   for (const label of [
@@ -967,25 +1011,25 @@ test('M8 keeps a complete obstacle-free hyperedge across 4/3-panel and stacked l
   await page.getByRole('button', { name: /Activate alignment/ }).click();
 
   await expect(page.locator('.panel-slot')).toHaveCount(4);
-  await expectConnectorsBoundToCanonicalPanels(page, 5);
+  await expectConnectorsBoundToCanonicalPanels(page, 5, expectedPanelByMember);
   await expectNoHorizontalOverflow(page);
 
   await page.setViewportSize({ width: 1280, height: 720 });
-  await expectConnectorsBoundToCanonicalPanels(page, 5);
+  await expectConnectorsBoundToCanonicalPanels(page, 5, expectedPanelByMember);
   await expectNoHorizontalOverflow(page);
 
   await page.setViewportSize({ width: 720, height: 900 });
-  await expectConnectorsBoundToCanonicalPanels(page, 5);
+  await expectConnectorsBoundToCanonicalPanels(page, 5, expectedPanelByMember);
   await expectNoHorizontalOverflow(page);
 
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByRole('button', { name: 'Hide M8 Route Spanish panel' }).click();
   await expect(page.locator('.panel-slot')).toHaveCount(3);
-  await expectConnectorsBoundToCanonicalPanels(page, 4);
+  await expectConnectorsBoundToCanonicalPanels(page, 4, expectedPanelByMember);
 
   await page.getByRole('button', { name: 'Open M8 Route Spanish' }).click();
   await expect(page.locator('.panel-slot')).toHaveCount(4);
-  await expectConnectorsBoundToCanonicalPanels(page, 5);
+  await expectConnectorsBoundToCanonicalPanels(page, 5, expectedPanelByMember);
 });
 
 // ---------------------------------------------------------------------------

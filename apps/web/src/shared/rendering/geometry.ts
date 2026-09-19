@@ -96,7 +96,11 @@ function distanceSq(a: Point, b: Point): number {
 }
 
 export interface AnchorSelection {
-  /** Final group hub: centroid of the chosen member anchors. */
+  /**
+   * Inherited centroid of the chosen member anchors. M0.6 used this point as
+   * the direct-line hub; M8 retains it only as the preferred/desired visual
+   * hub input for obstacle routing.
+   */
   hub: Point;
   /**
    * One chosen anchor per VISIBLE member, in input order (the candidate
@@ -114,8 +118,11 @@ export interface AnchorSelection {
  * 3. the centroid of provisional member centers is the provisional hub;
  * 4. per member, choose the candidate rect center nearest the provisional
  *    hub;
- * 5. the centroid of the chosen anchors is the final hub;
- * 6. connect each chosen anchor to the final hub.
+ * 5. the centroid of the chosen anchors is retained as the desired hub.
+ *
+ * M8 deliberately supersedes only the old direct-line step: these chosen
+ * anchors now feed panel-perimeter obstacle routing instead of being drawn
+ * directly to this centroid.
  *
  * Members without visible rects (hidden/offscreen panels) contribute
  * nothing; when fewer than 2 visible members remain, no connectors are
@@ -154,7 +161,7 @@ export function computeAnchors(
     return best as Point;
   });
 
-  // Step 5: final hub = centroid of chosen anchors.
+  // Step 5: inherited centroid retained as M8's desired visual hub.
   const hub = centroid(chosen);
   if (hub === null) {
     return null;
