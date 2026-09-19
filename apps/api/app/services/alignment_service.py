@@ -24,14 +24,11 @@ Every operation leaves the Session transaction-clean on exit (success or
 failure). The service never calls ``commit()``/``rollback()`` itself —
 ``write_transaction`` owns the transaction boundaries.
 
-Known non-blocking limitation (recorded at M0.5 Gate 2 review): concurrent
-PATCHes to the SAME AlignmentGroup are not given a dedicated concurrency-
-control contract in M0.5; in a pathological interleaving they may surface
-an unexpected integrity failure (``uq_alignment_members_group_span``) as an
-unhandled IntegrityError. The single-user workbench cannot normally produce
-this, and the reviewed M0.3 constraint-classification policy propagates
-unexpected integrity errors. The concurrent Span get-or-create algorithm
-(PostgreSQL ``ON CONFLICT``) is unaffected and remains accepted.
+M7 closes that retained concurrency debt by serializing Alignment topology
+mutation on the owning ParallelDocument, then locking participating
+TextVersion rows in deterministic UUID order. Pre-lock reads are locator-only;
+mutation-authoritative state is re-resolved after the canonical locks. The
+accepted PostgreSQL Span get-or-create algorithm remains unchanged.
 """
 
 from __future__ import annotations
@@ -55,6 +52,7 @@ from app.db.models import (
 )
 from app.db.session import write_transaction
 from app.services.alignment_invariants import MemberRef, validate_alignment_members
+from app.services.alignment_locking import lock_parallel_document, lock_text_versions
 from app.text.offsets import (
     extract_context,
     extract_exact_text,
@@ -129,42 +127,128 @@ class AlignmentView:
     members: list[AlignmentMemberView] = field(default_factory=list)
 
 
-def _resolve_member_spans(
-    db: Session, document_id: uuid.UUID, members: list[MemberInput]
-) -> list[MemberRef]:
-    """Validate and resolve a member set to persisted Spans.
+def _alignment_not_found(alignment_id: uuid.UUID) -> DomainError:
+    return DomainError(
+        "NOT_FOUND",
+        "alignment group not found",
+        {"alignment_id": str(alignment_id)},
+    )
 
-    Steps (in a correctness-safe order):
 
-    1. resolve every referenced TextVersion (missing -> NOT_FOUND);
-    2. verify every TextVersion belongs to ``document_id``
-       (-> CROSS_DOCUMENT_ALIGNMENT) — the full resolution/ownership pass
-       runs BEFORE any Span insert;
-    3. per member: validate the code-point ``[start, end)`` range against
-       the canonical content (-> SPAN_OUT_OF_RANGE), derive
-       ``exact_text``/``prefix``/``suffix`` server-side, then
-       concurrency-safe get-or-create the Span.
+def _locate_alignment_document_id(
+    db: Session, alignment_id: uuid.UUID
+) -> uuid.UUID:
+    """Locator-only pre-lock read used to find the M7 document root."""
 
-    Note on ordering: range validation is performed per member immediately
-    before THAT member's insert, and the AGGREGATE alignment invariants
-    (cardinality, duplicate Span, same-version overlap) are validated by the
-    caller AFTER this function returns. A failure in a later member or in
-    the aggregate validation therefore leaves earlier provisional Span
-    inserts in the transaction — this is safe because the ONE outer
-    Alignment ``write_transaction`` rolls the whole operation back, so a
-    failed request never leaves newly created orphan Spans behind.
+    document_id = db.scalar(
+        select(AlignmentGroup.document_id).where(AlignmentGroup.id == alignment_id)
+    )
+    if document_id is None:
+        raise _alignment_not_found(alignment_id)
+    return document_id
 
-    Returns resolved ``MemberRef``s ready for invariant validation.
-    """
-    version_ids = list({m.text_version_id for m in members})
-    versions = {
-        v.id: v
-        for v in db.scalars(
-            select(TextVersion).where(TextVersion.id.in_(version_ids))
+
+def _load_group_for_update(
+    db: Session, alignment_id: uuid.UUID
+) -> AlignmentGroup | None:
+    return db.scalar(
+        select(AlignmentGroup)
+        .where(AlignmentGroup.id == alignment_id)
+        .execution_options(populate_existing=True)
+        .with_for_update()
+    )
+
+
+def _load_member_text_version_ids(
+    db: Session, group_id: uuid.UUID
+) -> list[uuid.UUID]:
+    return list(
+        db.scalars(
+            select(Span.text_version_id)
+            .join(AlignmentMember, AlignmentMember.span_id == Span.id)
+            .where(AlignmentMember.alignment_group_id == group_id)
+        ).all()
+    )
+
+
+def _validate_version_ownership_under_document_root(
+    db: Session,
+    document_id: uuid.UUID,
+    version_ids: list[uuid.UUID],
+) -> None:
+    """Reject missing/foreign versions before taking any TextVersion lock."""
+
+    ordered_ids = list(dict.fromkeys(version_ids))
+    if not ordered_ids:
+        return
+
+    owners = {
+        row[0]: row[1]
+        for row in db.execute(
+            select(TextVersion.id, TextVersion.document_id).where(
+                TextVersion.id.in_(ordered_ids)
+            )
         ).all()
     }
+    for version_id in ordered_ids:
+        owner_document_id = owners.get(version_id)
+        if owner_document_id is None:
+            raise DomainError(
+                "NOT_FOUND",
+                "text version not found",
+                {"text_version_id": str(version_id)},
+            )
+        if owner_document_id != document_id:
+            raise DomainError(
+                "CROSS_DOCUMENT_ALIGNMENT",
+                "all alignment members must belong to the same parallel document as the group",
+                {
+                    "text_version_id": str(version_id),
+                    "group_document_id": str(document_id),
+                },
+            )
+
+
+def _lock_versions_for_document(
+    db: Session,
+    document_id: uuid.UUID,
+    version_ids: list[uuid.UUID],
+) -> dict[uuid.UUID, TextVersion]:
+    _validate_version_ownership_under_document_root(db, document_id, version_ids)
+    locked = lock_text_versions(db, version_ids)
+
+    for version_id in dict.fromkeys(version_ids):
+        version = locked.get(version_id)
+        if version is None:
+            raise DomainError(
+                "NOT_FOUND",
+                "text version not found",
+                {"text_version_id": str(version_id)},
+            )
+        if version.document_id != document_id:
+            raise DomainError(
+                "CROSS_DOCUMENT_ALIGNMENT",
+                "all alignment members must belong to the same parallel document as the group",
+                {
+                    "text_version_id": str(version_id),
+                    "group_document_id": str(document_id),
+                },
+            )
+    return locked
+
+
+def _resolve_member_spans(
+    db: Session,
+    document_id: uuid.UUID,
+    members: list[MemberInput],
+    *,
+    locked_versions: dict[uuid.UUID, TextVersion],
+) -> list[MemberRef]:
+    """Resolve members from freshly locked authoritative TextVersions."""
+
+    refs: list[MemberRef] = []
     for member in members:
-        version = versions.get(member.text_version_id)
+        version = locked_versions.get(member.text_version_id)
         if version is None:
             raise DomainError(
                 "NOT_FOUND",
@@ -181,9 +265,6 @@ def _resolve_member_spans(
                 },
             )
 
-    refs: list[MemberRef] = []
-    for member in members:
-        version = versions[member.text_version_id]
         validate_span_bounds(
             version.content, member.start_offset, member.end_offset
         )
@@ -312,6 +393,7 @@ def _load_member_rows(
             select(AlignmentMember, Span)
             .join(Span, AlignmentMember.span_id == Span.id)
             .where(AlignmentMember.alignment_group_id == group_id)
+            .execution_options(populate_existing=True)
         ).all()
     )
 
@@ -323,34 +405,42 @@ def create_alignment(
     members: list[MemberInput],
     note: str | None = None,
 ) -> AlignmentView:
-    """Create one AlignmentGroup atomically (frozen contract section 9).
+    """Create one AlignmentGroup under the M7 document-root lock."""
 
-    One ``write_transaction`` covers: document/version resolution,
-    ownership and range validation, server-side quote derivation,
-    concurrency-safe Span get-or-create, complete invariant validation,
-    group + member creation. ANY failure rolls the whole operation back —
-    no new group, no new members, no newly created orphan Span.
-    """
     with write_transaction(db):
-        # Service-boundary note validation BEFORE any database work (the
-        # clean-Session check in write_transaction still wins on a
-        # dirty/open-session entry).
         _validate_note(note)
-        document = db.get(ParallelDocument, document_id)
+
+        document = lock_parallel_document(db, document_id)
         if document is None:
             raise DomainError(
-                "NOT_FOUND", "document not found", {"document_id": str(document_id)}
+                "NOT_FOUND",
+                "document not found",
+                {"document_id": str(document_id)},
             )
 
-        refs = _resolve_member_spans(db, document_id, members)
+        version_ids = [member.text_version_id for member in members]
+        locked_versions = _lock_versions_for_document(
+            db, document_id, version_ids
+        )
+        refs = _resolve_member_spans(
+            db,
+            document_id,
+            members,
+            locked_versions=locked_versions,
+        )
         validate_alignment_members(refs, document_id)
 
         group = AlignmentGroup(document_id=document_id, note=note)
         db.add(group)
-        db.flush()  # group.id is needed for the member rows
+        db.flush()
 
         for ref in refs:
-            db.add(AlignmentMember(alignment_group_id=group.id, span_id=ref.span_id))
+            db.add(
+                AlignmentMember(
+                    alignment_group_id=group.id,
+                    span_id=ref.span_id,
+                )
+            )
         db.flush()
 
         member_rows = _load_member_rows(db, group.id)
@@ -364,80 +454,79 @@ def update_alignment(
     note: str | None | object = _UNSET,
     members: list[MemberInput] | object = _UNSET,
 ) -> AlignmentView:
-    """Update an AlignmentGroup atomically (frozen contract sections 13-17).
+    """PATCH one AlignmentGroup with serial-equivalent M7 semantics."""
 
-    Supported modes (any combination in one request):
-
-    - note update — ``note`` may be ``None`` to CLEAR the note;
-    - full member replacement — ``members`` is the COMPLETE new set: the
-      service validates the new set, creates/reuses the required Spans,
-      removes the old member rows, creates the replacement rows, then
-      deletes only candidate old Spans that become true orphans (zero
-      surviving AlignmentMembers anywhere).
-
-    Field omission means "leave unchanged". A successful PATCH that changes
-    the logical alignment state advances ``AlignmentGroup.updated_at``
-    explicitly (member-only replacement would otherwise leave the group row
-    untouched and ORM ``onupdate`` would not fire). A no-op PATCH (nothing
-    supplied, or note/member set identical to current state) returns the
-    current representation without advancing ``updated_at``.
-
-    If ANY part of a replacement fails, the whole transaction rolls back and
-    the old Alignment remains completely intact.
-    """
     with write_transaction(db):
-        # Service-boundary note validation when note is EXPLICITLY supplied
-        # (omission stays "unchanged", null clears) — before any database
-        # work, so the clean-Session check in write_transaction still wins on
-        # a dirty/open-session entry.
         if note is not _UNSET:
             _validate_note(note)
-        group = db.get(AlignmentGroup, alignment_id)
-        if group is None:
-            raise DomainError(
-                "NOT_FOUND",
-                "alignment group not found",
-                {"alignment_id": str(alignment_id)},
-            )
+
+        document_id = _locate_alignment_document_id(db, alignment_id)
+        document = lock_parallel_document(db, document_id)
+        if document is None:
+            raise _alignment_not_found(alignment_id)
+
+        group = _load_group_for_update(db, alignment_id)
+        if group is None or group.document_id != document_id:
+            raise _alignment_not_found(alignment_id)
+
+        current_version_ids = _load_member_text_version_ids(db, group.id)
+        proposed_version_ids = (
+            [member.text_version_id for member in members]
+            if members is not _UNSET
+            else []
+        )
+        locked_versions = _lock_versions_for_document(
+            db,
+            document_id,
+            current_version_ids + proposed_version_ids,
+        )
+
+        group = _load_group_for_update(db, alignment_id)
+        if group is None or group.document_id != document_id:
+            raise _alignment_not_found(alignment_id)
 
         changed = False
-
-        if note is not _UNSET:
-            if group.note != note:
-                group.note = note
-                changed = True
+        if note is not _UNSET and group.note != note:
+            group.note = note
+            changed = True
 
         if members is not _UNSET:
-            new_refs = _resolve_member_spans(db, group.document_id, members)
+            new_refs = _resolve_member_spans(
+                db,
+                group.document_id,
+                members,
+                locked_versions=locked_versions,
+            )
             validate_alignment_members(new_refs, group.document_id)
+
             current_rows = _load_member_rows(db, group.id)
-            current_span_ids = {member.span_id for member, _span in current_rows}
+            current_span_ids = {
+                member.span_id for member, _span in current_rows
+            }
             new_span_ids = {ref.span_id for ref in new_refs}
+
             if new_span_ids != current_span_ids:
-                # Full-set replacement: remove old member rows, add the
-                # replacement rows (member IDs may change — no M0.5
-                # stability guarantee, frozen contract section 17). Old rows
-                # are deleted AND flushed BEFORE the new rows are inserted:
-                # SQLAlchemy flushes inserts before deletes within one
-                # flush, which would violate
-                # ``uq_alignment_members_group_span`` when a span is kept.
                 for member, _span in current_rows:
                     db.delete(member)
                 db.flush()
+
                 for ref in new_refs:
                     db.add(
-                        AlignmentMember(alignment_group_id=group.id, span_id=ref.span_id)
+                        AlignmentMember(
+                            alignment_group_id=group.id,
+                            span_id=ref.span_id,
+                        )
                     )
                 db.flush()
-                _cleanup_orphan_spans(db, group.id, candidate_span_ids=(
-                    current_span_ids - new_span_ids
-                ))
+
+                _cleanup_orphan_spans(
+                    db,
+                    group.id,
+                    candidate_span_ids=current_span_ids - new_span_ids,
+                )
                 changed = True
 
         if changed:
-            # Explicit timestamp advance: do not depend solely on ORM
-            # onupdate, which would not fire for member-only replacement
-            # (frozen contract section 16).
             group.updated_at = utcnow()
 
         member_rows = _load_member_rows(db, group.id)
@@ -475,27 +564,35 @@ def _cleanup_orphan_spans(
 
 
 def delete_alignment(db: Session, alignment_id: uuid.UUID) -> None:
-    """Delete one AlignmentGroup atomically (frozen contract section 18).
+    """Delete one AlignmentGroup under the M7 canonical lock order."""
 
-    Deletes the group (its member rows cascade at the database layer) and
-    then deletes only the Spans it referenced that have ZERO surviving
-    AlignmentMembers anywhere. Spans shared with any surviving group,
-    unrelated groups/memberships, and unrelated pre-existing bare Spans are
-    preserved — the exact orphan semantics of the ADR-005 destructive reset.
-    """
     with write_transaction(db):
-        group = db.get(AlignmentGroup, alignment_id)
-        if group is None:
-            raise DomainError(
-                "NOT_FOUND",
-                "alignment group not found",
-                {"alignment_id": str(alignment_id)},
-            )
+        document_id = _locate_alignment_document_id(db, alignment_id)
+        document = lock_parallel_document(db, document_id)
+        if document is None:
+            raise _alignment_not_found(alignment_id)
+
+        group = _load_group_for_update(db, alignment_id)
+        if group is None or group.document_id != document_id:
+            raise _alignment_not_found(alignment_id)
+
+        version_ids = _load_member_text_version_ids(db, group.id)
+        _lock_versions_for_document(db, document_id, version_ids)
+
+        group = _load_group_for_update(db, alignment_id)
+        if group is None or group.document_id != document_id:
+            raise _alignment_not_found(alignment_id)
 
         member_rows = _load_member_rows(db, group.id)
-        candidate_span_ids = {member.span_id for member, _span in member_rows}
+        candidate_span_ids = {
+            member.span_id for member, _span in member_rows
+        }
 
         db.delete(group)
         db.flush()
 
-        _cleanup_orphan_spans(db, group.id, candidate_span_ids=candidate_span_ids)
+        _cleanup_orphan_spans(
+            db,
+            group.id,
+            candidate_span_ids=candidate_span_ids,
+        )

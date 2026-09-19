@@ -11,8 +11,10 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ## 0. Current durable status
 
-M7 — Alignment Mutation Concurrency Hardening — is **FROZEN / HUMAN APPROVED /
-IMPLEMENTATION NOT YET AUTHORIZED**.
+M7 — Alignment Mutation Concurrency Hardening — is **IMPLEMENTATION
+AUTHORIZED / IN PROGRESS** on
+`m7-alignment-mutation-concurrency-hardening`. Gate 2 is not yet established,
+there is no PR, and merge is not authorized.
 
 M7 freeze coordinates:
 
@@ -25,9 +27,12 @@ M7 freeze coordinates:
 - planned implementation branch:
   `m7-alignment-mutation-concurrency-hardening`;
 - implementation branch:
-  **NOT CREATED / NOT AUTHORIZED BY FREEZE**;
+  `m7-alignment-mutation-concurrency-hardening`, created exactly from frozen
+  `main@3f08eca99f03180eef9dcd7008287892f0e6501d`;
+- implementation:
+  **HUMAN AUTHORIZED / BOUNDED BY M7_CONTRACT.md**;
 - implementation candidate:
-  **NONE**;
+  **IN PROGRESS / exact candidate not yet frozen**;
 - PR:
   **NONE**;
 - migration:
@@ -239,7 +244,7 @@ Hardening**.
 
 Current M7 lifecycle state:
 
-**FROZEN / HUMAN APPROVED / IMPLEMENTATION NOT YET AUTHORIZED.**
+**IMPLEMENTATION AUTHORIZED / IN PROGRESS.**
 
 Latest merged implementation checkpoint: **M6 — Mode-Oriented Workbench
 Information Architecture**.

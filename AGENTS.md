@@ -53,8 +53,10 @@ implementation code:
 
 ## Current phase
 
-M7 — Alignment Mutation Concurrency Hardening — is **FROZEN / HUMAN APPROVED /
-IMPLEMENTATION NOT YET AUTHORIZED**.
+M7 — Alignment Mutation Concurrency Hardening — is **IMPLEMENTATION
+AUTHORIZED / IN PROGRESS** on
+`m7-alignment-mutation-concurrency-hardening`. Gate 2 is not yet established
+and no PR/merge is authorized.
 
 The frozen M7 execution contract is
 `docs/development/M7_CONTRACT.md`. Approved pre-freeze durable base:
@@ -69,8 +71,9 @@ Planned implementation branch:
 
 `m7-alignment-mutation-concurrency-hardening`
 
-The freeze does not authorize branch creation, application/test changes,
-ADR-015, proof execution, or provider mutation. M7 freezes
+The Human subsequently authorized the exact-base implementation branch and
+bounded implementation under the frozen contract. Proof execution, PR, merge,
+and provider mutation remain separately governed. M7 freezes
 `ParallelDocument → sorted participating TextVersion` as the canonical
 serialization order for scoped Alignment/TextVersion concurrency, with
 pre-lock reads limited to root locators and authoritative state re-resolved

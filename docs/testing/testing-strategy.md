@@ -506,3 +506,36 @@ Retain as durable M6 evidence:
 - candidate → durable-main tree-identity record.
 
 See `docs/development/M0_7_CLOSEOUT.md` for the complete closeout ledger.
+
+
+## 9. M7 Alignment concurrency candidate
+
+M7 adds no schema, API, frontend feature, dependency, or runtime change. Its
+checkpoint-specific correctness evidence is real-PostgreSQL concurrency
+coverage bound to the frozen `M7_CONTRACT.md`.
+
+Required implementation races are `C-R01` through `C-R09`; mandatory
+audit races are `C-A01` and `C-A02`. Tests use separate SQLAlchemy
+Sessions/connections and deterministic blockers (`FOR UPDATE`,
+`threading.Barrier`, or `Event`) with bounded waits/joins. A bounded sleep
+may support a controlled blocker but cannot be the sole synchronization
+mechanism.
+
+The production lock order under test is:
+
+```text
+ParallelDocument
+→ participating TextVersion rows sorted by UUID
+→ authoritative re-resolution
+→ validate
+→ mutate
+```
+
+Project/ParallelDocument deletion remains audit-only. An audit failure that
+requires production changes is a Human STOP condition rather than implicit
+scope expansion.
+
+Full Gate 2 still requires Alembic current/check at head `0006`, complete
+real-PostgreSQL pytest with required races unskipped, frontend lint/typecheck/
+Vitest/build, and retained M0–M6 Playwright regression. M6 hosted proof does
+not establish M7 Gate 2.
