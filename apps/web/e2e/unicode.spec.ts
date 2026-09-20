@@ -412,13 +412,13 @@ test.describe('M0.7 Unicode release blocker', () => {
     const uniAlignedRun = alignedUniRuns.first();
     const enAlignedRun = enPanel.locator('[data-run].run-aligned').first();
     const deAlignedRun = dePanel.locator('[data-run].run-aligned').first();
-    const connectorLines = page.locator('.connector-overlay .connector-line');
+    const connectorRoutes = page.locator('.connector-overlay .connector-route');
 
     await uniAlignedRun.hover();
     await expect(uniAlignedRun).toHaveClass(/run-hovered/);
     await expect(enAlignedRun).toHaveClass(/run-hovered/);
     await expect(deAlignedRun).toHaveClass(/run-hovered/);
-    await expect(connectorLines).toHaveCount(4);
+    await expect(connectorRoutes).toHaveCount(4);
 
     await uniAlignedRun.click();
     await page
@@ -427,7 +427,7 @@ test.describe('M0.7 Unicode release blocker', () => {
     await expect(uniAlignedRun).toHaveClass(/run-active/);
     await expect(enAlignedRun).toHaveClass(/run-active/);
     await expect(deAlignedRun).toHaveClass(/run-active/);
-    await expect(connectorLines).toHaveCount(4);
+    await expect(connectorRoutes).toHaveCount(4);
     const inspector = page.getByRole('region', {
       name: 'Alignment inspector',
     });

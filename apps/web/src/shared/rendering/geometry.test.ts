@@ -92,7 +92,7 @@ describe('computeAnchors (deterministic nearest-hub selection, section L)', () =
     expect(result!.hub).toEqual({ x: 200, y: 10 });
   });
 
-  it('flattens multiple ClientRects per member (wrapped span)', () => {
+  it('R-G07 flattens multiple ClientRects per member (wrapped span)', () => {
     // Member A wraps: two visual-line rects; member B single-line.
     const result = computeAnchors([
       [rect(0, 0, 100, 20), rect(0, 30, 40, 20)],

@@ -391,7 +391,7 @@ describe('ConnectorOverlay rendering', () => {
     expect(lineCoords()).toHaveLength(0);
   });
 
-  it('clips partially visible rects to the visible intersection', () => {
+  it('R-G10 clips partially visible rects to the visible intersection', () => {
     mountOverlay([member('span-1'), member('span-2')], {
       rects: {
         // span-1 pokes out of the viewport's left edge: client rect
@@ -408,7 +408,7 @@ describe('ConnectorOverlay rendering', () => {
     expect(firstRoute.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('ignores fully offscreen rects', () => {
+  it('R-G11 ignores fully offscreen rects', () => {
     mountOverlay([member('span-1'), member('span-2')], {
       rects: {
         // Fully left of the viewport: empty intersection.
@@ -444,7 +444,7 @@ describe('ConnectorOverlay rendering', () => {
 });
 
 describe('collectVisibleMemberRects', () => {
-  it('flattens rects across multiple run elements (span split across runs)', () => {
+  it('R-G08 flattens rects across multiple run elements (span split across runs)', () => {
     const container = document.createElement('div');
     const panelSlot = document.createElement('div');
     panelSlot.className = 'panel-slot';
@@ -476,7 +476,7 @@ describe('collectVisibleMemberRects', () => {
 });
 
 describe('M8 owning-panel and complete-set routing', () => {
-  it('fails closed when one member resolves across multiple owning panels', () => {
+  it('R-G20 fails closed when one member resolves across multiple owning panels', () => {
     const mount = mountOverlay(
       [member('span-1'), member('span-2')],
       {

@@ -563,7 +563,7 @@ test.describe('M0 golden path (M0.3 + M0.4 + M0.5 + M0.6 slices)', () => {
     const deAlignedRun = dePanel.locator('[data-run].run-aligned').first();
     const frAlignedRun = frPanel.locator('[data-run].run-aligned').first();
     const esAlignedRun = esPanel.locator('[data-run].run-aligned').first();
-    const connectorLines = page.locator('.connector-overlay .connector-line');
+    const connectorRoutes = page.locator('.connector-overlay .connector-route');
 
     // 25. Idle visualization: persisted annotation indicators exist, no
     //     active connectors, Inspector closed.
@@ -572,7 +572,7 @@ test.describe('M0 golden path (M0.3 + M0.4 + M0.5 + M0.6 slices)', () => {
     await expect(frAlignedRun).toBeVisible();
     await expect(esAlignedRun).toBeVisible();
     await expect(page.locator('.saved-alignment-member')).toHaveCount(4);
-    await expect(connectorLines).toHaveCount(0);
+    await expect(connectorRoutes).toHaveCount(0);
     await expect(
       page.getByRole('region', { name: 'Alignment inspector' }),
     ).toHaveCount(0);
@@ -584,7 +584,7 @@ test.describe('M0 golden path (M0.3 + M0.4 + M0.5 + M0.6 slices)', () => {
     await expect(deAlignedRun).toHaveClass(/run-hovered/);
     await expect(frAlignedRun).toHaveClass(/run-hovered/);
     await expect(esAlignedRun).toHaveClass(/run-hovered/);
-    await expect(connectorLines).toHaveCount(4);
+    await expect(connectorRoutes).toHaveCount(4);
 
     // 27. Hover ends: temporary styling clears and the connectors disappear
     //     (no active alignment).
@@ -595,7 +595,7 @@ test.describe('M0 golden path (M0.3 + M0.4 + M0.5 + M0.6 slices)', () => {
     await expect(deAlignedRun).not.toHaveClass(/run-hovered/);
     await expect(frAlignedRun).not.toHaveClass(/run-hovered/);
     await expect(esAlignedRun).not.toHaveClass(/run-hovered/);
-    await expect(connectorLines).toHaveCount(0);
+    await expect(connectorRoutes).toHaveCount(0);
 
     // 28. Activate: click the EN member. Active styling persists after
     //     pointer leave, connectors persist, and the Inspector opens with
@@ -608,7 +608,7 @@ test.describe('M0 golden path (M0.3 + M0.4 + M0.5 + M0.6 slices)', () => {
     await expect(deAlignedRun).toHaveClass(/run-active/);
     await expect(frAlignedRun).toHaveClass(/run-active/);
     await expect(esAlignedRun).toHaveClass(/run-active/);
-    await expect(connectorLines).toHaveCount(4);
+    await expect(connectorRoutes).toHaveCount(4);
     const inspector = page.getByRole('region', {
       name: 'Alignment inspector',
     });
@@ -642,12 +642,10 @@ test.describe('M0 golden path (M0.3 + M0.4 + M0.5 + M0.6 slices)', () => {
     //     until the geometry actually differs from the pre-reorder capture
     //     (proving recomputation from the layout change, not just presence).
     const captureGeometry = () =>
-      connectorLines.evaluateAll((lines) =>
-        lines.map((line) => ({
-          x1: line.getAttribute('x1'),
-          y1: line.getAttribute('y1'),
-          x2: line.getAttribute('x2'),
-          y2: line.getAttribute('y2'),
+      connectorRoutes.evaluateAll((routes) =>
+        routes.map((route) => ({
+          memberId: route.getAttribute('data-member-id'),
+          points: route.getAttribute('points'),
         })),
       );
     const geometryBeforeReorder = await captureGeometry();
@@ -660,7 +658,7 @@ test.describe('M0 golden path (M0.3 + M0.4 + M0.5 + M0.6 slices)', () => {
 
     // Count stays correct, geometry re-anchors (changes from before), and
     // the active alignment/Inspector survive the reorder.
-    await expect(connectorLines).toHaveCount(4);
+    await expect(connectorRoutes).toHaveCount(4);
     await expect
       .poll(async () => captureGeometry())
       .not.toEqual(geometryBeforeReorder);
@@ -669,10 +667,10 @@ test.describe('M0 golden path (M0.3 + M0.4 + M0.5 + M0.6 slices)', () => {
     // 31. Hide the French panel (member hidden): its connector disappears,
     //     the group stays active and the Inspector still lists ALL members.
     await page.getByRole('button', { name: 'Hide French panel' }).click();
-    await expect(connectorLines).toHaveCount(3);
+    await expect(connectorRoutes).toHaveCount(3);
     await expect(inspector.locator('.inspector-member')).toHaveCount(4);
     await page.getByRole('button', { name: /Open French/ }).click();
-    await expect(connectorLines).toHaveCount(4);
+    await expect(connectorRoutes).toHaveCount(4);
 
     // 32. Remove the FR member through the Inspector (explicit
     //     confirmation), then verify the authoritative refresh.
@@ -708,7 +706,7 @@ test.describe('M0 golden path (M0.3 + M0.4 + M0.5 + M0.6 slices)', () => {
     await expect(
       page.getByRole('region', { name: 'Alignment inspector' }),
     ).toHaveCount(0);
-    await expect(connectorLines).toHaveCount(0);
+    await expect(connectorRoutes).toHaveCount(0);
     await expect(page.locator('.saved-alignment-member')).toHaveCount(3);
     await expect(
       page.locator('.saved-alignment-note'),
@@ -729,7 +727,7 @@ test.describe('M0 golden path (M0.3 + M0.4 + M0.5 + M0.6 slices)', () => {
     await page.getByRole('button', { name: 'Delete Alignment' }).click();
     await page.getByRole('button', { name: 'Confirm delete' }).click();
     await expect(inspector).toHaveCount(0);
-    await expect(connectorLines).toHaveCount(0);
+    await expect(connectorRoutes).toHaveCount(0);
     await expect(page.getByText('No saved alignments yet.')).toBeVisible();
     await expect(
       page.locator('.text-panel', { hasText: EN_TEXT }).first().locator('[data-run].run-aligned'),
