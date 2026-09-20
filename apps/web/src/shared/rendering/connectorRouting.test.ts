@@ -139,7 +139,7 @@ function expectSafe(
   }
 }
 
-describe('computeRoutedConnectorGeometry — M8 obstacle routing'describe('computeRoutedConnectorGeometry — M8 obstacle routing', () => {
+describe('computeRoutedConnectorGeometry — M8 obstacle routing', () => {
   it('R-G01/R-G12/R-G16 routes two horizontal panels through their inner gap', () => {
     const left = rect(8, 8, 280, 140);
     const right = rect(312, 8, 280, 140);
