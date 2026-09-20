@@ -592,6 +592,45 @@ async function expectConnectorsBoundToCanonicalPanels(
     .toBeNull();
 }
 
+async function connectorPointSignature(page: Page): Promise<string[]> {
+  return await page.locator('.connector-route').evaluateAll((routes) =>
+    routes.map((route) =>
+      [
+        route.getAttribute('data-member-id') ?? '',
+        route.getAttribute('points') ?? '',
+      ].join(':'),
+    ),
+  );
+}
+
+async function connectorUsesReservedPerimeterCorridor(page: Page): Promise<boolean> {
+  return await page.evaluate(() => {
+    const overlay = document.querySelector('[data-testid="connector-overlay"]');
+    if (!(overlay instanceof SVGSVGElement)) {
+      return false;
+    }
+    const overlayRect = overlay.getBoundingClientRect();
+    const panels = Array.from(document.querySelectorAll('.panel-slot'))
+      .map((panel) => panel.getBoundingClientRect())
+      .filter((rect) => rect.width > 0 && rect.height > 0);
+    if (panels.length < 3) {
+      return false;
+    }
+    const left = Math.min(...panels.map((rect) => rect.left - overlayRect.left));
+    const right = Math.max(...panels.map((rect) => rect.right - overlayRect.left));
+    return Array.from(overlay.querySelectorAll('.connector-route')).some((route) =>
+      (route.getAttribute('points') ?? '')
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean)
+        .some((pair) => {
+          const [x] = pair.split(',').map(Number);
+          return x < left - 1 || x > right + 1;
+        }),
+    );
+  });
+}
+
 test('M6-HRA-D01 balances four short canonical panels at 1440×900', async ({ page, request }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const document = await createDocument(request, 'M6 HRA D01 wide');
@@ -1030,6 +1069,99 @@ test('M8 keeps a complete obstacle-free hyperedge across 4/3-panel and stacked l
   await page.getByRole('button', { name: 'Open M8 Route Spanish' }).click();
   await expect(page.locator('.panel-slot')).toHaveCount(4);
   await expectConnectorsBoundToCanonicalPanels(page, 5, expectedPanelByMember);
+});
+
+test('M8 preserves active routing through long-body scroll, window scroll and the stacked reserve', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const document = await createDocument(request, 'M8 scroll and reserve');
+  const longVersion = await createVersion(
+    request,
+    document.id,
+    'M8 Long English',
+    'en',
+    'Alpha beta gamma delta 🙂. '.repeat(80),
+  );
+  await createVersion(
+    request,
+    document.id,
+    'M8 Middle Blocker',
+    'de',
+    'Zwischenraum.',
+  );
+  const shortVersion = await createVersion(
+    request,
+    document.id,
+    'M8 Short French',
+    'fr',
+    'Bonjour.',
+  );
+  const created = await request.post(`/api/v1/documents/${document.id}/alignments`, {
+    data: {
+      members: [
+        { text_version_id: longVersion.id, start: 0, end: 5 },
+        { text_version_id: shortVersion.id, start: 0, end: 7 },
+      ],
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+  const createdAlignment = await created.json() as {
+    members: Array<{ id: string; text_version_id: string }>;
+  };
+  const expectedPanelByMember = Object.fromEntries(
+    createdAlignment.members.map((member) => [
+      member.id,
+      member.text_version_id,
+    ]),
+  );
+
+  await page.goto(`/documents/${document.id}/workspace`);
+  await openVersion(page, 'M8 Long English');
+  await openVersion(page, 'M8 Middle Blocker');
+  await openVersion(page, 'M8 Short French');
+  await page.getByRole('button', { name: /Activate alignment/ }).click();
+
+  // 1440×900 long + short active-routing acceptance case.
+  await expectConnectorsBoundToCanonicalPanels(page, 2, expectedPanelByMember);
+  await expectNoHorizontalOverflow(page);
+
+  // A real bounded canonical-body scroll must recompute route geometry while
+  // the selected first-line member remains visible.
+  const longBody = page.locator(
+    `.text-panel[data-text-version-id="${longVersion.id}"] .text-panel-body`,
+  );
+  const beforeBodyScroll = await connectorPointSignature(page);
+  await longBody.evaluate((body) => {
+    body.scrollTop = 8;
+    body.dispatchEvent(new Event('scroll'));
+  });
+  await expect.poll(async () => await longBody.evaluate((body) => body.scrollTop)).toBeGreaterThan(0);
+  await expect
+    .poll(async () => await connectorPointSignature(page))
+    .not.toEqual(beforeBodyScroll);
+  await expectConnectorsBoundToCanonicalPanels(page, 2, expectedPanelByMember);
+
+  // Real window scrolling keeps the same overlay-relative obstacle invariant.
+  await page.setViewportSize({ width: 1440, height: 500 });
+  const targetScrollY = await page.evaluate(() =>
+    Math.min(
+      160,
+      Math.max(0, document.documentElement.scrollHeight - window.innerHeight),
+    ),
+  );
+  expect(targetScrollY).toBeGreaterThan(0);
+  await page.evaluate((y) => window.scrollTo(0, y), targetScrollY);
+  await expect.poll(async () => await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  await expectConnectorsBoundToCanonicalPanels(page, 2, expectedPanelByMember);
+
+  // Below 48rem all three panels stack. The middle non-member panel blocks
+  // the direct vertical path, so the active Alignment must use the frozen
+  // internal perimeter reserve rather than enter the blocker.
+  await page.setViewportSize({ width: 720, height: 900 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect(page.locator('.panel-slot')).toHaveCount(3);
+  await expectConnectorsBoundToCanonicalPanels(page, 2, expectedPanelByMember);
+  await expect.poll(async () => await connectorUsesReservedPerimeterCorridor(page)).toBe(true);
+  await expectNoHorizontalOverflow(page);
 });
 
 // ---------------------------------------------------------------------------
