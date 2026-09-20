@@ -11,45 +11,65 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ## 0. Current durable status
 
-M8 — Alignment Connector Obstacle-Avoiding Routing — is **FROZEN / HUMAN
-APPROVED / IMPLEMENTATION NOT YET AUTHORIZED**.
+M8 — Alignment Connector Obstacle-Avoiding Routing — is **IMPLEMENTATION
+AUTHORIZED / BOUNDED IMPLEMENTATION IN PROGRESS / GATE 2 NOT ESTABLISHED**.
 
-M8 freeze coordinates:
+M8 durable coordinates and current lifecycle:
 
 - approved pre-freeze durable base:
   `7f4975a0bc2374eedb2c5b00dc187ce8c3b6f4ed`;
 - approved pre-freeze durable tree:
   `5b5aeeb789623dfd9a14032efe5ef923d5d2a8c7`;
+- docs-only frozen implementation base:
+  `cf26ea557bd746a518ff32b8b7e7a7542be7f7ae`; tree
+  `d7e4795758dde11373f27e8922d4018507ea3122`;
 - governing frozen contract:
   `docs/development/M8_CONTRACT.md`;
-- planned implementation branch:
+- active implementation branch:
   `m8-alignment-connector-obstacle-avoiding-routing`;
-- implementation branch:
-  **NOT CREATED / NOT AUTHORIZED BY FREEZE**;
-- implementation candidate:
-  **NONE**;
+- bounded implementation:
+  **HUMAN AUTHORIZED / ACTIVE**;
+- latest semantic/test correction epoch before this lifecycle-doc refresh:
+  `2232dc8e94792099a12ff3376e1b206b8b91545d`; tree
+  `2d137d70292b5df73b9ebf85d6dc8e7edf5d6119`;
+- exact accepted Gate 2 candidate:
+  **NONE YET**;
+- Gate 2:
+  **NOT ESTABLISHED**;
 - PR:
   **NONE**;
 - migration:
-  **NONE AUTHORIZED; Alembic HEAD remains 0006**;
+  **NONE; Alembic HEAD remains 0006**;
 - dependency/runtime change:
-  **NONE AUTHORIZED**;
-- ADR obligation:
-  implementation must add ADR-016 — Panel-Perimeter Obstacle-Avoiding
-  Alignment Routing; ADR-016 is deliberately absent from the docs-only freeze;
+  **NONE**;
+- ADR:
+  ADR-016 — Panel-Perimeter Obstacle-Avoiding Alignment Routing — is present on
+  the implementation branch as the bounded implementation record;
+- pre-Gate-2 findings:
+  M8-G2P-F01 through F04 were found by exact-head audit; the Human authorized
+  only their bounded correction. F01–F03 are addressed by the semantic/test
+  correction epoch above; this lifecycle refresh addresses F04. They still
+  require post-correction re-audit and executable evidence before closure;
+- canonical hosted execution:
+  recent exact-head GitHub Actions attempts retain the known provider/pre-step
+  fingerprint and provide no repository-step semantic evidence;
 - retained Human finding:
   `HRA-F09` remains **OPEN / ACTIVE M8 TARGET** until exact-candidate routing
-  evidence and Human Runtime Acceptance pass.
+  evidence and explicit Human Runtime Acceptance pass.
 
-Human-reviewed M8 contract decisions freeze a presentation-only routing
-change: visible AlignmentMembers retain RenderedSpanRegistry identity and
-inherited clipping/member-rect selection; each visible member derives an
-owning-panel perimeter port; every visible `.panel-slot` is a routing obstacle;
-the canonical canvas reserves 8px internally for routing with 4px obstacle
-clearance; deterministic orthogonal routes converge on one shared free-space
-hub; incomplete route sets fail closed as a whole; geometry provenance is
-`alignmentId + layoutKey`; connector geometry remains ephemeral and
-unpersisted. No backend/API/schema/Alembic/dependency change is authorized.
+M8 remains presentation-only: visible AlignmentMembers retain
+RenderedSpanRegistry identity and inherited clipping/member-rect selection;
+each visible member derives an owning-panel perimeter port; every visible
+`.panel-slot` is a routing obstacle; the canvas reserves 8px internally with
+4px obstacle clearance; deterministic orthogonal routes converge on one shared
+free-space hub; incomplete route sets fail closed as a whole; geometry
+provenance is `alignmentId + layoutKey`; routing state remains ephemeral.
+Backend/API/schema/Alembic/dependencies remain unchanged.
+
+`docs/architecture/ARCHITECTURE.md` and `docs/testing/testing-strategy.md`
+remain as-built-through-M7 descriptions until an exact M8 semantic candidate
+has passed the required implementation/Gate-2 review; they must not be treated
+as evidence that M8 is already complete.
 
 The latest completed implementation checkpoint remains M7 — Alignment
 Mutation Concurrency Hardening — **COMPLETE / MERGED / CLOSED**.
