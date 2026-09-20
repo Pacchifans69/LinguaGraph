@@ -11,37 +11,39 @@ schema structure.
 
 ## Current milestone
 
-M8 — Alignment Connector Obstacle-Avoiding Routing — is **FROZEN / HUMAN
-APPROVED / IMPLEMENTATION NOT YET AUTHORIZED**.
+M8 — Alignment Connector Obstacle-Avoiding Routing — is **IMPLEMENTATION
+AUTHORIZED / BOUNDED IMPLEMENTATION IN PROGRESS / GATE 2 NOT ESTABLISHED**.
 
 Frozen contract:
 
 `docs/development/M8_CONTRACT.md`
 
-Approved pre-freeze durable base:
+Frozen implementation base:
 
-`7f4975a0bc2374eedb2c5b00dc187ce8c3b6f4ed`
+`cf26ea557bd746a518ff32b8b7e7a7542be7f7ae`
 
-Approved pre-freeze durable tree:
+Frozen implementation-base tree:
 
-`5b5aeeb789623dfd9a14032efe5ef923d5d2a8c7`
+`d7e4795758dde11373f27e8922d4018507ea3122`
 
-Planned implementation branch:
+Active implementation branch:
 
 `m8-alignment-connector-obstacle-avoiding-routing`
 
-M8 is a bounded frontend routing-hardening checkpoint targeting retained
-`HRA-F09`. It freezes deterministic panel-perimeter obstacle-avoiding routing
-for the effective Alignment while preserving Alignment/Span persistence,
-RenderedSpanRegistry identity authority, N:M shared-hub semantics, canonical
-text/Selection behavior, backend/API/schema, Alembic `0006`, dependencies, and
-runtime baseline. The exact routing reserve is presentation-only and no
-connector geometry becomes persisted authority.
+M8 remains the bounded frontend routing-hardening checkpoint targeting retained
+`HRA-F09`: deterministic panel-perimeter obstacle-avoiding routes preserve
+Alignment/Span persistence, RenderedSpanRegistry identity authority, N:M
+shared-hub semantics, canonical text/Selection behavior, backend/API/schema,
+Alembic `0006`, dependencies, and runtime baseline. Connector geometry remains
+presentation-only and unpersisted.
 
-This docs-only freeze does not authorize implementation, branch creation,
-ADR-016, proof execution, proof-repository mutation, or provider mutation.
-`HRA-F09` remains OPEN until the exact implementation candidate passes the
-frozen automated/browser evidence and explicit Human Runtime Acceptance.
+Bounded implementation and the M8 pre-Gate-2 correction are active. The latest
+semantic/test correction epoch is
+`2232dc8e94792099a12ff3376e1b206b8b91545d`; formal Gate 2 evidence is not
+yet established. No PR, merge, alternate hosted proof, proof-repository
+mutation, or provider mutation is authorized. `HRA-F09` remains OPEN until the
+exact implementation candidate passes the frozen automated/browser evidence
+and explicit Human Runtime Acceptance.
 
 The latest completed implementation checkpoint remains M7.
 

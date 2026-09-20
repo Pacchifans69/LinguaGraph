@@ -57,30 +57,37 @@ implementation code:
 
 ## Current phase
 
-M8 — Alignment Connector Obstacle-Avoiding Routing — is **FROZEN / HUMAN
-APPROVED / IMPLEMENTATION NOT YET AUTHORIZED**.
+M8 — Alignment Connector Obstacle-Avoiding Routing — is **IMPLEMENTATION
+AUTHORIZED / BOUNDED IMPLEMENTATION IN PROGRESS / GATE 2 NOT ESTABLISHED**.
 
-The frozen M8 execution contract is
-`docs/development/M8_CONTRACT.md`. Approved pre-freeze durable base:
+The frozen M8 execution contract remains:
 
-`7f4975a0bc2374eedb2c5b00dc187ce8c3b6f4ed`
+`docs/development/M8_CONTRACT.md`
 
-Approved pre-freeze durable tree:
+Frozen implementation base:
 
-`5b5aeeb789623dfd9a14032efe5ef923d5d2a8c7`
+`cf26ea557bd746a518ff32b8b7e7a7542be7f7ae`
 
-Planned implementation branch:
+Frozen implementation-base tree:
+
+`d7e4795758dde11373f27e8922d4018507ea3122`
+
+Active implementation branch:
 
 `m8-alignment-connector-obstacle-avoiding-routing`
 
-The freeze does not authorize branch creation, frontend/test changes, ADR-016,
-proof execution, proof-repository mutation, or provider mutation. M8 targets
-retained `HRA-F09` by replacing direct member-to-hub straight connectors with
-deterministic span-derived panel-perimeter ports and orthogonal routing that
-avoids every visible `.panel-slot` interior while preserving N:M shared-hub,
-RenderedSpanRegistry, clipping, and mode-independent connector semantics.
-`HRA-F09` remains OPEN until exact-candidate automated/browser evidence and
-explicit Human Runtime Acceptance pass.
+After the docs-only freeze landed, the Human separately authorized creation of
+that exact-base branch and bounded implementation. The branch now contains the
+M8 obstacle router, strengthened tests, and ADR-016. The exact-head pre-Gate-2
+audit found bounded findings M8-G2P-F01 through F04; the Human authorized only
+that correction surface. F01–F03 test corrections landed in semantic/test epoch
+`2232dc8e94792099a12ff3376e1b206b8b91545d`; this lifecycle-document refresh
+is the bounded F04 correction.
+
+Formal Gate 2 evidence is still **NOT ESTABLISHED**. No PR, merge, alternate
+hosted proof, proof-repository mutation, or provider mutation is authorized.
+M8 still targets retained `HRA-F09`; it remains OPEN until exact-candidate
+automation/browser evidence and explicit Human Runtime Acceptance pass.
 
 The latest completed implementation checkpoint remains M7.
 
