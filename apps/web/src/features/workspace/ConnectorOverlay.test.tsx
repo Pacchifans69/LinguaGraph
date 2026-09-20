@@ -15,7 +15,10 @@
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RenderedSpanRegistry } from '../../shared/rendering/spanRegistry';
-import { collectVisibleMemberRects } from '../../shared/rendering/domRects';
+import {
+  collectMemberDomGeometry,
+  collectVisibleMemberRects,
+} from '../../shared/rendering/domRects';
 import type { AlignmentMember } from './api';
 import { ConnectorOverlay } from './ConnectorOverlay';
 
@@ -392,17 +395,47 @@ describe('ConnectorOverlay rendering', () => {
   });
 
   it('R-G10 clips partially visible rects to the visible intersection', () => {
-    mountOverlay([member('span-1'), member('span-2')], {
+    const mount = mountOverlay([member('span-1'), member('span-2')], {
       rects: {
-        // span-1 pokes out of the viewport's left edge: client rect
-        // (60,70,100,20) -> overlay-relative (-40,20,60,40); the viewport
-        // overlay-relative left edge is 10, so the visible intersection is
-        // (10,20,60,40) with center (35,30).
+        // span-1 pokes out of its owning panel body's left edge. The raw
+        // client rect (60,70,100,20) becomes overlay-relative
+        // (-40,20,60,40). The current fixture's panel body begins at
+        // overlay-relative x=12, so the exact visible intersection is
+        // (12,20,60,40), width 48.
         'span-1': [rect(60, 70, 100, 20)],
         'span-2': [rect(500, 70, 100, 20)],
       },
     });
     flushRaf();
+
+    const clipped = collectMemberDomGeometry(
+      [mount.runElements['span-1']],
+      OVERLAY_RECT,
+    );
+    expect(clipped.kind).toBe('visible');
+    if (clipped.kind !== 'visible') {
+      throw new Error('span-1 must resolve to visible clipped geometry');
+    }
+    expect(clipped.rects).toEqual([
+      {
+        left: 12,
+        top: 20,
+        right: 60,
+        bottom: 40,
+        width: 48,
+        height: 20,
+      },
+    ]);
+    expect(clipped.panelRect).toEqual({
+      left: 8,
+      top: 8,
+      right: 328,
+      bottom: 168,
+      width: 320,
+      height: 160,
+    });
+    expect(clipped.panelElement).toBe(mount.panelSlots['span-1']);
+
     expect(lineCoords()).toHaveLength(2);
     const firstRoute = routePoints('member-span-1')[0]!;
     expect(firstRoute.length).toBeGreaterThanOrEqual(2);
@@ -420,26 +453,56 @@ describe('ConnectorOverlay rendering', () => {
     expect(lineCoords()).toHaveLength(0);
   });
 
-  it('uses overlay-relative coordinates (client rects are converted)', () => {
-    mountOverlay([member('span-1'), member('span-2')], {
+  it('uses exact overlay-relative coordinates rather than raw client coordinates', () => {
+    const mount = mountOverlay([member('span-1'), member('span-2')], {
       rects: {
-        // Client rect (120,70) with overlay origin (100,50):
-        // overlay-relative (20,20), center (70,30).
+        // Client rect (120,70,100,20) with overlay origin (100,50)
+        // must become exactly (20,20,120,40), not remain in client space.
         'span-1': [rect(120, 70, 100, 20)],
         'span-2': [rect(500, 70, 100, 20)],
       },
     });
     flushRaf();
+
+    const geometry = collectMemberDomGeometry(
+      [mount.runElements['span-1']],
+      OVERLAY_RECT,
+    );
+    expect(geometry.kind).toBe('visible');
+    if (geometry.kind !== 'visible') {
+      throw new Error('span-1 must resolve to visible overlay geometry');
+    }
+    expect(geometry.rects).toEqual([
+      {
+        left: 20,
+        top: 20,
+        right: 120,
+        bottom: 40,
+        width: 100,
+        height: 20,
+      },
+    ]);
+    expect(geometry.panelRect).toEqual({
+      left: 8,
+      top: 8,
+      right: 328,
+      bottom: 168,
+      width: 320,
+      height: 160,
+    });
+
     const lines = lineCoords();
     expect(lines).toHaveLength(2);
-    for (const [x1, y1, x2, y2] of lines) {
-      expect(x1).toBeGreaterThanOrEqual(0);
-      expect(x1).toBeLessThanOrEqual(OVERLAY_RECT.width);
-      expect(y1).toBeGreaterThanOrEqual(0);
-      expect(y1).toBeLessThanOrEqual(OVERLAY_RECT.height);
-      expect(x2).toBeGreaterThanOrEqual(0);
-      expect(y2).toBeGreaterThanOrEqual(0);
-    }
+    const firstRoute = routePoints('member-span-1')[0]!;
+    const [portX, portY] = firstRoute[0]!;
+    const onOverlayPanelPerimeter =
+      ((portX === 8 || portX === 328) && portY >= 8 && portY <= 168) ||
+      ((portY === 8 || portY === 168) && portX >= 8 && portX <= 328);
+    const onRawClientPanelPerimeter =
+      ((portX === 108 || portX === 428) && portY >= 58 && portY <= 218) ||
+      ((portY === 58 || portY === 218) && portX >= 108 && portX <= 428);
+    expect(onOverlayPanelPerimeter).toBe(true);
+    expect(onRawClientPanelPerimeter).toBe(false);
   });
 });
 
