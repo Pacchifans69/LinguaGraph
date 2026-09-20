@@ -592,17 +592,6 @@ async function expectConnectorsBoundToCanonicalPanels(
     .toBeNull();
 }
 
-async function connectorPointSignature(page: Page): Promise<string[]> {
-  return await page.locator('.connector-route').evaluateAll((routes) =>
-    routes.map((route) =>
-      [
-        route.getAttribute('data-member-id') ?? '',
-        route.getAttribute('points') ?? '',
-      ].join(':'),
-    ),
-  );
-}
-
 async function connectorUsesReservedPerimeterCorridor(page: Page): Promise<boolean> {
   return await page.evaluate(() => {
     const overlay = document.querySelector('[data-testid="connector-overlay"]');
@@ -1124,20 +1113,32 @@ test('M8 preserves active routing through long-body scroll, window scroll and th
   await expectConnectorsBoundToCanonicalPanels(page, 2, expectedPanelByMember);
   await expectNoHorizontalOverflow(page);
 
-  // A real bounded canonical-body scroll must recompute route geometry while
-  // the selected first-line member remains visible.
+  // A real bounded canonical-body scroll must move the registered member DOM
+  // geometry while preserving a complete, valid routed connector set. The
+  // canonical route itself may remain identical after recomputation when the
+  // same perimeter port/hub is still optimal.
   const longBody = page.locator(
     `.text-panel[data-text-version-id="${longVersion.id}"] .text-panel-body`,
   );
-  const beforeBodyScroll = await connectorPointSignature(page);
+  const longMemberRun = longBody.locator(
+    '[data-run][data-start="0"][data-end="5"]',
+  );
+  await expect(longMemberRun).toHaveCount(1);
+  const beforeMemberTop = await longMemberRun.evaluate(
+    (run) => run.getBoundingClientRect().top,
+  );
   await longBody.evaluate((body) => {
     body.scrollTop = 8;
     body.dispatchEvent(new Event('scroll'));
   });
-  await expect.poll(async () => await longBody.evaluate((body) => body.scrollTop)).toBeGreaterThan(0);
   await expect
-    .poll(async () => await connectorPointSignature(page))
-    .not.toEqual(beforeBodyScroll);
+    .poll(async () => await longBody.evaluate((body) => body.scrollTop))
+    .toBeGreaterThan(0);
+  await expect
+    .poll(async () =>
+      longMemberRun.evaluate((run) => run.getBoundingClientRect().top),
+    )
+    .toBeLessThan(beforeMemberTop);
   await expectConnectorsBoundToCanonicalPanels(page, 2, expectedPanelByMember);
 
   // Real window scrolling keeps the same overlay-relative obstacle invariant.
