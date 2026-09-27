@@ -11,8 +11,9 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ## 0. Current durable status
 
-M8 — Alignment Connector Obstacle-Avoiding Routing — is **IMPLEMENTATION
-AUTHORIZED / BOUNDED IMPLEMENTATION IN PROGRESS / GATE 2 NOT ESTABLISHED**.
+M8 — Alignment Connector Obstacle-Avoiding Routing — is **EXACT-CANDIDATE
+GATE 2 + HUMAN RUNTIME ACCEPTANCE ESTABLISHED / STATIC HUMAN DIFF REVIEW
+IN PROGRESS / NOT MERGED**.
 
 M8 durable coordinates and current lifecycle:
 
@@ -28,14 +29,32 @@ M8 durable coordinates and current lifecycle:
 - active implementation branch:
   `m8-alignment-connector-obstacle-avoiding-routing`;
 - bounded implementation:
-  **HUMAN AUTHORIZED / ACTIVE**;
-- latest semantic/test correction epoch before this lifecycle-doc refresh:
+  **HUMAN AUTHORIZED / EXACT SEMANTIC CANDIDATE PROVEN**;
+- predecessor semantic/test correction epoch:
   `2232dc8e94792099a12ff3376e1b206b8b91545d`; tree
   `2d137d70292b5df73b9ebf85d6dc8e7edf5d6119`;
 - exact accepted Gate 2 candidate:
-  **NONE YET**;
+  `2441f9cf60b7cc9402c5b257be010b559b39b717`; tree
+  `5d1b7c7cc104cd365b0ea629d9ead7677d17f2be`; sole parent
+  `e4b1cc66f540ab74c0ef9bd014b0a0da3a2d9c1d`;
+- exact C16 successor proof source:
+  `Pacchifans69/linguagraph-m8-proof@6ac44484aebc58aac866bfb69f05960189b0aefc`;
+  tree `f8b152fd167e42751d0bd725fa26a119f29ae83b`;
 - Gate 2:
-  **NOT ESTABLISHED**;
+  **ESTABLISHED** for the exact semantic candidate; formal execution RC 0,
+  artifact manifest **87/87 EXACT / hashes verified**, closure receipt
+  SHA-256 `6140afd73b3230265f7994d5dd1e431790128be3a4fa90a1469cae1519628340`,
+  durable reconciliation `COMMITTED_PASS`;
+- C16 authorization:
+  `M8-EXI-01-RUN-C16-6ac44484-01`; SHA-256
+  `20c6d1d738db0a46a0d13237c82c6ceada0c137144108922012de6f49874e9c5`;
+  **CONSUMED / MUST NOT REUSE**;
+- Static Human Diff Review:
+  **HOLD / M8-SHDR-F01 DOCUMENTATION ALIGNMENT**;
+- targeted Human Runtime Acceptance:
+  **PASS / HUMAN ACCEPTED** on exact candidate
+  `2441f9cf60b7cc9402c5b257be010b559b39b717`; Human `ZJX`; decision
+  `2026-09-27T16:12:00+08:00`; `HRA-F09` **CLOSED / HUMAN ACCEPTED**;
 - PR:
   **NONE**;
 - migration:
@@ -46,16 +65,18 @@ M8 durable coordinates and current lifecycle:
   ADR-016 — Panel-Perimeter Obstacle-Avoiding Alignment Routing — is present on
   the implementation branch as the bounded implementation record;
 - pre-Gate-2 findings:
-  M8-G2P-F01 through F04 were found by exact-head audit; the Human authorized
-  only their bounded correction. F01–F03 are addressed by the semantic/test
-  correction epoch above; this lifecycle refresh addresses F04. They still
-  require post-correction re-audit and executable evidence before closure;
+  M8-G2P-F01 through F04 were the bounded correction surface. F01–F03 were
+  addressed by the predecessor semantic/test epoch above; F04 by the
+  subsequent lifecycle-document correction. The exact final candidate now has
+  C16 formal hosted Gate 2 evidence; this ledger does not infer any separate
+  Human closure decision for those historical finding identifiers;
 - canonical hosted execution:
   recent exact-head GitHub Actions attempts retain the known provider/pre-step
   fingerprint and provide no repository-step semantic evidence;
 - retained Human finding:
-  `HRA-F09` remains **OPEN / ACTIVE M8 TARGET** until exact-candidate routing
-  evidence and explicit Human Runtime Acceptance pass.
+  `HRA-F09` is **CLOSED / HUMAN ACCEPTED** by targeted M8 Human Runtime
+  Acceptance on exact candidate `2441f9cf60b7cc9402c5b257be010b559b39b717`
+  at `2026-09-27T16:12:00+08:00` by Human `ZJX`;
 
 M8 remains presentation-only: visible AlignmentMembers retain
 RenderedSpanRegistry identity and inherited clipping/member-rect selection;
@@ -66,10 +87,13 @@ free-space hub; incomplete route sets fail closed as a whole; geometry
 provenance is `alignmentId + layoutKey`; routing state remains ephemeral.
 Backend/API/schema/Alembic/dependencies remain unchanged.
 
-`docs/architecture/ARCHITECTURE.md` and `docs/testing/testing-strategy.md`
-remain as-built-through-M7 descriptions until an exact M8 semantic candidate
-has passed the required implementation/Gate-2 review; they must not be treated
-as evidence that M8 is already complete.
+The architecture and testing-strategy documents describe the proven M8
+implementation candidate, its Gate 2 evidence, and the exact-candidate Human
+Runtime Acceptance that closed `HRA-F09`. They do not mark M8 merged or Static
+Human Diff Review complete. A proposed docs-only successor must be reviewed
+against this exact candidate and given an explicit Human evidence-bridge
+decision before any PR or merge; C16/HRA evidence does not silently transfer
+to arbitrary future Product changes.
 
 The latest completed implementation checkpoint remains M7 — Alignment
 Mutation Concurrency Hardening — **COMPLETE / MERGED / CLOSED**.
@@ -761,8 +785,9 @@ Canonical GitHub Actions workflow:
 The workflow remains canonical despite the current provider/pre-step execution
 blockage.
 
-The current release-verification baseline is as built through M7 / Alembic
-`0006` and includes:
+The durable-main release-verification baseline remains as built through M7 /
+Alembic `0006`; the exact M8 candidate retains it and adds bounded connector-
+routing coverage. The combined candidate verification surface includes:
 
 ```text
 full real-PostgreSQL pytest + zero-skip guard, including M7 Alignment concurrency coverage
@@ -778,7 +803,7 @@ Playwright M2 sentence segmentation
 Playwright M3 token segmentation
 Playwright M4 lemma annotation
 Playwright M5 POS annotation
-Playwright M6 Workbench information architecture
+Playwright M6 Workbench information architecture + M8 connector routing
 cleanup / dependency-hash / final tree integrity
 ```
 
@@ -797,14 +822,15 @@ Open/non-blocking or explicitly deferred items:
   Acceptance for `a5a981...` (section 15);
 - HRA-F07 — a malformed local `node` command that resolves without version
   stdout can surface a low-level PowerShell/.NET diagnostic;
-- HRA-F09 — inherited connector lines can cross text glyphs under frozen
-  routing;
+- `HRA-F09` — **CLOSED / HUMAN ACCEPTED** for exact M8 candidate
+  `2441f9cf60b7cc9402c5b257be010b559b39b717` by targeted Human Runtime
+  Acceptance at `2026-09-27T16:12:00+08:00` by Human `ZJX`;
 - accepted M4/M5 TextVersion-root and M7 document-root mutation serialization
   are bounded server-side correctness mechanisms, not a general collaborative
   locking or conflict protocol;
 - later lexical ontology, automatic NLP/LLM behavior, authentication,
-  collaboration, graph/vector infrastructure and connector-routing redesign
-  remain outside completed M7.
+  collaboration, and graph/vector infrastructure remain outside completed M7
+  and the bounded M8 candidate.
 
 Retained provider/proof evidence remains protected; proof/diagnostic cleanup
 remains deferred. It includes historical M0.7 diagnostics and:

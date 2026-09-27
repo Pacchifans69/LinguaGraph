@@ -57,8 +57,9 @@ implementation code:
 
 ## Current phase
 
-M8 — Alignment Connector Obstacle-Avoiding Routing — is **IMPLEMENTATION
-AUTHORIZED / BOUNDED IMPLEMENTATION IN PROGRESS / GATE 2 NOT ESTABLISHED**.
+M8 — Alignment Connector Obstacle-Avoiding Routing — is **EXACT-CANDIDATE
+GATE 2 + HUMAN RUNTIME ACCEPTANCE ESTABLISHED / STATIC HUMAN DIFF REVIEW
+IN PROGRESS / NOT MERGED**.
 
 The frozen M8 execution contract remains:
 
@@ -81,13 +82,26 @@ that exact-base branch and bounded implementation. The branch now contains the
 M8 obstacle router, strengthened tests, and ADR-016. The exact-head pre-Gate-2
 audit found bounded findings M8-G2P-F01 through F04; the Human authorized only
 that correction surface. F01–F03 test corrections landed in semantic/test epoch
-`2232dc8e94792099a12ff3376e1b206b8b91545d`; this lifecycle-document refresh
-is the bounded F04 correction.
+`2232dc8e94792099a12ff3376e1b206b8b91545d`; the preceding lifecycle-document
+refresh was the bounded F04 correction.
 
-Formal Gate 2 evidence is still **NOT ESTABLISHED**. No PR, merge, alternate
-hosted proof, proof-repository mutation, or provider mutation is authorized.
-M8 still targets retained `HRA-F09`; it remains OPEN until exact-candidate
-automation/browser evidence and explicit Human Runtime Acceptance pass.
+Exact semantic candidate `2441f9cf60b7cc9402c5b257be010b559b39b717`
+(tree `5d1b7c7cc104cd365b0ea629d9ead7677d17f2be`) has established
+M8 Gate 2 under the C16 successor proof source
+`Pacchifans69/linguagraph-m8-proof@6ac44484aebc58aac866bfb69f05960189b0aefc`
+(tree `f8b152fd167e42751d0bd725fa26a119f29ae83b`). The single-use
+`M8-EXI-01-RUN-C16-6ac44484-01` authorization is consumed and MUST NOT be
+reused. Formal execution and exact 87/87 artifact closure passed; the
+durable reconciliation state is `COMMITTED_PASS`.
+
+Targeted Human Runtime Acceptance passed on the exact candidate. Human `ZJX`
+accepted the required desktop/stacked, exact-member, shared-hub, interaction,
+mode-independence, and horizontal-overflow cases at
+`2026-09-27T16:12:00+08:00`; `HRA-F09` is **CLOSED / HUMAN ACCEPTED**.
+Static Human Diff Review remains **HOLD / M8-SHDR-F01** until the revised
+five-file docs-only successor and its evidence bridge are Human-approved.
+No PR, merge, Product/proof/provider mutation, or new proof execution is
+authorized by this record.
 
 The latest completed implementation checkpoint remains M7.
 
@@ -231,7 +245,10 @@ earlier HRA-approved application epoch `a5a981db77e33905f2c71c234616c6779e3ebc6c
 Fresh Human Runtime Acceptance completed on that application epoch; the later
 bounded corrective successor received corrective Static Human Diff Review and
 fresh exact-candidate hosted proof. `HRA-F01` remains **CLOSED / HUMAN
-ACCEPTED**. `HRA-F09` remains **OPEN / DEFERRED / NON-BLOCKING**.
+ACCEPTED**. At M6 closure, `HRA-F09` remained **OPEN / DEFERRED /
+NON-BLOCKING**; targeted M8 Human Runtime Acceptance on exact candidate
+`2441f9cf60b7cc9402c5b257be010b559b39b717` has since closed it as
+**CLOSED / HUMAN ACCEPTED**.
 
 `C5-P01` is retained as a procedural deviation: during C5 orchestration the
 raw one-shot authorization token was briefly staged in a root-only `0600`
