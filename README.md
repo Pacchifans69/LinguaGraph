@@ -11,8 +11,9 @@ schema structure.
 
 ## Current milestone
 
-M8 — Alignment Connector Obstacle-Avoiding Routing — is **IMPLEMENTATION
-AUTHORIZED / BOUNDED IMPLEMENTATION IN PROGRESS / GATE 2 NOT ESTABLISHED**.
+M8 — Alignment Connector Obstacle-Avoiding Routing — is **EXACT-CANDIDATE
+GATE 2 + HUMAN RUNTIME ACCEPTANCE ESTABLISHED / STATIC HUMAN DIFF REVIEW
+IN PROGRESS / NOT MERGED**.
 
 Frozen contract:
 
@@ -37,13 +38,17 @@ shared-hub semantics, canonical text/Selection behavior, backend/API/schema,
 Alembic `0006`, dependencies, and runtime baseline. Connector geometry remains
 presentation-only and unpersisted.
 
-Bounded implementation and the M8 pre-Gate-2 correction are active. The latest
-semantic/test correction epoch is
-`2232dc8e94792099a12ff3376e1b206b8b91545d`; formal Gate 2 evidence is not
-yet established. No PR, merge, alternate hosted proof, proof-repository
-mutation, or provider mutation is authorized. `HRA-F09` remains OPEN until the
-exact implementation candidate passes the frozen automated/browser evidence
-and explicit Human Runtime Acceptance.
+The exact semantic candidate is `2441f9cf60b7cc9402c5b257be010b559b39b717`
+(tree `5d1b7c7cc104cd365b0ea629d9ead7677d17f2be`). Its C16 successor
+hosted proof at `Pacchifans69/linguagraph-m8-proof@6ac44484aebc58aac866bfb69f05960189b0aefc`
+established Gate 2: semantic stages passed, the artifact manifest verified
+87/87 entries, and durable reconciliation is `COMMITTED_PASS`. The single-use
+C16 authorization is spent. Targeted Human Runtime Acceptance passed on the
+exact candidate under `M8_CONTRACT.md` section 23; Human `ZJX` recorded
+`PASS` at `2026-09-27T16:12:00+08:00`, closing `HRA-F09` as **CLOSED / HUMAN
+ACCEPTED**. Static Human Diff Review remains **HOLD / M8-SHDR-F01** pending
+final review of this docs-only successor and its evidence bridge. No PR or
+merge is authorized by this status record.
 
 The latest completed implementation checkpoint remains M7.
 
@@ -193,7 +198,10 @@ stack with a persistent canonical Text Canvas, five-destination task deck,
 mount-preserved editor sessions, compact persistent Alignment Tray status, and
 mode-independent connectors while preserving M0–M5 backend/API/database and
 canonical-text semantics. `HRA-F01` is **CLOSED / HUMAN ACCEPTED**;
-`HRA-F09` remains **OPEN / DEFERRED / NON-BLOCKING**.
+at M6 closure `HRA-F09` remained **OPEN / DEFERRED / NON-BLOCKING**. Targeted
+M8 Human Runtime Acceptance on exact candidate
+`2441f9cf60b7cc9402c5b257be010b559b39b717` has since closed `HRA-F09` as
+**CLOSED / HUMAN ACCEPTED**.
 
 ### Previous completed milestone
 
@@ -315,8 +323,10 @@ ACCEPTED** by Human Runtime Acceptance on application epoch `a5a981...`.
 `G2-X01` and M6 Gate 2 were subsequently **CLOSED / PASS** and **PASS /
 ESTABLISHED** for final exact candidate
 `6af2c25e172d81725b97037945e38c047fba9941` by C5 proof
-`274aae9f86fb8da9571edf1e197696035d6fb4a3`. `HRA-F09` remains inherited
-non-blocking connector-routing visual debt and is not closed.
+`274aae9f86fb8da9571edf1e197696035d6fb4a3`. `HRA-F09` remained inherited
+non-blocking connector-routing visual debt through M6; targeted M8 Human
+Runtime Acceptance on `2441f9cf60b7cc9402c5b257be010b559b39b717` has since
+closed it as **CLOSED / HUMAN ACCEPTED**.
 
 Current final M6 exact-candidate evidence is bound to
 `6af2c25e172d81725b97037945e38c047fba9941` / tree `7211a28ca5c4bcd708e92e88223cdb2b5d98dd4c` and is recorded in

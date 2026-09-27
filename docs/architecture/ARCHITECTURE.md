@@ -1,8 +1,9 @@
-# LinguaGraph — Architecture (as built through M7)
+# LinguaGraph — Architecture (M7 main; M8 proven candidate)
 
-This document describes the architecture as built through the completed M7
-boundary on top of M0–M6. It is a description, not a new authority: the accepted
-ADRs (`docs/adr/ADR-001…ADR-015`) and the authoritative
+This document describes the completed M7 architecture and the exact M8
+implementation candidate proven at Gate 2 but not yet merged. It is a
+description, not a new authority: the accepted ADRs
+(`docs/adr/ADR-001…ADR-016`) and the authoritative
 pre-implementation documents
 (`docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md`,
 `M0_PREIMPLEMENTATION_REPORT.md`) remain authoritative. Where this document
@@ -68,7 +69,8 @@ optimistically.
 - **Rendering** (`src/shared/rendering/`): `RenderedSpanRegistry`
   (`Map<spanId, HTMLElement[]>` — the canonical span→DOM bridge, never
   selector-discovered), run visual-state classification (never color-only),
-  connector geometry helpers.
+  connector geometry helpers. M8 adds `connectorRouting.ts` for pure,
+  deterministic panel-obstacle routing without another Span→DOM lookup.
 - **Workspace components** (`src/features/workspace/`): `TextPanel`
   (canonical content root with flat `<span data-run data-start data-end>`
   runs, `white-space: pre-wrap`, no `dangerouslySetInnerHTML`),
@@ -242,7 +244,34 @@ Project and ParallelDocument production deletion remain unchanged; M7 retains
 them as mandatory real-PostgreSQL concurrency audit surfaces. ADR-015 records
 the decision.
 
-## 5. Known limitations
+## 5. M8 connector routing (exact candidate as built)
+
+The exact M8 candidate is `2441f9cf60b7cc9402c5b257be010b559b39b717`
+(tree `5d1b7c7cc104cd365b0ea629d9ead7677d17f2be`). Its connector
+identity remains `AlignmentMember.span_id → RenderedSpanRegistry → visible
+clipped member rects`; the chosen anchor is projected to the owning
+`.panel-slot` perimeter. Every visible slot is an obstacle. The existing
+`.panels-container` has an 8px internal reserve, and the route search expands
+obstacles by 4px. A pure TypeScript orthogonal visibility graph selects one
+complete route per visible member and one deterministic shared free-space
+hub for the N:M Alignment. If a complete set cannot be found, it renders
+no connector route for that frame; no straight-through fallback exists.
+
+`ConnectorOverlay` renders SVG polylines. Its ephemeral geometry is bound to
+`alignmentId + layoutKey` and recomputed through the existing rAF-coalesced
+scroll/resize/ResizeObserver lifecycle. No route coordinates enter backend,
+API, PostgreSQL, TanStack Query domain data, or localStorage. The canonical
+text DOM, native Selection/Range, backend schema, Alembic `0006`, dependencies,
+and responsive track-count rules remain unchanged. ADR-016 records this
+implementation decision; the frozen `M8_CONTRACT.md` governs its scope.
+
+C16 formal hosted Gate 2 is established for that exact candidate. Targeted
+Human Runtime Acceptance also passed on that exact application epoch: Human
+`ZJX` recorded `PASS` at `2026-09-27T16:12:00+08:00`, so `HRA-F09` is
+**CLOSED / HUMAN ACCEPTED**. M8 is not merged and final Static Human Diff
+Review remains pending.
+
+## 6. Known limitations
 
 - The PostgreSQL Span get-or-create implementation remains concurrency-safe,
   but same-document Alignment CREATEs are now serialized at the document root;
@@ -250,9 +279,8 @@ the decision.
   uncommitted unique-conflict interleaving.
 - M0 enforces code-point boundaries only; grapheme-cluster editing is
   deferred.
-- `HRA-F09` connector-routing visual debt remains separately governed.
 
-## 6. Environment and operations
+## 7. Environment and operations
 
 - ADR-009 baseline: Python 3.13 (uv), Node 24, PostgreSQL 18. CI uses a
   GitHub Actions PostgreSQL 18 service container (`.github/workflows/ci.yml`).

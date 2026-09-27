@@ -1,11 +1,11 @@
-# LinguaGraph — Testing Strategy (as built through M7; Gate 3 complete)
+# LinguaGraph — Testing Strategy (M7 main; M8 proven/HRA-accepted candidate)
 
 This document describes the inherited M0/M1 testing architecture, M2/M3
 segmentation coverage, M4 lemma-annotation coverage, M5 coarse-POS coverage,
-M6 mode-oriented Workbench coverage, M7 alignment-concurrency coverage, and
-the rules for what counts as evidence. It is descriptive, not a new authority:
-the accepted pre-implementation report and frozen milestone contracts remain
-authoritative.
+M6 mode-oriented Workbench coverage, M7 alignment-concurrency coverage, M8
+connector-routing candidate coverage, and the rules for what counts as
+evidence. It is descriptive, not a new authority: the accepted
+pre-implementation report and frozen milestone contracts remain authoritative.
 
 ## 1. Test levels
 
@@ -102,6 +102,9 @@ Coverage includes:
 - native Selection/Range canonicalization and reverse location;
 - segmentation / overlapping run membership;
 - RenderedSpanRegistry and connector geometry helpers;
+- M8 R-G01–R-G21 geometry cases (including inherited anchor/DOM rect
+  coverage), deterministic orthogonal paths, panel clearance, shared hub,
+  fail-closed complete sets, and component recomputation/provenance;
 - TextPanel / AlignmentTray / workspace state and lifecycle;
 - project/document error presentation;
 - persisted alignment creation and mutation;
@@ -167,14 +170,19 @@ covers two-version and four-version desktop compositions, the five task
 destinations, deterministic target selection, mode-preserved Alignment
 selection/tray/activation/connectors, dirty session continuity, canonical flat
 runs, hide/reopen reconciliation, and the 1280×720 and 1440×900 acceptance
-viewports.
+viewports. Its M8 additions check owning-panel perimeter ports, panel
+interior avoidance, complete common-hub routes, distinct same-TextVersion
+members, 4/3-panel and stacked layouts, scroll/resize, the reserved outer
+corridor, and horizontal overflow. The inherited golden-path and Unicode
+specs retain connector hover/activation counts using the M8 polyline selector.
 
 ## 2. Canonical release-baseline workflow configuration
 
 `.github/workflows/ci.yml` remains the canonical release-baseline workflow
 configuration. Its tracked comments and job name retain the historical M6
-label because M7 required no workflow-shape change; the full real-PostgreSQL
-pytest invocation nevertheless includes the M7 alignment-concurrency tests.
+label because M7 and M8 required no workflow-shape change; the full
+real-PostgreSQL pytest invocation includes M7 concurrency tests, and the
+existing Playwright Workbench command includes M8 routing cases.
 Its semantic gates are:
 
 - Python 3.13;
@@ -196,7 +204,8 @@ Its semantic gates are:
 - Playwright M3 token segmentation release path.
 - Playwright M4 lemma annotation release path.
 - Playwright M5 coarse POS annotation release path.
-- Playwright M6 Workbench information-architecture release path.
+- Playwright M6 Workbench information-architecture and M8 connector-routing
+  release path.
 
 Workflow configuration by itself is not execution evidence.
 
@@ -653,3 +662,60 @@ unchanged, proof `main@e749a0356d53db05961e6cb538bff605e53e79ec`
 unchanged, and PR #16 still merged. This final docs-only closeout record
 requires no fresh hosted proof or runtime acceptance.
 
+## 11. M8 exact-candidate Gate 2, Human Runtime Acceptance, and docs-only bridge
+
+The exact M8 semantic candidate is
+`2441f9cf60b7cc9402c5b257be010b559b39b717` (tree
+`5d1b7c7cc104cd365b0ea629d9ead7677d17f2be`, sole parent
+`e4b1cc66f540ab74c0ef9bd014b0a0da3a2d9c1d`) against frozen
+Product main `cf26ea557bd746a518ff32b8b7e7a7542be7f7ae` (tree
+`d7e4795758dde11373f27e8922d4018507ea3122`). Accepted C16
+successor proof source is
+`Pacchifans69/linguagraph-m8-proof@6ac44484aebc58aac866bfb69f05960189b0aefc`
+(tree `f8b152fd167e42751d0bd725fa26a119f29ae83b`).
+
+The single-use formal authorization
+`M8-EXI-01-RUN-C16-6ac44484-01` (SHA-256
+`20c6d1d738db0a46a0d13237c82c6ceada0c137144108922012de6f49874e9c5`)
+is **CONSUMED / MUST NOT REUSE**. The final formal execution RC was 0:
+`guard_core`, `guard_remote`, `fetch_candidate`, `deps_pre`,
+`install_runtimes`, `backend`, `frontend`, `playwright`, and
+`integrity` each exited 0. Backend pytest reported 602 passed; Vitest
+533 passed; Playwright 34 passed with zero unexpected, flaky, or skipped
+tests. The exact artifact manifest verified 87/87 entries and hashes.
+Closure receipt SHA-256 is
+`6140afd73b3230265f7994d5dd1e431790128be3a4fa90a1469cae1519628340`;
+independent durable reconciliation concluded `COMMITTED_PASS`.
+M8 Gate 2 is therefore **ESTABLISHED** for the exact semantic candidate.
+The retained formal archive and receipt, not these counts alone, carry
+the hosted proof conclusion. Historical C15 and earlier authorizations
+remain spent and do not establish this Gate 2.
+
+Targeted Human Runtime Acceptance specified by `M8_CONTRACT.md` section 23
+passed on the exact semantic candidate. Human `ZJX` recorded `PASS` at
+`2026-09-27T16:12:00+08:00` after inspecting the required 1280×720 and
+1440×900 desktop cases, long/short readability, 720×900 stacked routing,
+two-panel stacked routing, same-TextVersion multiple-member identity,
+Alignment ↔ linguistic-task-mode independence, reorder/hide/reopen and other
+stale-geometry interactions, exact-member comprehensibility, shared-hub
+readability, and horizontal overflow. The Human overflow check included
+`clientWidth=705`, `scrollWidth=705`, `overflow=false` in the recorded stacked
+viewport. `HRA-F09` is therefore **CLOSED / HUMAN ACCEPTED** for this exact
+application epoch.
+
+The current `M8-SHDR-F01` proposal is documentation-only. Its five-file scope
+is `AGENTS.md`, `README.md`, `docs/development/CURRENT_STATE.md`,
+`docs/architecture/ARCHITECTURE.md`, and this testing-strategy file. It changes
+no executable semantic source, test, dependency, workflow, or proof repository.
+An evidence bridge to a docs-only successor is valid only after explicit Human
+approval and only if the successor's sole parent is the exact semantic candidate,
+the exact changed scope is those approved documentation paths, and all executable
+source, tests, dependency/lock files, workflows, and other semantic blobs remain
+identical to the candidate. Such a bridge preserves the C16 Gate 2 and HRA
+authority without pretending that the docs-only successor was itself re-run as
+a new semantic proof target. Any semantic change instead requires fresh
+exact-tree evidence.
+
+The evidence bridge and final exact diff remain **PENDING HUMAN APPROVAL**.
+Static Human Diff Review remains **HOLD / M8-SHDR-F01** until that decision.
+No PR or merge is implied.
