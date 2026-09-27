@@ -132,6 +132,7 @@ async function selectUtf16RangeInPanel(
   panel: Locator,
   utf16Start: number,
   utf16End: number,
+  expectedNativeText: string,
 ): Promise<void> {
   await panel.locator('[data-text-content-root]').evaluate(
     (root, bounds) => {
@@ -165,9 +166,20 @@ async function selectUtf16RangeInPanel(
       }
       selection.removeAllRanges();
       selection.addRange(range);
+
+      // Prove the exact grapheme-internal native Range exists BEFORE the
+      // TextPanel handler runs. React may later re-render text nodes while
+      // clearing stale staging authority, which can make the browser drop the
+      // visual/native Selection without the application ever snapping it.
+      if (selection.toString() !== bounds.expectedNativeText) {
+        throw new Error(
+          `native Range text mismatch before capture: expected "${bounds.expectedNativeText}", got "${selection.toString()}"`,
+        );
+      }
+
       root.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     },
-    { start: utf16Start, end: utf16End },
+    { start: utf16Start, end: utf16End, expectedNativeText },
   );
 }
 
@@ -519,7 +531,7 @@ test.describe('M0.7 Unicode release blocker', () => {
 
     await selectAndVerify(page, panel, 'A', 0, 1);
 
-    await selectUtf16RangeInPanel(panel, 3, 5);
+    await selectUtf16RangeInPanel(panel, 3, 5, '🏽');
 
     await expect(
       panel.getByText('Selected 0–1: “A”'),
@@ -530,11 +542,6 @@ test.describe('M0.7 Unicode release blocker', () => {
     await expect(panel.getByRole('alert')).toHaveText(
       'Selection must start and end at complete character boundaries.',
     );
-
-    const nativeText = await panel
-      .locator('[data-text-content-root]')
-      .evaluate(() => window.getSelection()?.toString() ?? '');
-    expect(nativeText).toBe('🏽');
 
     await selectAndVerify(page, panel, '👍🏽', 1, 3);
     await expect(panel.getByRole('alert')).toHaveCount(0);

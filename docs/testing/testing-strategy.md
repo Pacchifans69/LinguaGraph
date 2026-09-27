@@ -138,9 +138,12 @@ offsets, Alignment creation through the user path, server-derived
 `exact_text`, PostgreSQL persistence, reload, rendered annotation state and
 counterpart highlighting. M9 extends the same real-browser surface with a
 programmatically constructed **native DOM Range** whose endpoint is a
-browser-legal code-point boundary inside `👍🏽`; the test proves reject/no-snap,
+browser-legal code-point boundary inside `👍🏽`; before dispatch, the test
+proves that exact grapheme-internal native Range exists, then proves rejection,
 stale-selection clearing, disabled staging after failure, and later valid
-recovery without directly injecting PendingSpan state.
+recovery without directly injecting PendingSpan state. T-10 component coverage
+separately proves the capture path does not mutate the native Range/Selection
+to snap boundaries.
 
 `segmentation.spec.ts` is the M2 sentence-segmentation release path. It
 exercises an astral-emoji boundary, Human-reviewed manual split/save,
@@ -776,7 +779,8 @@ Targeted M9 automated coverage consists of:
   precedence, and legacy intra-grapheme reverse mapping;
 - TextPanel component cases proving valid-A→invalid-B stale-authority clearing,
   capability failure, inherited-error clearing, recovery, bounded user
-  feedback, disabled staging, and preservation of already-staged tray members;
+  feedback, disabled staging, preservation of already-staged tray members,
+  and T-10 no native Range/Selection mutation to snap boundaries;
 - real Chromium `unicode.spec.ts` evidence using a native DOM Range inside
   `👍🏽` to prove reject/no-snap and recovery through the actual TextPanel
   capture path.

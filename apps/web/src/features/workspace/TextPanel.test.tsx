@@ -432,6 +432,26 @@ describe('TextPanel (M0.4 selection capture and staging)', () => {
     expect(screen.getByRole('button', { name: 'Add to Alignment' })).toBeEnabled();
   });
 
+
+  it('M9 does not mutate the invalid native Range/Selection to snap boundaries', () => {
+    const content = 'A👍🏽B';
+    const { container } = renderPanel(version({ content }), runsFor(content));
+    const root = contentRoot(container);
+    const range = selectInRun(root, 0, 3, 5);
+    const startContainer = range.startContainer;
+    const endContainer = range.endContainer;
+    const { removeAllRanges } = stubSelection(range);
+
+    fireEvent.mouseUp(root);
+
+    expect(range.startContainer).toBe(startContainer);
+    expect(range.startOffset).toBe(3);
+    expect(range.endContainer).toBe(endContainer);
+    expect(range.endOffset).toBe(5);
+    expect(removeAllRanges).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Add to Alignment' })).toBeDisabled();
+  });
+
   it('M9 failed recapture does not clear already-staged tray members', () => {
     function PendingProbe() {
       const { pendingMembers } = useWorkspaceState();
