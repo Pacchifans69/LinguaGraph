@@ -730,7 +730,7 @@ code-point-valid intra-grapheme ranges remain readable/renderable.
 
 ## Known limitations / retained debt
 
-Retained evidence/debt and current post-M8 disposition:
+Retained evidence/debt and current M9-candidate disposition:
 
 - `G2-X01` — **CLOSED / PASS** for final exact M6 candidate
   `6af2c25e172d81725b97037945e38c047fba9941`, established by accepted C5

@@ -9,6 +9,7 @@
  *     -> flat [data-run] elements / Text nodes
  *     -> UTF-16 code-unit offsets
  *     -> canonical Unicode code-point offsets (ADR-001)
+ *     -> M9 full-content grapheme-boundary validation for new authoring
  *     -> PendingSpan
  *
  * Reverse mapping: canonical code-point range -> native DOM Range (M0.6
@@ -25,6 +26,10 @@
  *   next run's start, otherwise DOM_INTEGRITY_ERROR);
  * - a boundary that splits a UTF-16 surrogate pair is rejected
  *   (INVALID_SELECTION_BOUNDARY);
+ * - a legal code-point boundary inside one extended grapheme is rejected
+ *   for new native authoring (INVALID_GRAPHEME_BOUNDARY), while unavailable
+ *   or unusable grapheme capability fails closed
+ *   (GRAPHEME_SEGMENTER_UNAVAILABLE);
  * - the canonical quote MUST equal the native Range text
  *   (SELECTION_TEXT_MISMATCH otherwise);
  * - the content root's textContent MUST equal the canonical content

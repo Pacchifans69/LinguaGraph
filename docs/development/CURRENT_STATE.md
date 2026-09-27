@@ -512,7 +512,7 @@ independently verified branch absence.
 | M7 Alignment Mutation Concurrency Hardening | #16 | semantic `c7aae26e3abaa34b3756ffe96ee718beaf8524b3`; terminal reviewed PR head `d769e018064dd1d6a529f7e043c7163b7e92c3ed` | rebase → `f56b413f97742946b51e00a24b55f806cc5452f8`; Gate 3 exact tree identity PASS; durable closure `2e69f354c1134acbf9e2beb0c647f39a84499325` / tree `fbc57302af2de73bbaa18edc276829d3c86d0dd6`; branch cleanup PASS / EXACT-GUARDED |
 | M8 Alignment Connector Obstacle-Avoiding Routing | #17 | semantic `2441f9cf60b7cc9402c5b257be010b559b39b717`; terminal reviewed PR head `8fee64449f8b80b228d804c7fa7b6671a4ef0211` | rebase → `4d9cc80b7c6b89b9990c37a2ec41e69e690852d3`; Gate 3 exact tree identity PASS; durable closure and branch cleanup PASS / EXACT-GUARDED |
 
-M0.5 and M0.6 merge commits preserved exact reviewed trees. M0.7 and M1–M7
+M0.5 and M0.6 merge commits preserved exact reviewed trees. M0.7 and M1–M8
 used repository-permitted rebase merge; their Gate 3 evidence bridges use exact
 reviewed tree identities across rebase.
 

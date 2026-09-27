@@ -299,7 +299,7 @@ describe('rangeToCanonical — basic selections', () => {
     expect(result).toMatchObject({ status: 'ok', start: 5, end: 13, quote: '🙂 mañana' });
   });
 
-  it('handles combining marks as ordinary code points (no grapheme logic)', () => {
+  it('preserves exact outer boundaries for composed and combining text', () => {
     const content = 'café'; // NFC composed
     const { root, version } = buildPanel(content);
     const text = runText(root, 0);
@@ -307,12 +307,13 @@ describe('rangeToCanonical — basic selections', () => {
     const result = rangeToCanonical(range, root, version);
     expect(result).toMatchObject({ status: 'ok', start: 1, end: 4, quote: 'afé' });
 
-    const decomposed = 'e\u0301'; // e + COMBINING ACUTE ACCENT (2 code points)
-    const { root: root2, version: version2 } = buildPanel(decomposed);
+    const combining = 'x\u0301'; // NFC-stable x + COMBINING ACUTE (2 code points)
+    expect(combining.normalize('NFC')).toBe(combining);
+    const { root: root2, version: version2 } = buildPanel(combining);
     const text2 = runText(root2, 0);
     const range2 = rangeBetween({ container: text2, offset: 0 }, { container: text2, offset: 2 });
     const result2 = rangeToCanonical(range2, root2, version2);
-    expect(result2).toMatchObject({ status: 'ok', start: 0, end: 2, quote: decomposed });
+    expect(result2).toMatchObject({ status: 'ok', start: 0, end: 2, quote: combining });
   });
 });
 
