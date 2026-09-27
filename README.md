@@ -30,7 +30,7 @@ Historical implementation branch:
 
 `m8-alignment-connector-obstacle-avoiding-routing@8fee64449f8b80b228d804c7fa7b6671a4ef0211` (deleted)
 
-M8 remains the bounded frontend routing-hardening checkpoint targeting retained
+M8 was the bounded frontend routing-hardening checkpoint that closed retained
 `HRA-F09`: deterministic panel-perimeter obstacle-avoiding routes preserve
 Alignment/Span persistence, RenderedSpanRegistry identity authority, N:M
 shared-hub semantics, canonical text/Selection behavior, backend/API/schema,
@@ -361,7 +361,7 @@ Read these when reconstructing project state:
   specification and Definition of Done;
 - `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` — accepted
   pre-implementation engineering report;
-- `docs/adr/` — accepted as-built architecture decisions through ADR-015;
+- `docs/adr/` — accepted as-built architecture decisions through ADR-016;
 - `docs/development/CURRENT_STATE.md` — durable engineering handoff;
 - `docs/development/M1_CONTRACT.md` — completed frozen M1 contract;
 - `docs/development/M2_CONTRACT.md` — completed frozen M2 execution contract;
@@ -370,7 +370,7 @@ Read these when reconstructing project state:
 - `docs/development/M5_CONTRACT.md` — completed frozen M5 execution contract;
 - `docs/development/M6_CONTRACT.md` — completed frozen M6 execution contract;
 - `docs/development/M7_CONTRACT.md` — completed frozen M7 execution contract;
-- `docs/development/M8_CONTRACT.md` — active frozen M8 execution contract;
+- `docs/development/M8_CONTRACT.md` — completed frozen M8 execution contract;
 - `docs/development/M0_7_CLOSEOUT.md` — M0.7 Gate 2/Human Review/merge/Gate 3
   evidence ledger;
 - `docs/architecture/ARCHITECTURE.md` — as-built architecture;
@@ -378,9 +378,9 @@ Read these when reconstructing project state:
 - `docs/testing/testing-strategy.md` — testing/evidence rules;
 - `docs/testing/manual-acceptance.md` — human M0 walkthrough.
 
-M7 is **COMPLETE / MERGED / CLOSED**. PR #16 merged by rebase, Gate 3 exact
-tree identity passed, durable-state closure completed, and exact-guarded
-implementation-branch cleanup deleted the historical M7 branch.
+M8 is **COMPLETE / MERGED / CLOSED**. PR #17 merged by rebase, Gate 3 exact
+tree identity passed, post-merge durable-state closure completed, and
+exact-guarded implementation-branch cleanup deleted the historical M8 branch.
 
 ## Repository layout
 
@@ -676,9 +676,15 @@ runtime baseline. Scoped Alignment CREATE/PATCH/DELETE paths acquire the owning
 UUID order, and re-resolve mutation-authoritative state under those locks
 (ADR-015).
 
+M8 adds deterministic panel-perimeter obstacle-avoiding Alignment connector
+routing as ephemeral presentation state. Visible panel slots are obstacles,
+routes share one deterministic free-space hub, incomplete route sets fail
+closed, and geometry remains unpersisted while preserving canonical
+text/Selection and backend/API/schema authority (ADR-016).
+
 ## Known limitations / retained debt
 
-Retained debt and current post-M7 disposition:
+Retained evidence/debt and current post-M8 disposition:
 
 - `G2-X01` — **CLOSED / PASS** for final exact M6 candidate
   `6af2c25e172d81725b97037945e38c047fba9941`, established by accepted C5
@@ -690,16 +696,18 @@ Retained debt and current post-M7 disposition:
   epoch `a5a981db77e33905f2c71c234616c6779e3ebc6c`. The prior
   fully expanded sentence/token/lemma/POS panel stack no longer describes the
   M6 mode-oriented composition.
-- Connector routing uses frozen center-to-hub geometry and can visually cross
-  text glyphs while binding correctness remains intact (`HRA-F09`).
+- `HRA-F09` — **CLOSED / HUMAN ACCEPTED** by the M8 targeted Human Runtime
+  Acceptance after deterministic panel-perimeter obstacle-avoiding routing
+  replaced the inherited center-to-hub geometry.
 - A malformed/broken local Node command that resolves but emits no version
   stdout can produce a low-level PowerShell/.NET prerequisite diagnostic.
 - Accepted M4/M5 TextVersion-root and M7 document-root mutation serialization
   remain bounded server-side correctness mechanisms, not a general collaborative
   locking or conflict protocol.
 - Later lexical ontology, automatic NLP/LLM features, authentication,
-  collaboration, graph/vector/search infrastructure, advanced connector
-  routing and later workbench expansion remain outside completed M7.
+  collaboration, graph/vector/search infrastructure, connector crossing
+  minimization / edge bundling / lane allocation / route editing, and later
+  workbench expansion remain outside completed M8.
 
 ## Completed M3 implementation boundary
 

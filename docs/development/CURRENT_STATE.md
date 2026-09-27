@@ -711,7 +711,7 @@ Recorded observations:
 
 ## 7. Current architecture and schema baseline
 
-Accepted ADRs: **ADR-001 through ADR-015**, frozen until a later governed
+Accepted ADRs: **ADR-001 through ADR-016**, frozen until a later governed
 decision changes them.
 
 Runtime baseline:
@@ -788,6 +788,14 @@ first, then participating `TextVersion` rows in deterministic UUID order, and
 re-resolve mutation-authoritative state under those locks. ADR-015 records this
 accepted document-root serialization decision.
 
+M8 adds deterministic panel-perimeter obstacle-avoiding connector routing as
+ephemeral presentation state. Visible panel slots are routing obstacles, routes
+share one deterministic free-space hub, incomplete route sets fail closed, and
+geometry remains bound to `alignmentId + layoutKey`. Backend/API/schema,
+Alembic `0006`, dependencies, canonical text/Selection semantics, and
+persisted Alignment/Span authority remain unchanged. ADR-016 records this
+accepted routing decision.
+
 ## 8. Verification entry points
 
 Local Windows run:
@@ -821,9 +829,9 @@ Canonical GitHub Actions workflow:
 The workflow remains canonical despite the current provider/pre-step execution
 blockage.
 
-The durable-main release-verification baseline remains as built through M7 /
-Alembic `0006`; the exact M8 candidate retains it and adds bounded connector-
-routing coverage. The combined candidate verification surface includes:
+The durable-main release-verification baseline is the completed M8 state on
+Alembic `0006`. M8 retains the M7 backend/API/database baseline and adds
+bounded connector-routing coverage. The combined verification surface includes:
 
 ```text
 full real-PostgreSQL pytest + zero-skip guard, including M7 Alignment concurrency coverage
@@ -847,7 +855,7 @@ See `docs/testing/testing-strategy.md` for evidence semantics.
 
 ## 9. Known retained limitations and evidence
 
-Open/non-blocking or explicitly deferred items:
+Retained evidence plus open/non-blocking or explicitly deferred items:
 
 - `G2-X01` — historically the GitHub-hosted-runner `OPEN / EXTERNAL` finding;
   **CLOSED / PASS** for final exact M6 candidate `6af2c25...`, established by
@@ -865,8 +873,7 @@ Open/non-blocking or explicitly deferred items:
   are bounded server-side correctness mechanisms, not a general collaborative
   locking or conflict protocol;
 - later lexical ontology, automatic NLP/LLM behavior, authentication,
-  collaboration, and graph/vector infrastructure remain outside completed M7
-  and the bounded M8 candidate.
+  collaboration, and graph/vector infrastructure remain outside completed M8.
 
 Retained provider/proof evidence remains protected; proof/diagnostic cleanup
 remains deferred. It includes historical M0.7 diagnostics and:

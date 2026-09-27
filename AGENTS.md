@@ -35,7 +35,7 @@ The completed frozen M7 execution contract is:
 
 `docs/development/M7_CONTRACT.md`
 
-The active frozen M8 execution contract is:
+The completed frozen M8 execution contract is:
 
 `docs/development/M8_CONTRACT.md`
 
@@ -77,8 +77,9 @@ Historical implementation branch:
 `m8-alignment-connector-obstacle-avoiding-routing@8fee64449f8b80b228d804c7fa7b6671a4ef0211` (deleted)
 
 After the docs-only freeze landed, the Human separately authorized creation of
-that exact-base branch and bounded implementation. The branch now contains the
-M8 obstacle router, strengthened tests, and ADR-016. The exact-head pre-Gate-2
+that exact-base branch and bounded implementation. Before merge and cleanup,
+that historical branch contained the M8 obstacle router, strengthened tests,
+and ADR-016. The exact-head pre-Gate-2
 audit found bounded findings M8-G2P-F01 through F04; the Human authorized only
 that correction surface. F01–F03 test corrections landed in semantic/test epoch
 `2232dc8e94792099a12ff3376e1b206b8b91545d`; the preceding lifecycle-document

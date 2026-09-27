@@ -20,18 +20,19 @@ not authoritative engineering state.
 
 ## Current milestone state
 
-**M7 — Alignment Mutation Concurrency Hardening: COMPLETE / MERGED / CLOSED.**
+**M8 — Alignment Connector Obstacle-Avoiding Routing: COMPLETE / MERGED /
+CLOSED.**
 
-PR #16 merged by rebase. The terminal reviewed PR-head tree
-`d28126bca178db8ee9d17c737b820eacf6403d34` is exactly identical to
-post-rebase implementation `main@f56b413f97742946b51e00a24b55f806cc5452f8`,
-so M7 Gate 3 is **PASS / EXACT**. Post-merge durable-state closure is
-`2e69f354c1134acbf9e2beb0c647f39a84499325` (tree
-`fbc57302af2de73bbaa18edc276829d3c86d0dd6`). Exact-guarded cleanup deleted
-only historical branch
-`m7-alignment-mutation-concurrency-hardening@d769e018064dd1d6a529f7e043c7163b7e92c3ed`;
-the remote branch is absent and durable `main` / proof `main` remained
-unchanged.
+PR #17 merged by rebase. Terminal reviewed PR-head tree
+`a6abdd4cedb9311586d3c25c6a9b48ad4d25c9cd` is exactly identical to
+post-rebase implementation `main@4d9cc80b7c6b89b9990c37a2ec41e69e690852d3`,
+so M8 Gate 3 is **PASS / EXACT**. Post-merge durable-state closure and
+exact-guarded implementation-branch cleanup are complete. The final
+branch-cleanup durable record is
+`main@f5aead8ad2012bd558ae898d50f1e4317ad8629b` (tree
+`6a65495fe6020d0773cef7a1e2ff64078db24a64`); historical branch
+`m8-alignment-connector-obstacle-avoiding-routing` is absent and proof
+`main@6ac44484aebc58aac866bfb69f05960189b0aefc` remains unchanged.
 
 See `docs/development/CURRENT_STATE.md` for Gate 2 proof provenance and full
 lifecycle details.
@@ -48,9 +49,9 @@ by later milestone success.
 | `docs/development/M0_7_CLOSEOUT.md` | M0.7 Gate 2 exception, Human Review/HRA, rebase-merge provenance and Gate 3 closeout ledger |
 | `docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md` | Authoritative frozen M0 specification and Definition of Done |
 | `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` | Accepted pre-implementation engineering report |
-| `docs/adr/ADR-001…ADR-015` | Accepted architecture decisions through M7 |
-| `docs/architecture/ARCHITECTURE.md` | As-built architecture through M7 |
-| `docs/api/api-contract.md` | As-built HTTP API surface through M7 |
+| `docs/adr/ADR-001…ADR-016` | Accepted architecture decisions through M8 |
+| `docs/architecture/ARCHITECTURE.md` | As-built architecture through M8 |
+| `docs/api/api-contract.md` | As-built HTTP API surface; unchanged by M8 |
 | `docs/testing/testing-strategy.md` | Test architecture plus local/GitHub/external evidence semantics |
 | `docs/testing/manual-acceptance.md` | Human-executable M0 walkthrough used for M0.7 HRA |
 | `AGENTS.md` (repository root) | Agent working rules and current phase |
