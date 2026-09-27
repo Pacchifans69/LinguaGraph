@@ -139,11 +139,14 @@ offsets, Alignment creation through the user path, server-derived
 counterpart highlighting. M9 extends the same real-browser surface with a
 programmatically constructed **native DOM Range** whose endpoint is a
 browser-legal code-point boundary inside `👍🏽`; before dispatch, the test
-proves that exact grapheme-internal native Range exists, then proves rejection,
-stale-selection clearing, disabled staging after failure, and later valid
-recovery without directly injecting PendingSpan state. T-10 component coverage
-separately proves the capture path does not mutate the native Range/Selection
-to snap boundaries.
+proves that `window.getSelection().getRangeAt(0)` is associated with those
+exact boundary points and that the Range text is the modifier alone. It does
+not rely on `Selection.toString()`, because Chromium can expose the exact DOM
+Range while treating one extended grapheme as an indivisible visible-selection
+unit. The test then proves rejection, stale-selection clearing, disabled
+staging after failure, and later valid recovery without directly injecting
+PendingSpan state. T-10 component coverage separately proves the capture path
+does not mutate the native Range/Selection to snap boundaries.
 
 `segmentation.spec.ts` is the M2 sentence-segmentation release path. It
 exercises an astral-emoji boundary, Human-reviewed manual split/save,

@@ -167,14 +167,30 @@ async function selectUtf16RangeInPanel(
       selection.removeAllRanges();
       selection.addRange(range);
 
-      // Prove the exact grapheme-internal native Range exists BEFORE the
-      // TextPanel handler runs. React may later re-render text nodes while
-      // clearing stale staging authority, which can make the browser drop the
-      // visual/native Selection without the application ever snapping it.
-      if (selection.toString() !== bounds.expectedNativeText) {
+      // Prove the exact grapheme-internal DOM Range is the Range associated
+      // with window.getSelection() BEFORE the TextPanel handler runs.
+      //
+      // Chromium intentionally treats an extended grapheme as one visible
+      // selection unit, so Selection.toString() may be empty for a Range that
+      // starts at an internal grapheme boundary. That stringification is not
+      // the selection-engine input: selectionToCanonical reads getRangeAt(0).
+      // Verify that exact associated Range and its boundary points instead.
+      if (range.toString() !== bounds.expectedNativeText) {
         throw new Error(
-          `native Range text mismatch before capture: expected "${bounds.expectedNativeText}", got "${selection.toString()}"`,
+          `DOM Range text mismatch before capture: expected "${bounds.expectedNativeText}", got "${range.toString()}"`,
         );
+      }
+      if (selection.rangeCount !== 1) {
+        throw new Error(`expected one associated Range, got ${selection.rangeCount}`);
+      }
+      const associated = selection.getRangeAt(0);
+      if (
+        associated.startContainer !== range.startContainer ||
+        associated.startOffset !== range.startOffset ||
+        associated.endContainer !== range.endContainer ||
+        associated.endOffset !== range.endOffset
+      ) {
+        throw new Error('Selection is not associated with the exact grapheme-internal Range');
       }
 
       root.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
