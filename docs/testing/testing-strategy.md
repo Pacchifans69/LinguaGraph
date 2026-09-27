@@ -738,6 +738,12 @@ failure evidence, and does not supersede accepted C16 hosted proof.
 
 This `M8-PMDR-F01` five-file docs-only closeout records post-merge lifecycle
 and provenance only. It requires no fresh hosted proof or Human Runtime
-Acceptance. Historical implementation branch
-`m8-alignment-connector-obstacle-avoiding-routing@8fee64449f8b80b228d804c7fa7b6671a4ef0211`
-remains retained pending separately authorized exact-guarded cleanup.
+Acceptance. The subsequent Human-authorized exact-guarded cleanup deleted only
+historical implementation branch
+`m8-alignment-connector-obstacle-avoiding-routing@8fee64449f8b80b228d804c7fa7b6671a4ef0211`.
+Post-delete verification and independent GitHub readback confirmed branch
+absence, durable Product `main@2a2dbcc4892d2fb75af36f7fb3903461f2dad75d`
+unchanged, proof `main@6ac44484aebc58aac866bfb69f05960189b0aefc`
+unchanged, and PR #17 still closed / merged. This final five-file docs-only
+cleanup record requires no fresh hosted proof or Human Runtime Acceptance; its
+own commit identity is resolved from Git history after landing.

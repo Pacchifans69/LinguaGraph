@@ -11,8 +11,8 @@ schema structure.
 
 ## Current milestone
 
-M8 — Alignment Connector Obstacle-Avoiding Routing — is **MERGED / GATE 3
-PASS / POST-MERGE DURABLE STATE RECORDED / BRANCH CLEANUP PENDING**.
+M8 — Alignment Connector Obstacle-Avoiding Routing — is **COMPLETE / MERGED /
+CLOSED**.
 
 Frozen contract:
 
@@ -26,9 +26,9 @@ Frozen implementation-base tree:
 
 `d7e4795758dde11373f27e8922d4018507ea3122`
 
-Historical implementation branch retained pending cleanup:
+Historical implementation branch:
 
-`m8-alignment-connector-obstacle-avoiding-routing`
+`m8-alignment-connector-obstacle-avoiding-routing@8fee64449f8b80b228d804c7fa7b6671a4ef0211` (deleted)
 
 M8 remains the bounded frontend routing-hardening checkpoint targeting retained
 `HRA-F09`: deterministic panel-perimeter obstacle-avoiding routes preserve
@@ -53,11 +53,16 @@ head `8fee64449f8b80b228d804c7fa7b6671a4ef0211` by rebase after explicit
 Human Merge Decision. Its tree
 `a6abdd4cedb9311586d3c25c6a9b48ad4d25c9cd` is exactly identical to
 post-rebase `main@4d9cc80b7c6b89b9990c37a2ec41e69e690852d3`; Gate 3 is
-**PASS / EXACT**. The historical implementation branch remains retained
-pending separately authorized cleanup.
+**PASS / EXACT**. The Human-authorized exact-guarded cleanup then deleted only
+historical implementation branch
+`m8-alignment-connector-obstacle-avoiding-routing@8fee64449f8b80b228d804c7fa7b6671a4ef0211`.
+Post-delete verification and independent GitHub readback confirmed the branch
+absent, durable `main@2a2dbcc4892d2fb75af36f7fb3903461f2dad75d` unchanged,
+proof `main@6ac44484aebc58aac866bfb69f05960189b0aefc` unchanged, and PR #17
+still closed / merged.
 
-The latest merged implementation checkpoint is M8; exact-guarded
-implementation-branch cleanup remains pending separate Human authorization.
+The latest completed implementation checkpoint is M8; post-merge durable-state
+closure and exact-guarded implementation-branch cleanup are complete.
 
 M7 — Alignment Mutation Concurrency Hardening — is **COMPLETE / MERGED /
 CLOSED**. PR #16 merged by repository-permitted rebase after explicit Human

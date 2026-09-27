@@ -279,8 +279,13 @@ after explicit Human Merge Decision. Its tree
 post-rebase `main@4d9cc80b7c6b89b9990c37a2ec41e69e690852d3`; M8 Gate 3 is
 **PASS / EXACT**. Gate 2 and targeted Human Runtime Acceptance authority remain
 bound to exact semantic candidate
-`2441f9cf60b7cc9402c5b257be010b559b39b717`. The historical implementation
-branch remains retained pending separately authorized cleanup.
+`2441f9cf60b7cc9402c5b257be010b559b39b717`. The Human-authorized
+exact-guarded cleanup deleted historical implementation branch
+`m8-alignment-connector-obstacle-avoiding-routing@8fee64449f8b80b228d804c7fa7b6671a4ef0211`;
+post-delete verification and independent GitHub readback confirmed it absent
+while durable `main@2a2dbcc4892d2fb75af36f7fb3903461f2dad75d`, proof
+`main@6ac44484aebc58aac866bfb69f05960189b0aefc`, and PR #17 merge state
+remained unchanged.
 
 ## 6. Known limitations
 

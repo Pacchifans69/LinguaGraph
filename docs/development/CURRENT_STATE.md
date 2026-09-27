@@ -11,8 +11,8 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ## 0. Current durable status
 
-M8 — Alignment Connector Obstacle-Avoiding Routing — is **MERGED / GATE 3
-PASS / POST-MERGE DURABLE STATE RECORDED / BRANCH CLEANUP PENDING**.
+M8 — Alignment Connector Obstacle-Avoiding Routing — is **COMPLETE / MERGED /
+CLOSED**.
 
 M8 durable coordinates and current lifecycle:
 
@@ -25,8 +25,9 @@ M8 durable coordinates and current lifecycle:
   `d7e4795758dde11373f27e8922d4018507ea3122`;
 - governing frozen contract:
   `docs/development/M8_CONTRACT.md`;
-- historical implementation branch retained pending cleanup:
+- historical implementation branch:
   `m8-alignment-connector-obstacle-avoiding-routing@8fee64449f8b80b228d804c7fa7b6671a4ef0211`;
+  **DELETED BY EXACT-GUARDED HUMAN-AUTHORIZED CLEANUP**;
 - bounded implementation:
   **HUMAN AUTHORIZED / EXACT SEMANTIC CANDIDATE PROVEN**;
 - predecessor semantic/test correction epoch:
@@ -74,8 +75,16 @@ M8 durable coordinates and current lifecycle:
   run `36313958759`, job `108605022182`; `runner_name=""`,
   `steps=[]`; provider/pre-step diagnostic, not application-failure evidence;
 - implementation-branch cleanup:
-  **PENDING / NOT AUTHORIZED**; historical branch remains retained at
-  `8fee64449f8b80b228d804c7fa7b6671a4ef0211`;
+  **PASS / EXACT-GUARDED / REMOTE BRANCH ABSENT**;
+- post-cleanup durable Product `main`:
+  unchanged at `2a2dbcc4892d2fb75af36f7fb3903461f2dad75d`; tree
+  `563190abc2d924c1feabc8613044468ca23f7894`;
+- post-cleanup proof repository `main`:
+  unchanged at `6ac44484aebc58aac866bfb69f05960189b0aefc`;
+- post-cleanup PR #17:
+  still **CLOSED / MERGED** with historical head
+  `8fee64449f8b80b228d804c7fa7b6671a4ef0211` and merge result
+  `4d9cc80b7c6b89b9990c37a2ec41e69e690852d3`;
 - migration:
   **NONE; Alembic HEAD remains 0006**;
 - dependency/runtime change:
@@ -118,8 +127,12 @@ post-rebase `main@4d9cc80b7c6b89b9990c37a2ec41e69e690852d3`. This
 post-merge reality; it creates no new semantic proof target and requires no
 fresh Gate 2 or Human Runtime Acceptance.
 
-The latest merged implementation checkpoint is M8. Its implementation branch
-remains retained pending separate exact-guarded cleanup authorization.
+The latest completed implementation checkpoint is M8. Post-merge durable-state
+closure and exact-guarded implementation-branch cleanup are complete. This
+final five-file docs-only cleanup record changes no application code, tests,
+architecture decision, contract, migration, dependency, lockfile, workflow,
+proof repository, provider state, or PR state; its own commit identity must be
+resolved from Git history after landing rather than embedded self-referentially.
 
 M7 — Alignment Mutation Concurrency Hardening — is **COMPLETE / MERGED /
 CLOSED**. PR #16 merged by rebase after explicit Human Merge Decision; Gate 3
