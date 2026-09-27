@@ -11,6 +11,40 @@ schema structure.
 
 ## Current milestone
 
+M9 — Grapheme-Safe Native Selection Capture — is **CONTRACT FROZEN /
+IMPLEMENTATION NOT AUTHORIZED**.
+
+Frozen contract:
+
+`docs/development/M9_CONTRACT.md`
+
+Approved pre-freeze durable base:
+
+`fd224bf0a2b9c8d2797091ea0341ee551a89b340`
+
+Approved pre-freeze durable tree:
+
+`e7c8fe63146dc0a8b2e11f3509ea68267d9a922c`
+
+Planned implementation branch:
+
+`m9-grapheme-safe-native-selection-capture` (**NOT CREATED**)
+
+M9 is a bounded frontend correctness checkpoint for **new native canonical
+TextPanel selection capture only**. It validates both canonical code-point
+endpoints against complete-content grapheme boundaries using frontend
+`Intl.Segmenter`, rejects invalid endpoints without snapping, keeps
+persisted/API/reverse-render authority in Unicode code points, and clears stale
+current-selection authority after any failed recapture. Sentence/Token manual
+split, backend grapheme validation, document revision/re-anchoring, legacy
+range migration, and full grapheme-aware editing remain deferred.
+
+HCR-A1 through HCR-A10 are **HUMAN ACCEPTED**. This docs-only contract freeze
+does not authorize implementation, branch creation, ADR-017, test changes,
+proof execution, proof-repository mutation, or provider mutation.
+
+The latest completed implementation checkpoint remains M8.
+
 M8 — Alignment Connector Obstacle-Avoiding Routing — is **COMPLETE / MERGED /
 CLOSED**.
 

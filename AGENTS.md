@@ -39,6 +39,10 @@ The completed frozen M8 execution contract is:
 
 `docs/development/M8_CONTRACT.md`
 
+The frozen M9 execution contract is:
+
+`docs/development/M9_CONTRACT.md`
+
 Before planning, modifying files, installing dependencies, or writing
 implementation code:
 
@@ -56,6 +60,35 @@ implementation code:
    contract.
 
 ## Current phase
+
+M9 — Grapheme-Safe Native Selection Capture — is **CONTRACT FROZEN /
+IMPLEMENTATION NOT AUTHORIZED**.
+
+Governing frozen contract:
+
+`docs/development/M9_CONTRACT.md`
+
+Approved pre-freeze durable base:
+
+`fd224bf0a2b9c8d2797091ea0341ee551a89b340`
+
+Approved pre-freeze durable tree:
+
+`e7c8fe63146dc0a8b2e11f3509ea68267d9a922c`
+
+Planned implementation branch:
+
+`m9-grapheme-safe-native-selection-capture` (**NOT CREATED**)
+
+Human HCR-A1 through HCR-A10 are accepted and frozen. M9 is limited to new
+native canonical TextPanel selection capture: grapheme-invalid endpoints are
+rejected without snapping, complete canonical `TextVersion.content` is the
+boundary authority, persisted/API/reverse-render coordinates remain Unicode
+code points, failed recapture clears stale current-selection authority, and
+full grapheme editing remains deferred. The freeze adds no implementation,
+test, ADR-017, dependency, workflow, proof, provider, PR, or branch mutation.
+
+The latest completed implementation checkpoint remains M8.
 
 M8 — Alignment Connector Obstacle-Avoiding Routing — is **COMPLETE / MERGED /
 CLOSED**.

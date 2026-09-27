@@ -20,6 +20,20 @@ not authoritative engineering state.
 
 ## Current milestone state
 
+**M9 — Grapheme-Safe Native Selection Capture: CONTRACT FROZEN /
+IMPLEMENTATION NOT AUTHORIZED.**
+
+The Human-approved frozen contract is
+`docs/development/M9_CONTRACT.md`, based on durable
+`main@fd224bf0a2b9c8d2797091ea0341ee551a89b340` (tree
+`e7c8fe63146dc0a8b2e11f3509ea68267d9a922c`). Planned implementation branch
+`m9-grapheme-safe-native-selection-capture` is **NOT CREATED**. M9 governs only
+new native canonical TextPanel selection capture; as-built architecture, API,
+accepted ADRs, persistence, and runtime remain through completed M8 during the
+contract-freeze state.
+
+The latest completed implementation checkpoint remains M8.
+
 **M8 — Alignment Connector Obstacle-Avoiding Routing: COMPLETE / MERGED /
 CLOSED.**
 
@@ -46,6 +60,7 @@ by later milestone success.
 | Document | Purpose |
 |---|---|
 | `docs/development/CURRENT_STATE.md` | Current durable engineering handoff, lifecycle/provenance, schema baseline, known limitations and next-work rule |
+| `docs/development/M9_CONTRACT.md` | Frozen bounded M9 execution contract; implementation not yet authorized |
 | `docs/development/M0_7_CLOSEOUT.md` | M0.7 Gate 2 exception, Human Review/HRA, rebase-merge provenance and Gate 3 closeout ledger |
 | `docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md` | Authoritative frozen M0 specification and Definition of Done |
 | `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` | Accepted pre-implementation engineering report |

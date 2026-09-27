@@ -11,6 +11,50 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ## 0. Current durable status
 
+M9 — Grapheme-Safe Native Selection Capture — is **CONTRACT FROZEN /
+IMPLEMENTATION NOT AUTHORIZED**.
+
+M9 contract-freeze state:
+
+- Human checkpoint naming and HCR-A1 through HCR-A10: **HUMAN ACCEPTED** on
+  2026-09-27;
+- approved pre-freeze durable Product base:
+  `fd224bf0a2b9c8d2797091ea0341ee551a89b340`;
+- approved pre-freeze durable tree:
+  `e7c8fe63146dc0a8b2e11f3509ea68267d9a922c`;
+- governing frozen contract:
+  `docs/development/M9_CONTRACT.md`;
+- planned implementation branch:
+  `m9-grapheme-safe-native-selection-capture` — **NOT CREATED**;
+- implementation authorization: **NOT GRANTED**;
+- product scope: new native canonical TextPanel selection capture only;
+- grapheme-invalid endpoint policy: **REJECT / NO SNAP**;
+- grapheme authority: complete canonical `TextVersion.content`, using frontend
+  `Intl.Segmenter` without `language_tag` as boundary authority;
+- coordinate authority: persisted/API/reverse-render offsets remain Unicode
+  code points;
+- legacy code-point-valid ranges: no migration; remain readable/renderable;
+- failed recapture: clears stale `currentSelection` so an old selection cannot
+  remain stageable;
+- new frontend-only errors:
+  `INVALID_GRAPHEME_BOUNDARY` and
+  `GRAPHEME_SEGMENTER_UNAVAILABLE`;
+- targeted Human Runtime Acceptance: required after automated exact-candidate
+  Gate 2;
+- Sentence/Token manual split, backend grapheme validation, document
+  revision/re-anchoring, and full grapheme-cluster editing: **DEFERRED**;
+- migration/dependency/runtime/API/backend change in this freeze: **NONE**;
+- ADR-017: implementation obligation only; **NOT CREATED by contract freeze**;
+- implementation/test/proof/provider/branch mutation authorized by this freeze:
+  **NONE**.
+
+This docs-only freeze commit becomes the M9 frozen implementation base only
+after landing and independent exact commit/tree/scope verification; its own
+commit identity must be resolved from Git history rather than embedded
+self-referentially.
+
+The latest completed implementation checkpoint remains M8.
+
 M8 — Alignment Connector Obstacle-Avoiding Routing — is **COMPLETE / MERGED /
 CLOSED**.
 
