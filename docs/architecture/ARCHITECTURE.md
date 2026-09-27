@@ -1,8 +1,9 @@
-# LinguaGraph — Architecture (M7 main; M8 proven candidate)
+# LinguaGraph — Architecture (M8 merged main)
 
-This document describes the completed M7 architecture and the exact M8
-implementation candidate proven at Gate 2 but not yet merged. It is a
-description, not a new authority: the accepted ADRs
+This document describes the M8 architecture merged into durable `main` after
+exact-candidate Gate 2, targeted Human Runtime Acceptance, Static Human Diff
+Review, and Gate 3 exact-tree verification. It is a description, not a new
+authority: the accepted ADRs
 (`docs/adr/ADR-001…ADR-016`) and the authoritative
 pre-implementation documents
 (`docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md`,
@@ -271,7 +272,15 @@ Human Runtime Acceptance also passed on that exact application epoch: Human
 **CLOSED / HUMAN ACCEPTED**. Final Static Human Diff Review is **PASS /
 M8-SHDR-F01 HUMAN APPROVED** for landed docs-only successor
 `a112bb9af08624e12bb0323ba283daf22edacccd` (tree
-`c221e92c7778429d9e29f5adf7c612d1b938bf53`). M8 remains not merged.
+`c221e92c7778429d9e29f5adf7c612d1b938bf53`). PR #17 subsequently merged
+terminal reviewed head `8fee64449f8b80b228d804c7fa7b6671a4ef0211` by rebase
+after explicit Human Merge Decision. Its tree
+`a6abdd4cedb9311586d3c25c6a9b48ad4d25c9cd` is exactly identical to
+post-rebase `main@4d9cc80b7c6b89b9990c37a2ec41e69e690852d3`; M8 Gate 3 is
+**PASS / EXACT**. Gate 2 and targeted Human Runtime Acceptance authority remain
+bound to exact semantic candidate
+`2441f9cf60b7cc9402c5b257be010b559b39b717`. The historical implementation
+branch remains retained pending separately authorized cleanup.
 
 ## 6. Known limitations
 

@@ -57,9 +57,8 @@ implementation code:
 
 ## Current phase
 
-M8 — Alignment Connector Obstacle-Avoiding Routing — is **EXACT-CANDIDATE
-GATE 2 + HUMAN RUNTIME ACCEPTANCE ESTABLISHED / STATIC HUMAN DIFF REVIEW
-PASS / NOT MERGED**.
+M8 — Alignment Connector Obstacle-Avoiding Routing — is **MERGED / GATE 3
+PASS / POST-MERGE DURABLE STATE RECORDED / BRANCH CLEANUP PENDING**.
 
 The frozen M8 execution contract remains:
 
@@ -73,7 +72,7 @@ Frozen implementation-base tree:
 
 `d7e4795758dde11373f27e8922d4018507ea3122`
 
-Active implementation branch:
+Historical implementation branch retained pending cleanup:
 
 `m8-alignment-connector-obstacle-avoiding-routing`
 
@@ -102,10 +101,17 @@ Static Human Diff Review is **PASS / M8-SHDR-F01 HUMAN APPROVED** for the
 landed docs-only successor `a112bb9af08624e12bb0323ba283daf22edacccd`
 (tree `c221e92c7778429d9e29f5adf7c612d1b938bf53`); its evidence bridge is
 **HUMAN APPROVED / ESTABLISHED**.
-No PR, merge, Product/proof/provider mutation, or new proof execution is
-authorized by this record.
+PR #17 merged terminal reviewed head
+`8fee64449f8b80b228d804c7fa7b6671a4ef0211` by repository-permitted
+rebase after explicit Human Merge Decision. Its tree
+`a6abdd4cedb9311586d3c25c6a9b48ad4d25c9cd` is exactly identical to
+post-rebase `main@4d9cc80b7c6b89b9990c37a2ec41e69e690852d3`; M8 Gate 3 is
+**PASS / EXACT**. The historical implementation branch remains retained
+pending separately authorized cleanup. No new Product/proof/provider mutation
+or proof execution is authorized by this record.
 
-The latest completed implementation checkpoint remains M7.
+The latest merged implementation checkpoint is M8; exact-guarded
+implementation-branch cleanup remains pending separate Human authorization.
 
 M7 — Alignment Mutation Concurrency Hardening — is **COMPLETE / MERGED /
 CLOSED**. PR #16 merged by repository-permitted rebase after explicit Human

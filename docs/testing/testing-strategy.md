@@ -1,9 +1,9 @@
-# LinguaGraph — Testing Strategy (M7 main; M8 proven/HRA-accepted candidate)
+# LinguaGraph — Testing Strategy (M8 merged main)
 
 This document describes the inherited M0/M1 testing architecture, M2/M3
 segmentation coverage, M4 lemma-annotation coverage, M5 coarse-POS coverage,
 M6 mode-oriented Workbench coverage, M7 alignment-concurrency coverage, M8
-connector-routing candidate coverage, and the rules for what counts as
+connector-routing merged-main coverage, and the rules for what counts as
 evidence. It is descriptive, not a new authority: the accepted
 pre-implementation report and frozen milestone contracts remain authoritative.
 
@@ -720,4 +720,24 @@ exact-tree evidence.
 
 The evidence bridge and final exact diff are **HUMAN APPROVED / ESTABLISHED**.
 Static Human Diff Review is **PASS / M8-SHDR-F01 HUMAN APPROVED** with zero
-blocking findings. No PR or merge is implied.
+blocking findings.
+
+PR #17 subsequently merged terminal reviewed head
+`8fee64449f8b80b228d804c7fa7b6671a4ef0211` by repository-permitted rebase
+after explicit Human Merge Decision. Terminal reviewed PR-head tree
+`a6abdd4cedb9311586d3c25c6a9b48ad4d25c9cd` is exactly identical to
+post-rebase `main@4d9cc80b7c6b89b9990c37a2ec41e69e690852d3`; M8 Gate 3 is
+**PASS / EXACT**. Rebase commit identities do not relocate Gate 2 or Human
+Runtime Acceptance authority from exact semantic candidate
+`2441f9cf60b7cc9402c5b257be010b559b39b717`.
+
+Post-merge push run `36313958759` / job `108605022182` failed before
+repository-defined steps (`runner_name=""`, `steps=[]`). It remains a
+provider/pre-step diagnostic, not application/test/lint/build/Playwright
+failure evidence, and does not supersede accepted C16 hosted proof.
+
+This `M8-PMDR-F01` five-file docs-only closeout records post-merge lifecycle
+and provenance only. It requires no fresh hosted proof or Human Runtime
+Acceptance. Historical implementation branch
+`m8-alignment-connector-obstacle-avoiding-routing@8fee64449f8b80b228d804c7fa7b6671a4ef0211`
+remains retained pending separately authorized exact-guarded cleanup.

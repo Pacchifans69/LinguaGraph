@@ -11,9 +11,8 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ## 0. Current durable status
 
-M8 — Alignment Connector Obstacle-Avoiding Routing — is **EXACT-CANDIDATE
-GATE 2 + HUMAN RUNTIME ACCEPTANCE ESTABLISHED / STATIC HUMAN DIFF REVIEW
-PASS / NOT MERGED**.
+M8 — Alignment Connector Obstacle-Avoiding Routing — is **MERGED / GATE 3
+PASS / POST-MERGE DURABLE STATE RECORDED / BRANCH CLEANUP PENDING**.
 
 M8 durable coordinates and current lifecycle:
 
@@ -26,8 +25,8 @@ M8 durable coordinates and current lifecycle:
   `d7e4795758dde11373f27e8922d4018507ea3122`;
 - governing frozen contract:
   `docs/development/M8_CONTRACT.md`;
-- active implementation branch:
-  `m8-alignment-connector-obstacle-avoiding-routing`;
+- historical implementation branch retained pending cleanup:
+  `m8-alignment-connector-obstacle-avoiding-routing@8fee64449f8b80b228d804c7fa7b6671a4ef0211`;
 - bounded implementation:
   **HUMAN AUTHORIZED / EXACT SEMANTIC CANDIDATE PROVEN**;
 - predecessor semantic/test correction epoch:
@@ -58,15 +57,32 @@ M8 durable coordinates and current lifecycle:
   **PASS / HUMAN ACCEPTED** on exact candidate
   `2441f9cf60b7cc9402c5b257be010b559b39b717`; Human `ZJX`; decision
   `2026-09-27T16:12:00+08:00`; `HRA-F09` **CLOSED / HUMAN ACCEPTED**;
+- terminal reviewed PR head:
+  `8fee64449f8b80b228d804c7fa7b6671a4ef0211`; tree
+  `a6abdd4cedb9311586d3c25c6a9b48ad4d25c9cd`;
 - PR:
-  **NONE**;
+  `#17 — M8 — Alignment Connector Obstacle-Avoiding Routing`;
+  **MERGED BY REBASE** after explicit Human Merge Decision at
+  `2026-09-27T10:53:03Z`;
+- post-rebase implementation `main`:
+  `4d9cc80b7c6b89b9990c37a2ec41e69e690852d3`; tree
+  `a6abdd4cedb9311586d3c25c6a9b48ad4d25c9cd`;
+- Gate 3:
+  **PASS / EXACT TREE IDENTITY** between terminal reviewed PR-head tree and
+  post-rebase `main` tree;
+- post-merge GitHub-provider diagnostic:
+  run `36313958759`, job `108605022182`; `runner_name=""`,
+  `steps=[]`; provider/pre-step diagnostic, not application-failure evidence;
+- implementation-branch cleanup:
+  **PENDING / NOT AUTHORIZED**; historical branch remains retained at
+  `8fee64449f8b80b228d804c7fa7b6671a4ef0211`;
 - migration:
   **NONE; Alembic HEAD remains 0006**;
 - dependency/runtime change:
   **NONE**;
 - ADR:
-  ADR-016 — Panel-Perimeter Obstacle-Avoiding Alignment Routing — is present on
-  the implementation branch as the bounded implementation record;
+  ADR-016 — Panel-Perimeter Obstacle-Avoiding Alignment Routing — is merged into
+  durable `main` as the bounded implementation record;
 - pre-Gate-2 findings:
   M8-G2P-F01 through F04 were the bounded correction surface. F01–F03 were
   addressed by the predecessor semantic/test epoch above; F04 by the
@@ -74,8 +90,10 @@ M8 durable coordinates and current lifecycle:
   C16 formal hosted Gate 2 evidence; this ledger does not infer any separate
   Human closure decision for those historical finding identifiers;
 - canonical hosted execution:
-  recent exact-head GitHub Actions attempts retain the known provider/pre-step
-  fingerprint and provide no repository-step semantic evidence;
+  exact-head and post-merge GitHub Actions attempts retain the known
+  provider/pre-step fingerprint and provide no repository-step semantic
+  evidence; post-merge run `36313958759` / job `108605022182` likewise
+  ended before repository-defined steps;
 - retained Human finding:
   `HRA-F09` is **CLOSED / HUMAN ACCEPTED** by targeted M8 Human Runtime
   Acceptance on exact candidate `2441f9cf60b7cc9402c5b257be010b559b39b717`
@@ -90,16 +108,18 @@ free-space hub; incomplete route sets fail closed as a whole; geometry
 provenance is `alignmentId + layoutKey`; routing state remains ephemeral.
 Backend/API/schema/Alembic/dependencies remain unchanged.
 
-The architecture and testing-strategy documents describe the proven M8
-implementation candidate, its Gate 2 evidence, and the exact-candidate Human
-Runtime Acceptance that closed `HRA-F09`. They do not mark M8 merged or Static
-Human Diff Review complete. A proposed docs-only successor must be reviewed
-against this exact candidate and given an explicit Human evidence-bridge
-decision before any PR or merge; C16/HRA evidence does not silently transfer
-to arbitrary future Product changes.
+The architecture and testing-strategy documents now describe the merged M8
+implementation while preserving the original evidence boundaries: Gate 2 and
+targeted Human Runtime Acceptance remain attached to exact semantic candidate
+`2441f9cf60b7cc9402c5b257be010b559b39b717`, while Gate 3 bridges terminal
+reviewed PR-head tree `a6abdd4cedb9311586d3c25c6a9b48ad4d25c9cd` into
+post-rebase `main@4d9cc80b7c6b89b9990c37a2ec41e69e690852d3`. This
+`M8-PMDR-F01` five-file docs-only closeout records already-established
+post-merge reality; it creates no new semantic proof target and requires no
+fresh Gate 2 or Human Runtime Acceptance.
 
-The latest completed implementation checkpoint remains M7 — Alignment
-Mutation Concurrency Hardening — **COMPLETE / MERGED / CLOSED**.
+The latest merged implementation checkpoint is M8. Its implementation branch
+remains retained pending separate exact-guarded cleanup authorization.
 
 M7 — Alignment Mutation Concurrency Hardening — is **COMPLETE / MERGED /
 CLOSED**. PR #16 merged by rebase after explicit Human Merge Decision; Gate 3
