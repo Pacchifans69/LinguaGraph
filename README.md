@@ -13,7 +13,7 @@ schema structure.
 
 M8 — Alignment Connector Obstacle-Avoiding Routing — is **EXACT-CANDIDATE
 GATE 2 + HUMAN RUNTIME ACCEPTANCE ESTABLISHED / STATIC HUMAN DIFF REVIEW
-IN PROGRESS / NOT MERGED**.
+PASS / NOT MERGED**.
 
 Frozen contract:
 
@@ -46,9 +46,11 @@ established Gate 2: semantic stages passed, the artifact manifest verified
 C16 authorization is spent. Targeted Human Runtime Acceptance passed on the
 exact candidate under `M8_CONTRACT.md` section 23; Human `ZJX` recorded
 `PASS` at `2026-09-27T16:12:00+08:00`, closing `HRA-F09` as **CLOSED / HUMAN
-ACCEPTED**. Static Human Diff Review remains **HOLD / M8-SHDR-F01** pending
-final review of this docs-only successor and its evidence bridge. No PR or
-merge is authorized by this status record.
+ACCEPTED**. Static Human Diff Review is **PASS / M8-SHDR-F01 HUMAN APPROVED**
+for landed docs-only successor `a112bb9af08624e12bb0323ba283daf22edacccd`
+(tree `c221e92c7778429d9e29f5adf7c612d1b938bf53`); its evidence bridge is
+**HUMAN APPROVED / ESTABLISHED**. No PR or merge is authorized by this status
+record.
 
 The latest completed implementation checkpoint remains M7.
 

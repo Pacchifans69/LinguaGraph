@@ -703,8 +703,10 @@ readability, and horizontal overflow. The Human overflow check included
 viewport. `HRA-F09` is therefore **CLOSED / HUMAN ACCEPTED** for this exact
 application epoch.
 
-The current `M8-SHDR-F01` proposal is documentation-only. Its five-file scope
-is `AGENTS.md`, `README.md`, `docs/development/CURRENT_STATE.md`,
+The landed `M8-SHDR-F01` docs-only successor is
+`a112bb9af08624e12bb0323ba283daf22edacccd` (tree
+`c221e92c7778429d9e29f5adf7c612d1b938bf53`). Its five-file scope is
+`AGENTS.md`, `README.md`, `docs/development/CURRENT_STATE.md`,
 `docs/architecture/ARCHITECTURE.md`, and this testing-strategy file. It changes
 no executable semantic source, test, dependency, workflow, or proof repository.
 An evidence bridge to a docs-only successor is valid only after explicit Human
@@ -716,6 +718,6 @@ authority without pretending that the docs-only successor was itself re-run as
 a new semantic proof target. Any semantic change instead requires fresh
 exact-tree evidence.
 
-The evidence bridge and final exact diff remain **PENDING HUMAN APPROVAL**.
-Static Human Diff Review remains **HOLD / M8-SHDR-F01** until that decision.
-No PR or merge is implied.
+The evidence bridge and final exact diff are **HUMAN APPROVED / ESTABLISHED**.
+Static Human Diff Review is **PASS / M8-SHDR-F01 HUMAN APPROVED** with zero
+blocking findings. No PR or merge is implied.

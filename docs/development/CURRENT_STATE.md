@@ -13,7 +13,7 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 M8 — Alignment Connector Obstacle-Avoiding Routing — is **EXACT-CANDIDATE
 GATE 2 + HUMAN RUNTIME ACCEPTANCE ESTABLISHED / STATIC HUMAN DIFF REVIEW
-IN PROGRESS / NOT MERGED**.
+PASS / NOT MERGED**.
 
 M8 durable coordinates and current lifecycle:
 
@@ -50,7 +50,10 @@ M8 durable coordinates and current lifecycle:
   `20c6d1d738db0a46a0d13237c82c6ceada0c137144108922012de6f49874e9c5`;
   **CONSUMED / MUST NOT REUSE**;
 - Static Human Diff Review:
-  **HOLD / M8-SHDR-F01 DOCUMENTATION ALIGNMENT**;
+  **PASS / M8-SHDR-F01 HUMAN APPROVED** for landed docs-only successor
+  `a112bb9af08624e12bb0323ba283daf22edacccd`; tree
+  `c221e92c7778429d9e29f5adf7c612d1b938bf53`; evidence bridge
+  **HUMAN APPROVED / ESTABLISHED**;
 - targeted Human Runtime Acceptance:
   **PASS / HUMAN ACCEPTED** on exact candidate
   `2441f9cf60b7cc9402c5b257be010b559b39b717`; Human `ZJX`; decision
