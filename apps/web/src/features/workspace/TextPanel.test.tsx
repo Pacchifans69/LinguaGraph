@@ -353,6 +353,121 @@ describe('TextPanel (M0.4 selection capture and staging)', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('overlaps');
   });
 
+
+  it('M9 clears a stale valid selection after an invalid grapheme recapture', () => {
+    const content = 'A👍🏽B';
+    const { container } = renderPanel(version({ content }), runsFor(content));
+    const root = contentRoot(container);
+
+    stubSelection(selectInRun(root, 0, 0, 1));
+    fireEvent.mouseUp(root);
+    expect(screen.getByText('Selected 0–1: “A”')).toBeInTheDocument();
+
+    stubSelection(selectInRun(root, 0, 3, 5));
+    fireEvent.mouseUp(root);
+
+    expect(screen.queryByText('Selected 0–1: “A”')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add to Alignment' })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Selection must start and end at complete character boundaries.',
+    );
+  });
+
+  it('M9 clears stale selection and reports unavailable grapheme capability', () => {
+    const { container } = renderPanel(
+      version(),
+      runsFor('I look forward to seeing you tomorrow.'),
+    );
+    const root = contentRoot(container);
+
+    stubSelection(selectInRun(root, 0, 2, 17));
+    fireEvent.mouseUp(root);
+    expect(screen.getByText('Selected 2–17: “look forward to”')).toBeInTheDocument();
+
+    vi.stubGlobal('Intl', { Segmenter: undefined });
+    stubSelection(selectInRun(root, 0, 0, 1));
+    fireEvent.mouseUp(root);
+
+    expect(screen.queryByText('Selected 2–17: “look forward to”')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add to Alignment' })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'This browser cannot validate complete character boundaries for selection right now.',
+    );
+  });
+
+  it('M9 clears stale selection on inherited non-empty capture errors too', () => {
+    const { container } = renderPanel(
+      version(),
+      runsFor('I look forward to seeing you tomorrow.'),
+    );
+    const root = contentRoot(container);
+
+    stubSelection(selectInRun(root, 0, 2, 17));
+    fireEvent.mouseUp(root);
+    expect(screen.getByText('Selected 2–17: “look forward to”')).toBeInTheDocument();
+
+    root.setAttribute('data-content-hash', 'stale-render');
+    stubSelection(selectInRun(root, 0, 0, 1));
+    fireEvent.mouseUp(root);
+
+    expect(screen.queryByText('Selected 2–17: “look forward to”')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add to Alignment' })).toBeDisabled();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('M9 recovers normally after a grapheme-invalid recapture', () => {
+    const content = 'A👍🏽B';
+    const { container } = renderPanel(version({ content }), runsFor(content));
+    const root = contentRoot(container);
+
+    stubSelection(selectInRun(root, 0, 3, 5));
+    fireEvent.mouseUp(root);
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+
+    stubSelection(selectInRun(root, 0, 1, 5));
+    fireEvent.mouseUp(root);
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByText('Selected 1–3: “👍🏽”')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add to Alignment' })).toBeEnabled();
+  });
+
+  it('M9 failed recapture does not clear already-staged tray members', () => {
+    function PendingProbe() {
+      const { pendingMembers } = useWorkspaceState();
+      return <output aria-label="Pending member count">{pendingMembers.length}</output>;
+    }
+
+    const content = 'A👍🏽B';
+    const v = version({ content });
+    const view = render(
+      <WorkspaceProvider
+        documentId="doc-1"
+        serverVersions={[{ id: v.id, contentHash: v.content_hash }]}
+      >
+        <TextPanel
+          version={v}
+          runs={runsFor(content)}
+          onHide={() => {}}
+          spanRegistry={new RenderedSpanRegistry()}
+        />
+        <PendingProbe />
+      </WorkspaceProvider>,
+    );
+    const root = contentRoot(view.container);
+
+    stubSelection(selectInRun(root, 0, 0, 1));
+    fireEvent.mouseUp(root);
+    fireEvent.click(screen.getByRole('button', { name: 'Add to Alignment' }));
+    expect(screen.getByLabelText('Pending member count')).toHaveTextContent('1');
+
+    stubSelection(selectInRun(root, 0, 3, 5));
+    fireEvent.mouseUp(root);
+
+    expect(screen.getByLabelText('Pending member count')).toHaveTextContent('1');
+    expect(screen.getByRole('button', { name: 'Add to Alignment' })).toBeDisabled();
+  });
+
   it('clears the current selection when the selection collapses', () => {
     const { container } = renderPanel(
       version(),

@@ -61,32 +61,39 @@ implementation code:
 
 ## Current phase
 
-M9 — Grapheme-Safe Native Selection Capture — is **CONTRACT FROZEN /
-IMPLEMENTATION NOT AUTHORIZED**.
+M9 — Grapheme-Safe Native Selection Capture — is **BOUNDED IMPLEMENTATION
+AUTHORIZED / IMPLEMENTED ON BRANCH / GATE 2 NOT ESTABLISHED**.
 
 Governing frozen contract:
 
 `docs/development/M9_CONTRACT.md`
 
-Approved pre-freeze durable base:
+Verified frozen implementation base:
 
-`fd224bf0a2b9c8d2797091ea0341ee551a89b340`
+`e752d2c3358217770ee7029ace07687a15cf927a`
 
-Approved pre-freeze durable tree:
+Frozen implementation-base tree:
 
-`e7c8fe63146dc0a8b2e11f3509ea68267d9a922c`
+`55f167bfdc639cbab8c96b1f41423f8277dcf4e3`
 
-Planned implementation branch:
+Implementation branch:
 
-`m9-grapheme-safe-native-selection-capture` (**NOT CREATED**)
+`m9-grapheme-safe-native-selection-capture`
 
-Human HCR-A1 through HCR-A10 are accepted and frozen. M9 is limited to new
-native canonical TextPanel selection capture: grapheme-invalid endpoints are
-rejected without snapping, complete canonical `TextVersion.content` is the
-boundary authority, persisted/API/reverse-render coordinates remain Unicode
-code points, failed recapture clears stale current-selection authority, and
-full grapheme editing remains deferred. The freeze adds no implementation,
-test, ADR-017, dependency, workflow, proof, provider, PR, or branch mutation.
+Human HCR-A1 through HCR-A10 remain frozen. The bounded branch implementation
+adds frontend-only full-content grapheme-boundary validation for new native
+TextPanel selection capture using platform `Intl.Segmenter`; Segmenter UTF-16
+indices are converted through the inherited shared code-point utility before
+validation. Grapheme-invalid endpoints are rejected without snapping,
+capability absence/unusable output fails closed, persisted/API/reverse-render
+coordinates remain Unicode code points, and every failed recapture clears stale
+current-selection authority without clearing already-staged tray members.
+
+ADR-017 records the implementation decision. Sentence/Token manual split,
+backend grapheme validation, document revision/re-anchoring, legacy range
+migration, dependencies, workflow, proof/provider mutation, PR, merge, formal
+Gate 2, and Human Runtime Acceptance remain outside the currently authorized
+implementation action.
 
 The latest completed implementation checkpoint remains M8.
 

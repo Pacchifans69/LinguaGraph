@@ -11,47 +11,52 @@ tests, Alembic history, merged PR/Git history, or retained provider evidence.
 
 ## 0. Current durable status
 
-M9 — Grapheme-Safe Native Selection Capture — is **CONTRACT FROZEN /
-IMPLEMENTATION NOT AUTHORIZED**.
+M9 — Grapheme-Safe Native Selection Capture — is **BOUNDED IMPLEMENTATION
+AUTHORIZED / IMPLEMENTED ON BRANCH / GATE 2 NOT ESTABLISHED**.
 
-M9 contract-freeze state:
+M9 current implementation state:
 
-- Human checkpoint naming and HCR-A1 through HCR-A10: **HUMAN ACCEPTED** on
-  2026-09-27;
-- approved pre-freeze durable Product base:
-  `fd224bf0a2b9c8d2797091ea0341ee551a89b340`;
-- approved pre-freeze durable tree:
-  `e7c8fe63146dc0a8b2e11f3509ea68267d9a922c`;
+- Human HCR-A1 through HCR-A10: **HUMAN ACCEPTED / FROZEN**;
+- frozen implementation base:
+  `e752d2c3358217770ee7029ace07687a15cf927a`;
+- frozen implementation-base tree:
+  `55f167bfdc639cbab8c96b1f41423f8277dcf4e3`;
 - governing frozen contract:
-  `docs/development/M9_CONTRACT.md`;
-- planned implementation branch:
-  `m9-grapheme-safe-native-selection-capture` — **NOT CREATED**;
-- implementation authorization: **NOT GRANTED**;
-- product scope: new native canonical TextPanel selection capture only;
-- grapheme-invalid endpoint policy: **REJECT / NO SNAP**;
-- grapheme authority: complete canonical `TextVersion.content`, using frontend
-  `Intl.Segmenter` without `language_tag` as boundary authority;
-- coordinate authority: persisted/API/reverse-render offsets remain Unicode
-  code points;
-- legacy code-point-valid ranges: no migration; remain readable/renderable;
-- failed recapture: clears stale `currentSelection` so an old selection cannot
-  remain stageable;
-- new frontend-only errors:
+  `docs/development/M9_CONTRACT.md` (blob
+  `bd22a59da0f9ecb1bd4aa14a0816d2d248a787d6`);
+- active bounded implementation branch:
+  `m9-grapheme-safe-native-selection-capture`;
+- branch implementation scope: one new frontend grapheme helper, bounded
+  Selection/TextPanel integration, targeted unit/component/browser regression,
+  ADR-017 and implementation-state documentation;
+- new authoring policy: grapheme-invalid native endpoints **REJECT / NO SNAP**;
+- grapheme authority: complete canonical `TextVersion.content`;
+- implementation mechanism: frontend platform `Intl.Segmenter` with all
+  returned UTF-16 boundaries converted through the inherited shared
+  UTF-16→code-point utility;
+- frontend-only errors:
   `INVALID_GRAPHEME_BOUNDARY` and
   `GRAPHEME_SEGMENTER_UNAVAILABLE`;
-- targeted Human Runtime Acceptance: required after automated exact-candidate
-  Gate 2;
+- unavailable, throwing, malformed, or non-tiling grapheme segmentation:
+  **FAIL CLOSED** with no code-point-only fallback;
+- failed native recapture: clears stale `currentSelection`; already-staged
+  pending tray members remain untouched;
+- persisted/API coordinates and reverse `canonicalRangeToDomRange`:
+  **UNCHANGED Unicode code points**;
+- historical code-point-valid intra-grapheme ranges: no migration; remain
+  readable/renderable;
 - Sentence/Token manual split, backend grapheme validation, document
   revision/re-anchoring, and full grapheme-cluster editing: **DEFERRED**;
-- migration/dependency/runtime/API/backend change in this freeze: **NONE**;
-- ADR-017: implementation obligation only; **NOT CREATED by contract freeze**;
-- implementation/test/proof/provider/branch mutation authorized by this freeze:
-  **NONE**.
+- backend/API/schema/Alembic/dependencies/runtime/workflow changes: **NONE**;
+- ADR-017: present on the implementation branch;
+- formal Gate 2 hosted proof: **NOT AUTHORIZED / NOT ESTABLISHED**;
+- proof-repository/provider mutation: **NOT AUTHORIZED / NONE**;
+- targeted M9 Human Runtime Acceptance: required only after automated exact-
+  candidate Gate 2 and **NOT YET STARTED**;
+- PR / merge: **NOT AUTHORIZED / NONE**.
 
-This docs-only freeze commit becomes the M9 frozen implementation base only
-after landing and independent exact commit/tree/scope verification; its own
-commit identity must be resolved from Git history rather than embedded
-self-referentially.
+The implementation candidate commit identity is intentionally resolved from Git
+history after commit creation rather than embedded self-referentially here.
 
 The latest completed implementation checkpoint remains M8.
 
@@ -450,14 +455,22 @@ recorded in section 13.
 
 ## 1. Repository checkpoint
 
-Active frozen execution checkpoint: **M8 — Alignment Connector
+Active frozen execution checkpoint: **M9 — Grapheme-Safe Native Selection
+Capture**.
+
+Current M9 lifecycle state:
+
+**BOUNDED IMPLEMENTATION AUTHORIZED / IMPLEMENTED ON BRANCH / GATE 2 NOT
+ESTABLISHED.**
+
+Most recently completed implementation checkpoint: **M8 — Alignment Connector
 Obstacle-Avoiding Routing**.
 
 Current M8 lifecycle state:
 
-**FROZEN / HUMAN APPROVED / IMPLEMENTATION NOT YET AUTHORIZED.**
+**COMPLETE / MERGED / CLOSED.**
 
-Most recently completed implementation checkpoint: **M7 — Alignment Mutation
+Previous completed implementation checkpoint: **M7 — Alignment Mutation
 Concurrency Hardening**.
 
 Current M7 lifecycle state:
@@ -497,6 +510,7 @@ independently verified branch absence.
 | M5 Human-Reviewed POS Annotation Foundation | #14 | `139f3349b8556f5dd13d5c2d8808fda4a79dc819` | rebase → `49163ee407c0dae7d9e20cc647cabc8ae98f75de`; Gate 3 exact tree identity PASS; branch cleanup PASS |
 | M6 Mode-Oriented Workbench Information Architecture | #15 | `6af2c25e172d81725b97037945e38c047fba9941` | rebase → `afdb7f903db36de9a5ee2ea4cb41cba88ac23cc7`; Gate 3 exact tree identity PASS; durable closure `f66b6e51e0925d635a0c512969d60de497ed01d2`; branch cleanup PASS / EXACT-GUARDED |
 | M7 Alignment Mutation Concurrency Hardening | #16 | semantic `c7aae26e3abaa34b3756ffe96ee718beaf8524b3`; terminal reviewed PR head `d769e018064dd1d6a529f7e043c7163b7e92c3ed` | rebase → `f56b413f97742946b51e00a24b55f806cc5452f8`; Gate 3 exact tree identity PASS; durable closure `2e69f354c1134acbf9e2beb0c647f39a84499325` / tree `fbc57302af2de73bbaa18edc276829d3c86d0dd6`; branch cleanup PASS / EXACT-GUARDED |
+| M8 Alignment Connector Obstacle-Avoiding Routing | #17 | semantic `2441f9cf60b7cc9402c5b257be010b559b39b717`; terminal reviewed PR head `8fee64449f8b80b228d804c7fa7b6671a4ef0211` | rebase → `4d9cc80b7c6b89b9990c37a2ec41e69e690852d3`; Gate 3 exact tree identity PASS; durable closure and branch cleanup PASS / EXACT-GUARDED |
 
 M0.5 and M0.6 merge commits preserved exact reviewed trees. M0.7 and M1–M7
 used repository-permitted rebase merge; their Gate 3 evidence bridges use exact

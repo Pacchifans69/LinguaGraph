@@ -9,7 +9,7 @@
  * express.
  */
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { sliceByCodePoints } from './offset';
 import { segmentText } from './segmentation';
 import {
@@ -28,6 +28,7 @@ interface PanelOptions {
 
 afterEach(() => {
   document.body.replaceChildren();
+  vi.unstubAllGlobals();
 });
 
 function buildPanel(
@@ -312,6 +313,137 @@ describe('rangeToCanonical — basic selections', () => {
     const range2 = rangeBetween({ container: text2, offset: 0 }, { container: text2, offset: 2 });
     const result2 = rangeToCanonical(range2, root2, version2);
     expect(result2).toMatchObject({ status: 'ok', start: 0, end: 2, quote: decomposed });
+  });
+});
+
+
+describe('rangeToCanonical — M9 grapheme-safe authoring', () => {
+  it('S-03 rejects a legal code-point boundary inside emoji + skin tone', () => {
+    const { root, version } = buildPanel('👍🏽');
+    const text = runText(root, 0);
+    const range = rangeBetween(
+      { container: text, offset: 2 },
+      { container: text, offset: 4 },
+    );
+    expect(rangeToCanonical(range, root, version)).toMatchObject({
+      status: 'error',
+      code: 'INVALID_GRAPHEME_BOUNDARY',
+    });
+  });
+
+  it('rejects an internal ZWJ-family boundary', () => {
+    const content = '👨‍👩‍👧‍👦';
+    const { root, version } = buildPanel(content);
+    const text = runText(root, 0);
+    const range = rangeBetween(
+      { container: text, offset: 2 },
+      { container: text, offset: content.length },
+    );
+    expect(rangeToCanonical(range, root, version)).toMatchObject({
+      status: 'error',
+      code: 'INVALID_GRAPHEME_BOUNDARY',
+    });
+  });
+
+  it('rejects an internal regional-indicator flag boundary', () => {
+    const { root, version } = buildPanel('🇺🇳');
+    const text = runText(root, 0);
+    const range = rangeBetween(
+      { container: text, offset: 2 },
+      { container: text, offset: 4 },
+    );
+    expect(rangeToCanonical(range, root, version)).toMatchObject({
+      status: 'error',
+      code: 'INVALID_GRAPHEME_BOUNDARY',
+    });
+  });
+
+  it('rejects an internal NFC-stable combining boundary', () => {
+    const content = 'x\u0301';
+    expect(content.normalize('NFC')).toBe(content);
+    const { root, version } = buildPanel(content);
+    const text = runText(root, 0);
+    const range = rangeBetween(
+      { container: text, offset: 1 },
+      { container: text, offset: 2 },
+    );
+    expect(rangeToCanonical(range, root, version)).toMatchObject({
+      status: 'error',
+      code: 'INVALID_GRAPHEME_BOUNDARY',
+    });
+  });
+
+  it('S-04 accepts exact outer boundaries of a complex grapheme', () => {
+    const content = 'A👍🏽B';
+    const { root, version } = buildPanel(content);
+    const text = runText(root, 0);
+    const range = rangeBetween(
+      { container: text, offset: 1 },
+      { container: text, offset: 5 },
+    );
+    expect(rangeToCanonical(range, root, version)).toMatchObject({
+      status: 'ok',
+      start: 1,
+      end: 3,
+      quote: '👍🏽',
+    });
+  });
+
+  it('S-06 accepts a whole-content complex-Unicode selection', () => {
+    const content = 'A👍🏽 x\u0301 🇺🇳';
+    const { root, version } = buildPanel(content);
+    const range = rangeBetween(
+      { container: root, offset: 0 },
+      { container: root, offset: root.childNodes.length },
+    );
+    expect(rangeToCanonical(range, root, version)).toMatchObject({
+      status: 'ok',
+      start: 0,
+      end: Array.from(content).length,
+      quote: content,
+    });
+  });
+
+  it('S-07 rejects a rendered run boundary that splits one full-content grapheme', () => {
+    const content = 'x\u0301z';
+    const { root, version } = buildPanel(content, [
+      { id: 'legacy', start: 0, end: 1 },
+    ]);
+    expect(root.children).toHaveLength(2);
+    const range = rangeBetween(
+      { container: root, offset: 1 },
+      { container: runText(root, 1), offset: 1 },
+    );
+    expect(rangeToCanonical(range, root, version)).toMatchObject({
+      status: 'error',
+      code: 'INVALID_GRAPHEME_BOUNDARY',
+    });
+  });
+
+  it('S-09 fails closed when Intl.Segmenter is unavailable', () => {
+    const { root, version } = buildPanel('abc');
+    const text = runText(root, 0);
+    const range = rangeBetween(
+      { container: text, offset: 0 },
+      { container: text, offset: 1 },
+    );
+    vi.stubGlobal('Intl', { Segmenter: undefined });
+    expect(rangeToCanonical(range, root, version)).toMatchObject({
+      status: 'error',
+      code: 'GRAPHEME_SEGMENTER_UNAVAILABLE',
+    });
+  });
+
+  it('S-10 keeps legacy intra-grapheme code-point ranges reverse-renderable', () => {
+    const content = 'x\u0301z';
+    const { root, version } = buildPanel(content, [
+      { id: 'legacy', start: 0, end: 1 },
+    ]);
+    const result = canonicalRangeToDomRange(root, version, 1, 2);
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.range.toString()).toBe('\u0301');
+    }
   });
 });
 

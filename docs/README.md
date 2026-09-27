@@ -20,17 +20,25 @@ not authoritative engineering state.
 
 ## Current milestone state
 
-**M9 — Grapheme-Safe Native Selection Capture: CONTRACT FROZEN /
-IMPLEMENTATION NOT AUTHORIZED.**
+**M9 — Grapheme-Safe Native Selection Capture: BOUNDED IMPLEMENTATION
+AUTHORIZED / IMPLEMENTED ON BRANCH / GATE 2 NOT ESTABLISHED.**
 
-The Human-approved frozen contract is
-`docs/development/M9_CONTRACT.md`, based on durable
-`main@fd224bf0a2b9c8d2797091ea0341ee551a89b340` (tree
-`e7c8fe63146dc0a8b2e11f3509ea68267d9a922c`). Planned implementation branch
-`m9-grapheme-safe-native-selection-capture` is **NOT CREATED**. M9 governs only
-new native canonical TextPanel selection capture; as-built architecture, API,
-accepted ADRs, persistence, and runtime remain through completed M8 during the
-contract-freeze state.
+The governing frozen contract remains
+`docs/development/M9_CONTRACT.md`. The independently verified frozen
+implementation base is
+`main@e752d2c3358217770ee7029ace07687a15cf927a` (tree
+`55f167bfdc639cbab8c96b1f41423f8277dcf4e3`). The active bounded branch is
+`m9-grapheme-safe-native-selection-capture`.
+
+The branch implements only new native canonical TextPanel selection capture:
+full canonical content is segmented with platform `Intl.Segmenter`, Segmenter
+UTF-16 indices convert to canonical code-point offsets, invalid grapheme
+endpoints reject without snapping, unavailable/unusable capability fails
+closed, and failed recapture clears stale current-selection authority while
+preserving already-staged tray members. ADR-017 records the decision.
+Persisted/API/reverse-render authority remains Unicode code points; backend,
+schema, Alembic, dependencies, workflow, proof/provider state, PR/merge, formal
+Gate 2, and HRA are unchanged/not yet authorized.
 
 The latest completed implementation checkpoint remains M8.
 
@@ -60,13 +68,13 @@ by later milestone success.
 | Document | Purpose |
 |---|---|
 | `docs/development/CURRENT_STATE.md` | Current durable engineering handoff, lifecycle/provenance, schema baseline, known limitations and next-work rule |
-| `docs/development/M9_CONTRACT.md` | Frozen bounded M9 execution contract; implementation not yet authorized |
+| `docs/development/M9_CONTRACT.md` | Frozen bounded M9 execution contract governing the active implementation branch |
 | `docs/development/M0_7_CLOSEOUT.md` | M0.7 Gate 2 exception, Human Review/HRA, rebase-merge provenance and Gate 3 closeout ledger |
 | `docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md` | Authoritative frozen M0 specification and Definition of Done |
 | `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` | Accepted pre-implementation engineering report |
-| `docs/adr/ADR-001…ADR-016` | Accepted architecture decisions through M8 |
-| `docs/architecture/ARCHITECTURE.md` | As-built architecture through M8 |
-| `docs/api/api-contract.md` | As-built HTTP API surface; unchanged by M8 |
+| `docs/adr/ADR-001…ADR-017` | Accepted architecture decisions through the M9 implementation candidate |
+| `docs/architecture/ARCHITECTURE.md` | As-built architecture through the M9 implementation candidate |
+| `docs/api/api-contract.md` | As-built HTTP API surface; unchanged by M9 |
 | `docs/testing/testing-strategy.md` | Test architecture plus local/GitHub/external evidence semantics |
 | `docs/testing/manual-acceptance.md` | Human-executable M0 walkthrough used for M0.7 HRA |
 | `AGENTS.md` (repository root) | Agent working rules and current phase |

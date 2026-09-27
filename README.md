@@ -11,37 +11,39 @@ schema structure.
 
 ## Current milestone
 
-M9 — Grapheme-Safe Native Selection Capture — is **CONTRACT FROZEN /
-IMPLEMENTATION NOT AUTHORIZED**.
+M9 — Grapheme-Safe Native Selection Capture — is **BOUNDED IMPLEMENTATION
+AUTHORIZED / IMPLEMENTED ON BRANCH / GATE 2 NOT ESTABLISHED**.
 
 Frozen contract:
 
 `docs/development/M9_CONTRACT.md`
 
-Approved pre-freeze durable base:
+Verified frozen implementation base:
 
-`fd224bf0a2b9c8d2797091ea0341ee551a89b340`
+`e752d2c3358217770ee7029ace07687a15cf927a`
 
-Approved pre-freeze durable tree:
+Frozen implementation-base tree:
 
-`e7c8fe63146dc0a8b2e11f3509ea68267d9a922c`
+`55f167bfdc639cbab8c96b1f41423f8277dcf4e3`
 
-Planned implementation branch:
+Implementation branch:
 
-`m9-grapheme-safe-native-selection-capture` (**NOT CREATED**)
+`m9-grapheme-safe-native-selection-capture`
 
-M9 is a bounded frontend correctness checkpoint for **new native canonical
-TextPanel selection capture only**. It validates both canonical code-point
-endpoints against complete-content grapheme boundaries using frontend
-`Intl.Segmenter`, rejects invalid endpoints without snapping, keeps
-persisted/API/reverse-render authority in Unicode code points, and clears stale
-current-selection authority after any failed recapture. Sentence/Token manual
-split, backend grapheme validation, document revision/re-anchoring, legacy
-range migration, and full grapheme-aware editing remain deferred.
+Human HCR-A1 through HCR-A10 remain frozen. The bounded branch implementation
+adds frontend-only full-content grapheme-boundary validation for new native
+TextPanel selection capture using platform `Intl.Segmenter`; Segmenter UTF-16
+indices are converted through the inherited shared code-point utility before
+validation. Grapheme-invalid endpoints are rejected without snapping,
+capability absence/unusable output fails closed, persisted/API/reverse-render
+coordinates remain Unicode code points, and every failed recapture clears stale
+current-selection authority without clearing already-staged tray members.
 
-HCR-A1 through HCR-A10 are **HUMAN ACCEPTED**. This docs-only contract freeze
-does not authorize implementation, branch creation, ADR-017, test changes,
-proof execution, proof-repository mutation, or provider mutation.
+ADR-017 records the implementation decision. Sentence/Token manual split,
+backend grapheme validation, document revision/re-anchoring, legacy range
+migration, dependencies, workflow, proof/provider mutation, PR, merge, formal
+Gate 2, and Human Runtime Acceptance remain outside the currently authorized
+implementation action.
 
 The latest completed implementation checkpoint remains M8.
 
@@ -395,7 +397,7 @@ Read these when reconstructing project state:
   specification and Definition of Done;
 - `docs/preimplementation/M0_PREIMPLEMENTATION_REPORT.md` — accepted
   pre-implementation engineering report;
-- `docs/adr/` — accepted as-built architecture decisions through ADR-016;
+- `docs/adr/` — accepted as-built architecture decisions through ADR-017;
 - `docs/development/CURRENT_STATE.md` — durable engineering handoff;
 - `docs/development/M1_CONTRACT.md` — completed frozen M1 contract;
 - `docs/development/M2_CONTRACT.md` — completed frozen M2 execution contract;
@@ -405,6 +407,7 @@ Read these when reconstructing project state:
 - `docs/development/M6_CONTRACT.md` — completed frozen M6 execution contract;
 - `docs/development/M7_CONTRACT.md` — completed frozen M7 execution contract;
 - `docs/development/M8_CONTRACT.md` — completed frozen M8 execution contract;
+- `docs/development/M9_CONTRACT.md` — active frozen M9 execution contract;
 - `docs/development/M0_7_CLOSEOUT.md` — M0.7 Gate 2/Human Review/merge/Gate 3
   evidence ledger;
 - `docs/architecture/ARCHITECTURE.md` — as-built architecture;
@@ -715,6 +718,15 @@ routing as ephemeral presentation state. Visible panel slots are obstacles,
 routes share one deterministic free-space hub, incomplete route sets fail
 closed, and geometry remains unpersisted while preserving canonical
 text/Selection and backend/API/schema authority (ADR-016).
+
+M9 hardens **new native TextPanel selection capture** with frontend-only
+extended-grapheme boundary validation (ADR-017). Platform `Intl.Segmenter`
+operates on complete canonical `TextVersion.content`; its UTF-16 indices are
+converted through the shared code-point utility. Invalid grapheme endpoints are
+rejected without snapping, unavailable/unusable segmentation fails closed, and
+failed recapture clears stale current-selection authority. Persisted/API and
+reverse-render coordinates remain Unicode code points, so historical
+code-point-valid intra-grapheme ranges remain readable/renderable.
 
 ## Known limitations / retained debt
 

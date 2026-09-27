@@ -121,6 +121,56 @@ async function selectTextInPanel(
   }, text);
 }
 
+
+/**
+ * Set an exact UTF-16 Range over the canonical content root. This is used by
+ * M9 to exercise browser-legal code-point boundaries that ordinary mouse
+ * dragging may not expose inside one grapheme. It still drives the real
+ * Selection -> mouseup -> TextPanel capture path.
+ */
+async function selectUtf16RangeInPanel(
+  panel: Locator,
+  utf16Start: number,
+  utf16End: number,
+): Promise<void> {
+  await panel.locator('[data-text-content-root]').evaluate(
+    (root, bounds) => {
+      const locate = (target: number, preferNextAtBoundary: boolean) => {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let accumulated = 0;
+        let node: Node | null;
+        while ((node = walker.nextNode()) !== null) {
+          const length = node.textContent?.length ?? 0;
+          const end = accumulated + length;
+          if (
+            target < end ||
+            (!preferNextAtBoundary && target === end) ||
+            (preferNextAtBoundary && target === accumulated)
+          ) {
+            return { node, offset: target - accumulated };
+          }
+          accumulated = end;
+        }
+        throw new Error(`could not locate UTF-16 boundary ${target}`);
+      };
+
+      const start = locate(bounds.start, true);
+      const end = locate(bounds.end, false);
+      const range = document.createRange();
+      range.setStart(start.node, start.offset);
+      range.setEnd(end.node, end.offset);
+      const selection = window.getSelection();
+      if (selection === null) {
+        throw new Error('no window.getSelection');
+      }
+      selection.removeAllRanges();
+      selection.addRange(range);
+      root.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    },
+    { start: utf16Start, end: utf16End },
+  );
+}
+
 /** Select `text` in a panel and assert the exact canonical quote + offsets. */
 async function selectAndVerify(
   page: Page,
@@ -442,4 +492,52 @@ test.describe('M0.7 Unicode release blocker', () => {
     await expect(inspector).toContainText('[0, 6)');
     await expect(inspector).toContainText('[7, 13)');
   });
+
+  test('M9 rejects an internal grapheme Range without snapping and clears stale staging authority', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/projects$/);
+
+    const projectName = `M9 grapheme ${Date.now()}`;
+    await page.getByLabel('Name').fill(projectName);
+    await page.getByRole('button', { name: 'Create project' }).click();
+    await page.getByRole('link', { name: projectName }).click();
+
+    await page.getByLabel('Title').fill('M9 grapheme document');
+    await page.getByRole('button', { name: 'Create document' }).click();
+    await page.getByRole('link', { name: /M9 grapheme document/ }).click();
+
+    await openImportForm(page);
+    await page.getByLabel('Language tag (BCP-47)').fill('und');
+    await page.getByLabel('Label').fill('M9 Grapheme');
+    await page.locator('.import-form').getByLabel('Text').fill('A👍🏽B');
+    await page.getByRole('button', { name: 'Add version' }).click();
+
+    const panel = page.locator('.text-panel', { hasText: 'A👍🏽B' }).first();
+    await expect(panel).toBeVisible();
+
+    await selectAndVerify(page, panel, 'A', 0, 1);
+
+    await selectUtf16RangeInPanel(panel, 3, 5);
+
+    await expect(
+      panel.getByText('Selected 0–1: “A”'),
+    ).not.toBeVisible();
+    await expect(
+      panel.getByRole('button', { name: 'Add to Alignment' }),
+    ).toBeDisabled();
+    await expect(panel.getByRole('alert')).toHaveText(
+      'Selection must start and end at complete character boundaries.',
+    );
+
+    const nativeText = await panel
+      .locator('[data-text-content-root]')
+      .evaluate(() => window.getSelection()?.toString() ?? '');
+    expect(nativeText).toBe('🏽');
+
+    await selectAndVerify(page, panel, '👍🏽', 1, 3);
+    await expect(panel.getByRole('alert')).toHaveCount(0);
+  });
+
 });

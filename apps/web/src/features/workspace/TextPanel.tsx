@@ -170,6 +170,7 @@ export function TextPanel({
     isMutatingAlignment,
   } = useWorkspaceState();
   const [stagingError, setStagingError] = useState<string | null>(null);
+  const [selectionCaptureError, setSelectionCaptureError] = useState<string | null>(null);
   // M0.6 ambiguity chooser (R1-F03): only the STABLE run LOCATOR is kept in
   // local state — never a full RunDescriptor. The run is re-resolved from
   // the CURRENT runs array on every render, so chooser candidates always
@@ -223,6 +224,7 @@ export function TextPanel({
       contentHash: version.content_hash,
     });
     if (result.status === 'ok') {
+      setSelectionCaptureError(null);
       setStagingError(null);
       const member: PendingSpan = {
         textVersionId: result.textVersionId,
@@ -233,10 +235,23 @@ export function TextPanel({
         direction: result.direction,
       };
       captureSelection(member);
-    } else if (result.code === 'EMPTY_SELECTION') {
-      // Clicking/collapsing inside the panel cancels the current selection
-      // without touching the staged tray.
-      clearSelection();
+      return;
+    }
+
+    // M9: every failed recapture clears stale current-selection authority.
+    // Already-staged tray members are intentionally untouched.
+    clearSelection();
+    if (result.code === 'INVALID_GRAPHEME_BOUNDARY') {
+      setSelectionCaptureError(
+        'Selection must start and end at complete character boundaries.',
+      );
+    } else if (result.code === 'GRAPHEME_SEGMENTER_UNAVAILABLE') {
+      setSelectionCaptureError(
+        'This browser cannot validate complete character boundaries for selection right now.',
+      );
+    } else {
+      // M9 does not redesign inherited selection-error UX.
+      setSelectionCaptureError(null);
     }
   }
 
@@ -385,6 +400,11 @@ export function TextPanel({
         >
           Add to Alignment
         </button>
+        {selectionCaptureError !== null ? (
+          <p className="staging-error" role="alert">
+            {selectionCaptureError}
+          </p>
+        ) : null}
         {stagingError !== null ? (
           <p className="staging-error" role="alert">
             {stagingError}

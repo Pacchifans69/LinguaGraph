@@ -43,6 +43,7 @@
  * API error codes.
  */
 
+import { graphemeBoundaryCodePointOffsets } from './grapheme';
 import {
   codePointLength,
   codePointOffsetToUtf16Offset,
@@ -59,6 +60,8 @@ export type SelectionErrorCode =
   | 'CROSS_VERSION_SELECTION'
   | 'UNSUPPORTED_SELECTION_BOUNDARY'
   | 'INVALID_SELECTION_BOUNDARY'
+  | 'INVALID_GRAPHEME_BOUNDARY'
+  | 'GRAPHEME_SEGMENTER_UNAVAILABLE'
   | 'SELECTION_TEXT_MISMATCH'
   | 'STALE_TEXT_VERSION'
   | 'DOM_INTEGRITY_ERROR';
@@ -505,6 +508,22 @@ export function rangeToCanonical(
   const end = Math.max(startResolution.offset, endResolution.offset);
   if (start === end) {
     return error('EMPTY_SELECTION', 'selection resolves to an empty canonical range');
+  }
+
+  let graphemeBoundaries: ReadonlySet<CodePointOffset>;
+  try {
+    graphemeBoundaries = graphemeBoundaryCodePointOffsets(version.content);
+  } catch {
+    return error(
+      'GRAPHEME_SEGMENTER_UNAVAILABLE',
+      'grapheme segmentation is unavailable or unusable in this runtime',
+    );
+  }
+  if (!graphemeBoundaries.has(start) || !graphemeBoundaries.has(end)) {
+    return error(
+      'INVALID_GRAPHEME_BOUNDARY',
+      `canonical range [${start}, ${end}) must start and end at complete grapheme boundaries`,
+    );
   }
 
   const quote = sliceByCodePoints(version.content, start, end);

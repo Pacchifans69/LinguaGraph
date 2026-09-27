@@ -1,10 +1,10 @@
-# LinguaGraph — Testing Strategy (M8 merged main)
+# LinguaGraph — Testing Strategy (M9 implementation candidate)
 
 This document describes the inherited M0/M1 testing architecture, M2/M3
 segmentation coverage, M4 lemma-annotation coverage, M5 coarse-POS coverage,
 M6 mode-oriented Workbench coverage, M7 alignment-concurrency coverage, M8
-connector-routing merged-main coverage, and the rules for what counts as
-evidence. It is descriptive, not a new authority: the accepted
+connector-routing merged-main coverage, M9 grapheme-safe native-selection
+candidate coverage, and the rules for what counts as evidence. It is descriptive, not a new authority: the accepted
 pre-implementation report and frozen milestone contracts remain authoritative.
 
 ## 1. Test levels
@@ -100,6 +100,8 @@ Coverage includes:
 
 - UTF-16 ↔ Unicode code-point conversion;
 - native Selection/Range canonicalization and reverse location;
+- M9 complete-content grapheme boundary derivation, invalid-boundary rejection,
+  capability fail-closed behavior, and legacy code-point reverse rendering;
 - segmentation / overlapping run membership;
 - RenderedSpanRegistry and connector geometry helpers;
 - M8 R-G01–R-G21 geometry cases (including inherited anchor/DOM rect
@@ -134,7 +136,11 @@ mutation, deletion and orphan cleanup.
 browser selections before/at/after an astral-plane emoji, canonical code-point
 offsets, Alignment creation through the user path, server-derived
 `exact_text`, PostgreSQL persistence, reload, rendered annotation state and
-counterpart highlighting.
+counterpart highlighting. M9 extends the same real-browser surface with a
+programmatically constructed **native DOM Range** whose endpoint is a
+browser-legal code-point boundary inside `👍🏽`; the test proves reject/no-snap,
+stale-selection clearing, disabled staging after failure, and later valid
+recovery without directly injecting PendingSpan state.
 
 `segmentation.spec.ts` is the M2 sentence-segmentation release path. It
 exercises an astral-emoji boundary, Human-reviewed manual split/save,
@@ -180,9 +186,10 @@ specs retain connector hover/activation counts using the M8 polyline selector.
 
 `.github/workflows/ci.yml` remains the canonical release-baseline workflow
 configuration. Its tracked comments and job name retain the historical M6
-label because M7 and M8 required no workflow-shape change; the full
-real-PostgreSQL pytest invocation includes M7 concurrency tests, and the
-existing Playwright Workbench command includes M8 routing cases.
+label because M7, M8 and M9 require no workflow-shape change; the full
+real-PostgreSQL pytest invocation includes M7 concurrency tests, the existing
+Playwright Workbench command includes M8 routing cases, and the existing
+Unicode command picks up the M9 browser case from `unicode.spec.ts`.
 Its semantic gates are:
 
 - Python 3.13;
@@ -199,7 +206,7 @@ Its semantic gates are:
 - Vitest / React Testing Library;
 - production build;
 - Playwright golden path;
-- Playwright Unicode release blocker.
+- Playwright Unicode release blocker, including the M9 grapheme-safe native-selection case.
 - Playwright M2 segmentation release path.
 - Playwright M3 token segmentation release path.
 - Playwright M4 lemma annotation release path.
@@ -747,3 +754,34 @@ unchanged, proof `main@6ac44484aebc58aac866bfb69f05960189b0aefc`
 unchanged, and PR #17 still closed / merged. This final five-file docs-only
 cleanup record requires no fresh hosted proof or Human Runtime Acceptance; its
 own commit identity is resolved from Git history after landing.
+
+## 12. M9 grapheme-safe native-selection candidate verification
+
+The bounded M9 implementation branch is
+`m9-grapheme-safe-native-selection-capture`, rooted at independently verified
+frozen base `e752d2c3358217770ee7029ace07687a15cf927a` / tree
+`55f167bfdc639cbab8c96b1f41423f8277dcf4e3`. Formal M9 Gate 2 is **not yet
+established**; branch-push GitHub Actions, if any, are diagnostic until the
+Human separately authorizes the exact-candidate proof stage.
+
+Targeted M9 automated coverage consists of:
+
+- pure grapheme vectors covering ASCII, non-BMP emoji, emoji modifier
+  sequences, ZWJ family sequences, regional-indicator flags, NFC-stable
+  combining sequences, empty content, UTF-16→code-point conversion, missing
+  Segmenter capability, and malformed/non-tiling Segmenter output;
+- selection-engine cases proving grapheme-internal rejection, exact complex
+  outer-boundary acceptance, whole-content selection, cross-run full-content
+  authority, unavailable capability, inherited surrogate-pair error
+  precedence, and legacy intra-grapheme reverse mapping;
+- TextPanel component cases proving valid-A→invalid-B stale-authority clearing,
+  capability failure, inherited-error clearing, recovery, bounded user
+  feedback, disabled staging, and preservation of already-staged tray members;
+- real Chromium `unicode.spec.ts` evidence using a native DOM Range inside
+  `👍🏽` to prove reject/no-snap and recovery through the actual TextPanel
+  capture path.
+
+Automated correctness proof remains distinct from the later targeted Human
+Runtime Acceptance required by `M9_CONTRACT.md`. HRA begins only after an
+exact semantic candidate has passed the authorized automated Gate 2 surface.
+

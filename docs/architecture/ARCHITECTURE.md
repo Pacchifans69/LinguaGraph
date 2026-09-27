@@ -1,10 +1,10 @@
-# LinguaGraph — Architecture (M8 merged main)
+# LinguaGraph — Architecture (M9 implementation candidate)
 
-This document describes the M8 architecture merged into durable `main` after
-exact-candidate Gate 2, targeted Human Runtime Acceptance, Static Human Diff
-Review, and Gate 3 exact-tree verification. It is a description, not a new
-authority: the accepted ADRs
-(`docs/adr/ADR-001…ADR-016`) and the authoritative
+This document describes the durable M8 architecture plus the bounded M9
+implementation candidate on `m9-grapheme-safe-native-selection-capture`.
+M9 Gate 2, Human Runtime Acceptance, PR and merge are not yet established. It
+is a description, not a new authority: the accepted ADRs
+(`docs/adr/ADR-001…ADR-017`) and the authoritative
 pre-implementation documents
 (`docs/preimplementation/M0_PREIMPLEMENTATION_SPEC.md`,
 `M0_PREIMPLEMENTATION_REPORT.md`) remain authoritative. Where this document
@@ -60,9 +60,12 @@ optimistically.
   - `offset.ts` — the single UTF-16 ↔ Unicode code-point conversion
     strategy (ADR-001): `codePointLength`, `sliceByCodePoints`,
     `utf16OffsetToCodePointOffset`, `codePointOffsetToUtf16Offset`;
+  - `grapheme.ts` — M9 frontend-only complete-content grapheme boundary
+    derivation using platform `Intl.Segmenter`; UTF-16 Segmenter indices
+    convert through `offset.ts` before authoring validation;
   - `selection.ts` — native `Selection`/`Range` → canonical code-point
-    `PendingSpan`, fail-closed result codes, canonical-quote integrity,
-    reverse locator;
+    `PendingSpan`, fail-closed structural/grapheme result codes,
+    canonical-quote integrity, code-point-based reverse locator;
   - `segmentation.ts` — canonical content + persisted Spans + alignment
     memberships → flat minimal runs (overlap supported; concatenated run
     text equals canonical content exactly);
@@ -287,16 +290,49 @@ while durable `main@2a2dbcc4892d2fb75af36f7fb3903461f2dad75d`, proof
 `main@6ac44484aebc58aac866bfb69f05960189b0aefc`, and PR #17 merge state
 remained unchanged.
 
-## 6. Known limitations
+## 6. M9 grapheme-safe native selection capture (implementation candidate)
+
+M9 narrows one authoring boundary without changing the persisted coordinate
+system. For a **new native TextPanel selection**, the existing DOM endpoint
+resolution first produces canonical Unicode code-point offsets. A new
+frontend-only helper then segments the complete canonical
+`TextVersion.content` with platform `Intl.Segmenter` at
+`granularity: "grapheme"`; every Segmenter UTF-16 index passes through the
+shared `utf16OffsetToCodePointOffset` utility before comparison.
+
+Both canonical endpoints must be members of that complete-content grapheme
+boundary set. A legal code-point endpoint inside one extended grapheme returns
+`INVALID_GRAPHEME_BOUNDARY`; no snapping or native Range rewrite occurs.
+Missing, throwing, malformed, non-tiling, or otherwise unusable Segmenter
+capability returns `GRAPHEME_SEGMENTER_UNAVAILABLE` and fails closed rather
+than falling back to code-point-only authoring.
+
+`TextPanel` clears stale `currentSelection` after every failed recapture.
+Only the two M9 errors receive new bounded user feedback; already-staged tray
+members are not cleared. A later valid capture recovers normally.
+
+The restriction is forward-authoring-only. Persisted/API Span offsets remain
+Unicode code points under ADR-001, and `canonicalRangeToDomRange` remains
+code-point based. Historical code-point-valid ranges that bisect a grapheme
+therefore remain readable/renderable and are not migrated. Rendered
+`[data-run]` boundaries are not grapheme authority, and `language_tag` is
+not a boundary input.
+
+M9 adds no backend/API/schema/Alembic/dependency/runtime/workflow change.
+Sentence/Token manual split and full grapheme-aware editing remain deferred.
+ADR-017 records this decision; `M9_CONTRACT.md` remains the frozen execution
+authority.
+
+## 7. Known limitations
 
 - The PostgreSQL Span get-or-create implementation remains concurrency-safe,
   but same-document Alignment CREATEs are now serialized at the document root;
   the retained direct get-or-create test therefore does not force every
   uncommitted unique-conflict interleaving.
-- M0 enforces code-point boundaries only; grapheme-cluster editing is
-  deferred.
+- New native TextPanel selection capture is grapheme-safe under M9, but
+  Sentence/Token manual split and full grapheme-cluster editing remain deferred.
 
-## 7. Environment and operations
+## 8. Environment and operations
 
 - ADR-009 baseline: Python 3.13 (uv), Node 24, PostgreSQL 18. CI uses a
   GitHub Actions PostgreSQL 18 service container (`.github/workflows/ci.yml`).
