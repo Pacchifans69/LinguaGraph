@@ -59,7 +59,7 @@ implementation code:
 
 M8 — Alignment Connector Obstacle-Avoiding Routing — is **EXACT-CANDIDATE
 GATE 2 + HUMAN RUNTIME ACCEPTANCE ESTABLISHED / STATIC HUMAN DIFF REVIEW
-IN PROGRESS / NOT MERGED**.
+PASS / NOT MERGED**.
 
 The frozen M8 execution contract remains:
 
@@ -98,8 +98,10 @@ Targeted Human Runtime Acceptance passed on the exact candidate. Human `ZJX`
 accepted the required desktop/stacked, exact-member, shared-hub, interaction,
 mode-independence, and horizontal-overflow cases at
 `2026-09-27T16:12:00+08:00`; `HRA-F09` is **CLOSED / HUMAN ACCEPTED**.
-Static Human Diff Review remains **HOLD / M8-SHDR-F01** until the revised
-five-file docs-only successor and its evidence bridge are Human-approved.
+Static Human Diff Review is **PASS / M8-SHDR-F01 HUMAN APPROVED** for the
+landed docs-only successor `a112bb9af08624e12bb0323ba283daf22edacccd`
+(tree `c221e92c7778429d9e29f5adf7c612d1b938bf53`); its evidence bridge is
+**HUMAN APPROVED / ESTABLISHED**.
 No PR, merge, Product/proof/provider mutation, or new proof execution is
 authorized by this record.
 

@@ -268,8 +268,10 @@ implementation decision; the frozen `M8_CONTRACT.md` governs its scope.
 C16 formal hosted Gate 2 is established for that exact candidate. Targeted
 Human Runtime Acceptance also passed on that exact application epoch: Human
 `ZJX` recorded `PASS` at `2026-09-27T16:12:00+08:00`, so `HRA-F09` is
-**CLOSED / HUMAN ACCEPTED**. M8 is not merged and final Static Human Diff
-Review remains pending.
+**CLOSED / HUMAN ACCEPTED**. Final Static Human Diff Review is **PASS /
+M8-SHDR-F01 HUMAN APPROVED** for landed docs-only successor
+`a112bb9af08624e12bb0323ba283daf22edacccd` (tree
+`c221e92c7778429d9e29f5adf7c612d1b938bf53`). M8 remains not merged.
 
 ## 6. Known limitations
 
