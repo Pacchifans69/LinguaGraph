@@ -791,4 +791,3 @@ Targeted M9 automated coverage consists of:
 Automated correctness proof remains distinct from the later targeted Human
 Runtime Acceptance required by `M9_CONTRACT.md`. HRA begins only after an
 exact semantic candidate has passed the authorized automated Gate 2 surface.
-
