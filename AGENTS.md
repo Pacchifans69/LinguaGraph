@@ -90,6 +90,14 @@ test, ADR-017, dependency, workflow, proof, provider, PR, or branch mutation.
 
 The latest completed implementation checkpoint remains M8.
 
+The LC-A4 — Shadow Lifecycle Controller track is a separately governed
+infrastructure/lifecycle track. M9 remains CONTRACT FROZEN / IMPLEMENTATION
+NOT AUTHORIZED; LC-A4 does not amend or reopen M9 or authorize M9 implementation.
+This governance bridge does not itself authorize LC-A4 implementation or any
+provider, ECS, hosted-execution, or lifecycle mutation. LC-A4 requires a frozen
+`docs/development/LC_A4_CONTRACT.md` and separate explicit Human authorization
+before implementation.
+
 M8 — Alignment Connector Obstacle-Avoiding Routing — is **COMPLETE / MERGED /
 CLOSED**.
 
