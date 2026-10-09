@@ -6,9 +6,17 @@
 
 **Implementation authorization:** NOT GRANTED BY THIS DOCUMENT. This prepared document has no durable effect before its separately authorized landing. Its status describes the contract after that landing, without implying that implementation, a branch, provider access, ECS access, hosted execution, local security changes, or lifecycle mutation has been authorized.
 
-**Exact implementation base:** `9fd7e1ebc1b3ede45b68d645654cd3f496a21224`.
+**Frozen Product/source baseline:** `9fd7e1ebc1b3ede45b68d645654cd3f496a21224`.
 
-**Exact implementation-base tree:** `939d2394f208490408e421b1e21964cd89e855f3`.
+**Frozen Product/source-baseline tree:** `939d2394f208490408e421b1e21964cd89e855f3`.
+
+The frozen Product/source baseline identifies the Product/source state against which LC-A4 was designed. It is not the required Git fork point for the implementation branch after the Gate-1 durable landing.
+
+**Implementation branch fork point:** The implementation branch MUST fork from an exact Human-authorized durable `main` commit whose ancestry from the frozen Product/source baseline adds only the Gate-1 LC-A4 governance/contract landing and separately Human-authorized LC-A4 pre-implementation clarification or governance commits. A later `main` commit that also contains unrelated Product, checkpoint, implementation, proof, workflow, or other repository changes MUST NOT become the implementation branch fork point merely because it contains this contract. Any such broader ancestry requires a separate explicit Human topology decision. The exact fork SHA and tree MUST be specified in the later Human branch-creation authorization; this contract does not fix those values.
+
+**Implementation-only diff base:** The exact implementation branch fork commit and tree specified in that authorization. Candidate provenance MUST retain both coordinates: the frozen Product/source baseline SHA/tree above and the exact implementation branch fork SHA/tree.
+
+This clarification changes provenance terminology and branch topology only. It does not authorize implementation, branch creation, dependency installation, or any other mutation; each still requires separate explicit Human authorization.
 
 LC-A4 is a separately governed infrastructure/lifecycle track. M9 remains **CONTRACT FROZEN / IMPLEMENTATION NOT AUTHORIZED**. This contract does not amend or reopen M9, change any M0–M9 Product decision, or designate LC-A4 as a Product milestone.
 
