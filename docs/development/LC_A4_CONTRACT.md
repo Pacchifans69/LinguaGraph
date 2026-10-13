@@ -32,6 +32,29 @@ The normative frozen parents are:
 
 The six design documents are frozen at the hashes recorded in the F01 manifest. The manifest itself records their provenance. If this contract conflicts with LC-A3, **LC-A3 wins** and the affected implementation stops for Human review. No silent reinterpretation is allowed.
 
+### D1-R3 normative corrections
+
+LC-A3 remains authoritative over this contract. LC-A4 retains the accepted
+AUTH03-B/C mandatory split, AUTH04-B local IPC, PROV-A restart semantics,
+same-session A4-ADMIT-03 qualification, and zero-actuation invariant.
+
+The Controller-owned local IPC endpoint is exactly:
+
+```text
+\\.\pipe\LinguaGraph-LifecycleController-v1
+```
+
+The named-pipe namespace is local-only. The Controller SID is the only
+ordinary application principal that may create server instances and receive
+`FILE_CREATE_PIPE_INSTANCE`. The Agent receives only individually enumerated
+client rights and never receives server-instance creation, `WRITE_DAC`,
+`WRITE_OWNER`, `DELETE`, or any generic access mapping that implies
+`FILE_CREATE_PIPE_INSTANCE`.
+
+No provenance sidecar, provenance-head file, registry authority, secondary
+ledger, restart reentry path, new RAM principal, role, policy, or credential
+is introduced.
+
 ## 1. Bounded goal and implementation locus
 
 Implement only LC-A3's read-only, fail-closed shadow controller. The planned root is `infra/lifecycle-controller/`, using Python `>=3.13`, `uv`, and `pytest`. This contract landing creates no implementation tree. Implementation must not be placed in the Product API or web app. Planned components are `admission`, `binding`, `ledger`, `recovery`, `policy`, `kill_switch`, `closure`, `endpoint_guard`, `authority`, and `terminal`, with corresponding tests and a production-source static boundary checker under that root. This is a plan, not a list of files created by Gate 1.
@@ -39,6 +62,9 @@ Implement only LC-A3's read-only, fail-closed shadow controller. The planned roo
 The controller may admit and durably bind a run; inspect provider state under separately authorized read-only access; verify workflow closure; evaluate PRE_TASK and POST_TASK policy; run the read-only endpoint guard; record applicable audit events; and fail closed. It does not actuate an instance. Do not wire it into an existing proof workflow in LC-A4.
 
 Explicit non-goals: real StartInstance/StopInstance; controller lifecycle DryRun; automatic stop after proof; automatic recovery mutation; automatic binding garbage collection; ledger backup, rotation or reconstructed authority; new RAM principals, credentials or changes to the frozen four-action policy; host-key auto-update; Human-resolution UI/authentication; changes to Product backend, frontend, CI, proof workflow, or M9 implementation. The Human-only resolution event remains in the inherited event vocabulary but LC-A4 exposes no Agent-accessible resolution path.
+LC-A4 does not accept remote named-pipe clients and does not attach to an
+untrusted pre-existing pipe namespace. Failure to establish the first
+expected Controller-owned pipe instance is IPC_AUTHORITY_BOUNDARY=FAIL_CLOSED.
 
 ## 2. Authority and shadow invariants
 
@@ -72,11 +98,28 @@ The parser/schema **may recognize** durable `MUTATION_INTENT`, `MUTATION_RESPONS
 
 Across controller process restart, the frozen design currently defines no persistent provenance anchor that can distinguish the genuine latest canonical ledger from a structurally valid older rollback or replacement presented before startup. Such state is therefore `unprovably restored` for production restart authority unless a separately Human-frozen provenance mechanism establishes otherwise. Structural JSONL validity alone MUST NOT establish production restart authority. This contract introduces no generation marker, initialization marker, sidecar hash, registry authority, backup ledger, secondary ledger, automatic restore, or reconstructed authority.
 
+For LC-A4, an unproven restart is terminal for the current production
+authority session. It is not an in-scope reentry condition. A later recovery
+checkpoint may define a separately governed protocol, but LC-A4 does not
+define or authorize that protocol.
+
+`SAME_SESSION_AUTHORITY` exists only after successful adoption of the exact
+first-provisioning `ProvisioningHandoff` while its transferred descriptor and
+mandatory writer lock remain owned by the same authority session.
+
+Every startup without that live handoff is `RESTART_RECOVERY_ONLY`. It may
+acquire the lock, scan/validate the canonical ledger, classify state, and
+produce Human-review diagnostics. It MUST NOT admit, bind, continue, evaluate
+policy, verify or authorize production workflow closure, append normal
+decision/terminal authority events, or service authority-bearing Agent
+requests. There is no
+`RESTART_RECOVERY_ONLY -> SAME_SESSION_AUTHORITY` transition in LC-A4.
+
 For Gate 2A, A4-BIND-06 is not weakened: negative Tier-A fixtures MUST cover missing, empty, truncated, corrupt and non-contiguous ledgers, structurally invalid restore, and unexpected replacement or rotation during an owned authority session. A B1 test-only pre-initialized fixture MAY support hermetic positive cases, but remains explicitly non-production and cannot prove first provisioning or cross-restart non-rollback provenance. Until a separately Human-authorized Tier-B provisioning/recovery design freezes and proves the production cross-restart provenance mechanism, production startup MUST NOT treat a structurally valid pre-existing ledger as proven current solely because its contents validate. Tier-A reports MUST state `CROSS_RESTART_LEDGER_REPLACEMENT_PROVENANCE=NOT_PROVEN_IN_TIER_A`.
 
 ## 4. Admission, binding, evidence and decisions
 
-`RUN_ADMISSION_CHECK(instance_id)` precedes allocation of `lifecycle_run_id`. An existing `ACTIVE` or `HOLDING_UNRESOLVED` run for that protected instance yields `RUN_CONFLICT`, `FAIL_CLOSED`, no ID, no `LIFECYCLE_RUN_BOUND`, and no workflow work. Prior TERMINAL history remains durable but does not block a new run. After admission passes, the controller allocates the ID and durably appends exactly one `LIFECYCLE_RUN_BOUND`, binding `lifecycle_run_id <-> instance_id <-> requesting_workflow <-> workflow_run_identity` before workflow work. Durable binding is immutable; no rebind, repoint, retroactive binding, or automatic deletion. Unknown or unbound ID fails closed before invoking any adapter.
+`RUN_ADMISSION_CHECK(instance_id)` precedes allocation of `lifecycle_run_id`. An existing `ACTIVE` or `HOLDING_UNRESOLVED` run for that protected instance yields `RUN_CONFLICT`, `FAIL_CLOSED`, no ID, no `LIFECYCLE_RUN_BOUND`, and no workflow work. Prior TERMINAL history remains durable but does not block a new run only inside an already-proven `SAME_SESSION_AUTHORITY`. A `RESTART_RECOVERY_ONLY` process MUST NOT use retained TERMINAL history to establish authority or admit new work. After admission passes, the controller allocates the ID and durably appends exactly one `LIFECYCLE_RUN_BOUND`, binding `lifecycle_run_id <-> instance_id <-> requesting_workflow <-> workflow_run_identity` before workflow work. Durable binding is immutable; no rebind, repoint, retroactive binding, or automatic deletion. Unknown or unbound ID fails closed before invoking any adapter.
 
 Production closure interface: `verify_bound(lifecycle_run_id)` only. Its caller cannot supply `workflow_id`, `workflow_run_identity`, or an evidence locator. The controller reads durable binding, selects the workflow-specific adapter, derives the canonical evidence namespace, recomputes receipt and artifact digests, checks bound terminal command result, finalized capability/token state and holds, and returns an evidence verdict. There is no generic fallback. Missing/raising/timed-out adapter, missing or mismatched receipt, ledger authority loss, cross-run replay, and Agent-supplied locator fail closed. A receipt valid for another run or completed before this binding is `VALID_EVIDENCE` at most, never `BOUND_EVIDENCE`, and cannot yield `SAFE_SUCCESS` or `WOULD_STOP`.
 
@@ -116,11 +159,112 @@ Only a durable run-scoped `LIFECYCLE_RUN_TERMINATED` makes a run TERMINAL. PRE_T
 
 ## 7. Windows security boundary and acceptance tiers
 
-The deployment requires distinct controller and Agent Windows OS identities. ACLs must deny Agent write access to the kill switch and authoritative ledger and read access to the bootstrap secret; process/environment/IPC isolation must deny Agent access to lifecycle STS. Agent IPC must deny `HUMAN_RESOLVED`, requests to synthesize it, arbitrary audit append and direct `LIFECYCLE_RUN_TERMINATED`. Repository code and written convention alone are not evidence. If distinct identity and mechanical denial cannot be demonstrated, report `BOUNDARY_NOT_ENFORCEABLE` and `LC_A4_SECURITY_ACCEPTANCE=BLOCKED`, never PASS.
+The deployment requires distinct Controller and Agent Windows OS identities.
+The Controller identity is a dedicated local service account under SCM.
+Host proof MUST establish:
+
+```text
+current token SID == descriptor expected Controller SID
+Python Path.home() == profile/home used to derive the canonical runtime
+```
+
+No concrete SID or profile path is normative before host proof.
+
+`A4-AUTH-03B` is the mandatory Tier-B local proof. It must prove the
+Controller-owned Credential Store target, Controller access, Agent denial,
+zero secret bytes in Agent argv/environment/files/logs/ledger/IPC, and the
+mechanical service/process/handle boundary.
+
+`A4-AUTH-03C` is the mandatory Tier-C live read-only proof. The Controller
+must obtain the real lifecycle STS through the frozen
+`LinguaGraphECSLifecycleController -> sts:AssumeRole ->
+LinguaGraphECSLifecycleRole` topology. No lifecycle mutation may be sent.
+The live STS must remain unavailable to the Agent through process,
+environment, filesystem, IPC, logs, or any other exposed surface. No STS
+secret bytes may enter proof artifacts.
+
+`A4-AUTH-03=PASS` requires both `A4-AUTH-03B=PASS` and
+`A4-AUTH-03C=PASS`. Gate 2B must not report the overall requirement as passed
+without the required Gate-2C sub-check.
+
+`AUTH04-B` uses exactly:
+
+```text
+\\.\pipe\LinguaGraph-LifecycleController-v1
+```
+
+The Controller creates and owns server instances. The first expected instance
+must be created with `FILE_FLAG_FIRST_PIPE_INSTANCE`. Additional instances,
+if separately required, remain Controller-created and preserve the same
+security descriptor and protocol semantics.
+
+The Controller must use an explicit reviewed security descriptor. NULL/default
+pipe security is forbidden. The descriptor is constructed from the actual
+host-proven Controller SID and Agent SID plus separately frozen SYSTEM/Admin
+emergency rights. No future SID is hard-coded here.
+
+The descriptor must grant the Controller SID the server-instance creation
+authority. The Agent SID receives only individually enumerated client rights
+needed to connect and exchange the frozen protocol. The Agent must not receive
+`FILE_CREATE_PIPE_INSTANCE`, `WRITE_DAC`, `WRITE_OWNER`, or `DELETE`, and no
+generic mapping may implicitly grant server-instance creation. Tier-B must
+establish:
+
+```text
+AGENT_FILE_CREATE_PIPE_INSTANCE=DENIED
+```
+
+`PIPE_REJECT_REMOTE_CLIENTS` is required. If first-instance creation fails
+because the namespace is occupied, report
+`IPC_AUTHORITY_BOUNDARY=FAIL_CLOSED`; use no fallback name, attach to no
+pre-existing server, and perform no deletion or repair.
+
+Caller authority MUST be derived from the client token:
+
+```text
+ImpersonateNamedPipeClient
+ -> OpenThreadToken
+ -> TokenUser
+ -> compare exact Agent SID
+ -> RevertToSelf
+```
+
+`GetNamedPipeClientProcessId` and PID lookup may be used only for diagnostics.
+Message fields such as `agent_sid`, `role`, `username`, or `caller` are never
+identity authority.
+
+If `ImpersonateNamedPipeClient` fails, reject/fail closed immediately. Once
+impersonation succeeds, `RevertToSelf` MUST execute on every subsequent path,
+including token-open failure, token-user failure, SID mismatch, parse failure,
+authorization denial, internal exception, response failure, and connection
+close. No authoritative operation may execute before the exact Agent SID has
+been established and matched.
+
+A bounded request frame may be read before authorization only where required
+for pipe mechanics. It MUST NOT be semantically dispatched, cause ledger
+mutation, expose credentials, or invoke Controller authority before caller
+authorization succeeds.
+
+The exact Agent request vocabulary is:
+
+1. `ENSURE_RUNNING_REQUEST`, carrying only `requesting_workflow` and
+   `workflow_run_identity`;
+2. `POST_TASK_CLOSURE_CLAIM`, carrying only `lifecycle_run_id`.
+
+LC-A4 does not freeze `READ_STATUS`, `RUN_REQUEST`, or
+`VERIFY_BOUND_CLOSURE`. Unknown, malformed, or forbidden requests return
+`DENIED`/`FAIL_CLOSED`, append no authoritative event, return no secret bytes,
+and reject/close the connection as appropriate.
+
+Repository code and written convention alone are not evidence. If distinct
+identity and mechanical denial cannot be demonstrated, report
+`BOUNDARY_NOT_ENFORCEABLE` and `LC-A4_SECURITY_ACCEPTANCE=BLOCKED`, never PASS.
 
 - **Tier A — hermetic repository acceptance:** policy, binding, ledger and durability fault injection, recovery, fixture adapters, fresh bound shadow case, static no-actuator proof, and mocked endpoint guard. No provider/ECS access or host-security mutation.
-- **Tier B — local Windows security acceptance:** separately Human-authorized local host/security transaction proving distinct identities, ACLs, exclusive writer ownership, and Agent denial for kill-switch write, ledger write, bootstrap/STS read, Human resolution and direct termination append. No provider/ECS access is required.
+- **Tier B — local Windows security acceptance:** separately Human-authorized local host/security transaction proving distinct identities, Controller token/profile mapping, ACLs, exclusive writer ownership, Credential Store Controller-positive target existence and Agent denial, process/argv/environment/handle isolation, explicit pipe owner/DACL, Agent server-instance creation denial, remote-client rejection, token-derived caller identity, cleanup on all paths, and exact two-message denial behavior. This proves only `A4-AUTH-03B`; no provider/ECS access is required.
 - **Tier C — live read-only ECS acceptance:** separately Human-authorized live transaction proving current exact ECS identity/state, fresh bound-InstanceId endpoint/IP, observed pinned SSH host fingerprint and actual IMDSv2 identity. No lifecycle mutation is allowed.
+The live A4-AUTH-03C STS non-exposure proof is a required Gate-2C
+sub-check. It is not optional and is not deferred to a future actuator stage.
 
 Gate 1 freezes the governance bridge and this execution contract only. Gate 2A is exact-candidate Tier A proof; Gate 2B is Tier B proof; Gate 2C is Tier C proof. Declare LC-A4 COMPLETE only after required 2A, 2B and 2C all pass on the governed implementation candidate. None of these gates authorizes lifecycle actuation. A failed or missing tier remains open rather than being labeled complete.
 
@@ -132,7 +276,7 @@ The planned components below are relative to `infra/lifecycle-controller/src/lif
 |---|---|---|---|---|---|---|---|
 | A4-ADMIT-01 | P §4.1; A §3.1 | admission | unit/admission: rejected request never allocates ID | A | Yes | No | admission before ID |
 | A4-ADMIT-02 | P §4.1; U §3.3 | admission, binding | unit/admission: existing NON_TERMINAL -> conflict, no bind/work | A | Yes | No | RUN_CONFLICT / FAIL_CLOSED |
-| A4-ADMIT-03 | P §4.7; A §8 | admission | unit/admission: retained TERMINAL history permits new run | A | Yes | No | PASS without GC |
+| A4-ADMIT-03 | P §4.7; A §8 | admission/controller mode | unit/admission: retained TERMINAL history permits new run only in SAME_SESSION_AUTHORITY; restart all-TERMINAL is denied | A | Yes | No | PASS within proven session; restart remains RECOVERY_ONLY |
 | A4-BIND-00 | P §4.1; U §2.4 | binding, ledger | fault/binding: append and flush failures | A | Yes | No | WORK_MUST_NOT_BEGIN |
 | A4-BIND-01 | P §4.1; S §3 | closure/verify | adversarial/closure: run A evidence replayed under run B | A | Yes | No | REJECT_STALE_OR_UNBOUND_EVIDENCE; no WOULD_STOP |
 | A4-BIND-02 | P §4.1; S §5.1 | binding, closure/verify | adversarial/closure: unknown ID; adapter call count zero | A | Yes | No | FAIL_CLOSED; bound WOULD_START/STOP still reachable |
@@ -158,8 +302,8 @@ The planned components below are relative to `infra/lifecycle-controller/src/lif
 | A4-PROV-02 | P §4.1; S §4 | closure/historical | fixture/provenance: RUN-03 exact label and shape | A | No | No | PROVEN_IN_M9_RUN03 only |
 | A4-AUTH-01 | P §§4.1,4.5; U §6.3 | Windows ACL, kill switch | security/agent-identity: attempt flag write | B | Yes | No | OS DENIED |
 | A4-AUTH-02 | P §§4.1,4.5; U §7 | Windows ACL, ledger | security/agent-identity: direct ledger write/IPC append | B | Yes | No | OS/API DENIED |
-| A4-AUTH-03 | P §§4.1,4.5; A §2.2 | credential/process isolation | security/agent-identity: bootstrap and STS retrieval attempts | B | Yes | No | DENIED; else security BLOCKED |
-| A4-AUTH-04 | P §4.7; A §8 | restricted IPC, terminal writer | security/agent-identity: HUMAN_RESOLVED/direct append/synthesis attempts | B | Yes | No | DENIED; else security BLOCKED |
+| A4-AUTH-03B | P §§4.1,4.5; A §2.2 | Credential Store, process isolation | Tier-B Controller-positive target and Agent-denial proof; zero secret bytes | B | Yes | No | DENIED; else security BLOCKED |`n| A4-AUTH-03C | P §§4.1,4.5; A §2.2 | live Controller credential/STS boundary | Tier-C live STS non-exposure proof; no mutation; no secret bytes | C | Yes | Yes | DENIED; else security BLOCKED |`n| A4-AUTH-03 | P §§4.1,4.5; A §2.2 | AUTH03B + AUTH03C | both mandatory components complete | B+C | Yes | Yes | PASS iff B=PASS and C=PASS |
+| A4-AUTH-04 | P §4.7; A §8 | named-pipe IPC, terminal writer | explicit descriptor; Agent server-instance denial; remote rejection; token-derived SID; exact two-message decoder; cleanup denial matrix | B | Yes | No | DENIED; else security BLOCKED |`n| A4-RESTART-01 | P §§4.6–4.7; A §§7–8; U §7 | controller/admission/terminal/ledger | handoff authority versus restart recovery-only; no in-scope reentry; all-TERMINAL restart denied | A+B | Yes | No | recovery diagnostics only after restart |
 | A4-TERM-01 | P §4.1; A §4 | policy | unit/policy: Stopped plus wrong/missing stopped mode | A | Yes | No | NO_FURTHER_MUTATION; ESCALATE; no PRESERVE_RUNNING |
 | A4-TERM-02 | P §4.6; U §3.1 | terminal | unit/terminal: PRE_TASK STARTED only | A | Yes | No | run stays NON_TERMINAL |
 | A4-TERM-03 | P §4.6; A §6 | terminal | unit/terminal: outcomes cannot terminate; terminal event can | A | Yes | No | only LIFECYCLE_RUN_TERMINATED makes TERMINAL |
@@ -195,11 +339,46 @@ uv run python tools/verify_static_boundary.py
 
 The static checker must inspect production source via Python AST, import resolution and call-surface analysis, including wrappers and dynamic dispatch, and fail if it cannot prove any relevant call edge. A text grep alone does not prove absence. Its report must state `StartInstance callsite count = 0`, `StopInstance callsite count = 0`, and `provider lifecycle mutation-send callsite count = 0`. It must also verify `verify_bound` accepts only `lifecycle_run_id` from the caller and that no production writer method can append `MUTATION_INTENT`.
 
-The runtime suite must include append and flush failures; missing, empty, false and unreadable kill switch; corrupt, truncated and non-contiguous ledger; a second writer; cross-run replay; retroactive binding; unknown run ID; Agent locator; open decision after crash; preconstructed `UNKNOWN` and `KNOWN_NOT_SENT` intent fixtures; duplicate termination; both startup recovery classes; valid `WOULD_START` and `WOULD_STOP`; and the fresh bound `WOULD_STOP / NO_MUTATION` case. For **every** shadow case assert emitted `MUTATION_INTENT=0`, `provider_mutation_count=0`, and applicable `actuation_decision=NO_MUTATION`.
+The static and protocol checks must also prove the fixed pipe name,
+PIPE_REJECT_REMOTE_CLIENTS, first-instance protection, explicit non-default
+security descriptor, Controller-only server-instance creation, absence of
+Agent FILE_CREATE_PIPE_INSTANCE, absence of Agent WRITE_DAC,
+WRITE_OWNER, and DELETE, token-derived caller authority, mandatory
+RevertToSelf cleanup, and exact two-message decoding.
 
-Gate 2B must produce a separately authorized local Windows report with actual process tokens, ACL/read-write denial results, and a two-process exclusive-lock result. Gate 2C must produce a separately authorized read-only live report with exact InstanceId, region/zone/state, fresh IP, pinned SSH fingerprint, IMDSv2 identity, and timestamped observations. No raw credential material belongs in either report. Gate 2A, 2B and 2C evidence must identify the exact implementation commit and tree they address. Any failed, skipped or unrun required check is not PASS.
 
-Expected artifacts are the exact-source static report; test log and case manifest; schema/ledger fault evidence; fresh bound fixture provenance; Windows authority-boundary denial report; live read-only endpoint/identity report; and an exact SHA/tree evidence index. Historical fixture reports must be labeled as non-authoritative and kept out of the authoritative ledger. No proof archive may contain bootstrap secret, STS, SSH private key or full token.
+The runtime suite must include append and flush failures; missing, empty, false and unreadable kill switch; corrupt, truncated and non-contiguous ledger; a second writer; cross-run replay; retroactive binding; unknown run ID; Agent locator; open decision after crash; preconstructed `UNKNOWN` and `KNOWN_NOT_SENT` intent fixtures; duplicate termination; both startup recovery classes; same-session terminal-history admission; restart all-TERMINAL denial; valid `WOULD_START` and `WOULD_STOP`; and the fresh bound `WOULD_STOP / NO_MUTATION` case. For **every** shadow case assert emitted `MUTATION_INTENT=0`, `provider_mutation_count=0`, and applicable `actuation_decision=NO_MUTATION`.
+
+Gate 2B must produce a separately authorized local Windows report with actual
+process tokens, Controller profile/home mapping, explicit pipe owner/DACL,
+Controller server-instance rights, Agent client rights,
+`AGENT_FILE_CREATE_PIPE_INSTANCE=DENIED`, remote-client rejection,
+first-instance namespace-preoccupation failure, token-derived caller proof,
+impersonation-failure proof, all-path `RevertToSelf` proof, exact two-message
+decoder/denial matrix, Credential Store Agent denial, and a two-process
+exclusive-lock result. This report may pass `A4-AUTH-03B` but may not pass the
+overall `A4-AUTH-03`.
+
+Gate 2C must produce the separately authorized live read-only report with
+exact InstanceId, region/zone/state, fresh IP, pinned SSH fingerprint,
+IMDSv2 identity, and the required live `A4-AUTH-03C` STS non-exposure
+sub-check. No raw credential or STS material belongs in any report.
+
+Gate 2A, 2B and 2C evidence must identify the exact implementation commit and
+tree they address. Any failed, skipped or unrun required check is not PASS.
+
+Expected artifacts are the exact-source static report; test log and case manifest;
+schema/ledger fault evidence; fresh bound fixture provenance; Controller/Agent
+token and profile mapping evidence; explicit pipe owner/effective DACL;
+Controller server-instance and Agent client rights; Agent
+`FILE_CREATE_PIPE_INSTANCE` denial; remote-client rejection; first-instance
+namespace-preoccupation fail-closed evidence; token-derived caller proof;
+impersonation-failure and all-path cleanup evidence; exact two-message
+decoder/denial matrix; Credential Store Agent-denial evidence; mandatory
+`A4-AUTH-03C` STS non-exposure evidence; live read-only endpoint/identity
+report; and an exact SHA/tree evidence index. No provenance sidecar or second
+authority file is permitted. No proof archive may contain bootstrap secret,
+STS, SSH private key or full token.
 
 ## 10. Fail-closed, rollback and deferred claims
 
@@ -263,6 +442,13 @@ same authority session. It does not reopen the pathname or establish
 provenance from JSON/event equality alone. Adoption marks exactly that
 lifecycle_run_id current and clears only the startup recovery state created by
 this handoff. There is no second binding and no re-admission.
+
+Successful handoff adoption is the only LC-A4 entry into
+SAME_SESSION_AUTHORITY. A fresh startup or restart without that live handoff
+is RESTART_RECOVERY_ONLY, including when all retained runs are TERMINAL.
+LC-A4 provides no transition back to production authority after that session
+ends. Such recovery is DEFERRED_BEYOND_LC_A4.
+
 
 A fresh startup or restart without the live handoff uses the existing
 classification and recovery guard. A pre-existing ACTIVE binding enters the
