@@ -10,6 +10,7 @@ from .kill_switch import KillSwitch
 from .ledger import LedgerAuthorityUnavailable, LedgerWriter
 from .models import AdmissionResult, DecisionResult
 from .policy import PolicyEvaluator
+from .provisioning import ProvisioningHandoff
 from .recovery import classify_run, unresolved_mutation_intent
 from .terminal import TerminalManager
 
@@ -68,6 +69,45 @@ class ShadowController:
         self._started = False
         if session is not None:
             session.__exit__(None, None, None)
+
+    def adopt_provisioned(self, handoff: ProvisioningHandoff) -> str:
+        """Explicitly adopt the exact first binding while its lock is held.
+
+        This is the only same-session transition that can clear startup recovery.
+        Ordinary startup/restart has no handoff and retains the frozen recovery
+        guard.
+        """
+        if not self._started:
+            raise LedgerAuthorityUnavailable("Controller authority session is not started")
+        try:
+            if handoff.writer is not self.writer:
+                raise LedgerAuthorityUnavailable("provisioning handoff writer mismatch")
+            events = self.writer.scan()
+            run_id = handoff.binding.lifecycle_run_id
+            if len(events) != 1 or events[0] != dict(handoff.event):
+                raise LedgerAuthorityUnavailable("provisioning handoff does not match the sole durable binding")
+            event = events[0]
+            if (
+                event.get("event_type") != "LIFECYCLE_RUN_BOUND"
+                or event.get("event_seq") != 0
+                or event.get("lifecycle_run_id") != run_id
+                or event.get("instance_id") != handoff.binding.instance_id
+                or event.get("instance_id") != self.endpoint_guard.EXPECTED_INSTANCE_ID
+            ):
+                raise LedgerAuthorityUnavailable("provisioning handoff binding identity mismatch")
+            state, recovery = classify_run(events, run_id)
+            if (state, recovery) != ("ACTIVE", "RECOVERY_REQUIRED_ACTIVE"):
+                raise LedgerAuthorityUnavailable("provisioned binding is not an active first binding")
+            handoff.consume(self.writer)
+            self._recovery_states.pop(run_id, None)
+            self._current_run_ids.add(run_id)
+            return run_id
+        except Exception:
+            # A failed adoption cannot leave the transferred descriptor/lock
+            # active behind a partially-started Controller.
+            self.close()
+            handoff.abort()
+            raise
 
     def close_normal(self, lifecycle_run_id: str) -> str:
         if not self._started:

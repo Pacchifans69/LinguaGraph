@@ -210,3 +210,84 @@ LC-A4 does not claim distributed exactly-once delivery, provider actuation safet
 ## 11. Authorization boundary after Gate 1
 
 Gate 1 landing authorizes the governance bridge and this contract only. It does not authorize controller source creation, dependency installation, implementation branch creation, provider/ECS access, SSH, Windows account or service creation, ACL mutation, Credential Store access/change, STS, hosted proof, StartInstance, StopInstance, or `MUTATION_INTENT` emission. Each later mutation requires separate explicit Human authorization. This document itself must never be used as evidence of such authorization.
+
+
+## B1 first-binding provisioning and same-session handoff
+
+Normal controller startup, AdmissionService.admit, and ordinary
+LedgerWriter.append retain the missing/empty-ledger fail-closed behavior
+above. A separate LedgerProvisioner entry point may be invoked only by a
+separately Human-authorized host-provisioning command under the dedicated
+Controller OS identity; it is not imported by normal startup or Agent-facing
+admission/IPC.
+
+The production authority entry point is
+ControllerProvisioningAuthority.from_controller_host() with no caller
+arguments. It reads the fixed Controller-owned host authority descriptor,
+obtains the current Windows token SID itself, and performs the mandatory
+comparison with the descriptor's expected Controller SID before provisioning.
+The protected exact instance_id comes from that same separately provisioned
+Controller-owned host configuration. Caller-supplied SID, instance ID, loader,
+check callback, boolean, or authority object is not accepted by the production
+LedgerProvisioner API. Its constructor accepts only the canonical path, and
+provision(request) resolves host authority internally before it can create
+any event or open the ledger. There is no production-importable disposable
+identity factory or write-capable non-authoritative core. The public
+ControllerProvisioningAuthority constructor can hold inert identity data, but
+LedgerProvisioner never accepts that object. The descriptor's Windows
+owner/ACL and token separation remain NOT_PROVEN_IN_TIER_A and require the
+separately authorized Gate 2B host proof.
+
+Tier-A fixture support exists only under tests/. It patches host facts and
+low-level I/O around the same production LedgerProvisioner entry for hermetic
+execution. Those test-side patches are not production symbols or authority
+inputs and do not prove the Windows token, descriptor ACL/owner, or reparse
+boundary.
+
+The provisioner requires a pre-provisioned canonical runtime directory,
+acquires the production mandatory writer lock, requires the canonical
+pathname to be absent, and creates it with O_CREAT|O_EXCL semantics. It
+constructs exactly one typed genuine LIFECYCLE_RUN_BOUND event with schema
+version 2 and event_seq=0, a fresh lifecycle_run_id, the protected exact
+instance_id, requesting_workflow, and workflow_run_identity; it validates the
+event, writes one JSONL record, flushes it durably, reads and validates the
+bytes from the same descriptor, and rechecks path identity.
+
+A successful provisioning transaction returns a one-use typed
+ProvisioningHandoff. The handoff transfers the already-open, validated
+canonical ledger descriptor, its (st_dev, st_ino) identity, the validated
+session bytes, and the already-held mandatory lock to the exact LedgerWriter
+that the first Controller will use. The Controller adopts only that writer and
+exact provisioned binding while the descriptor and lock remain owned by the
+same authority session. It does not reopen the pathname or establish
+provenance from JSON/event equality alone. Adoption marks exactly that
+lifecycle_run_id current and clears only the startup recovery state created by
+this handoff. There is no second binding and no re-admission.
+
+A fresh startup or restart without the live handoff uses the existing
+classification and recovery guard. A pre-existing ACTIVE binding enters the
+ordinary RECOVERY_REQUIRED_ACTIVE Human-review path and cannot become current
+automatically merely because its event resembles a provisioning event. Agent-
+facing normal startup still cannot bootstrap a missing or empty ledger.
+
+The mandatory lock and transferred descriptor have one-use ownership. Handoff
+abort, Controller start failure, adoption failure, and successful Controller
+close close the descriptor and release the lock exactly once. On a failed
+provisioning cleanup, lock release runs even when descriptor close reports an
+error; the residue remains and the provisioner stays poisoned. A path swap,
+rotation, or byte-identical replacement is fail-closed when the pathname no
+longer names the transferred file object, even if event bytes are unchanged.
+
+If O_CREAT|O_EXCL succeeds and write, durable flush, descriptor validation, or
+path-identity validation fails, the created residue is retained, the
+provisioning authority session is poisoned, and retry, truncate, overwrite,
+silent repair, or automatic reconstruction is forbidden. Subsequent
+provisioning is denied until separately Human-authorized cleanup/recovery.
+Normal startup treats the residue as missing/empty/corrupt authority and fails
+closed or enters its existing recovery classification according to the durable
+bytes; no Agent path repairs it. Cross-restart durability and Windows
+ACL/token/reparse enforcement are NOT_PROVEN_IN_TIER_A.
+
+This section changes no LC-A3 normative semantic. It specifies only the LC-A4
+provisioning-only first binding, same-authority-session transfer, explicit
+current-run adoption, and failure-residue handling.

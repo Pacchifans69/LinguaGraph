@@ -7,6 +7,7 @@ import re
 import stat
 import sys
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterator
@@ -255,6 +256,44 @@ class WindowsMandatoryLock:
             self._handle = None
 
 
+@dataclass
+class TransferredLedgerSession:
+    """One-use transfer of a validated descriptor and its already-held lock."""
+
+    path: Path
+    fd: int
+    identity: tuple[int, int]
+    session_bytes: bytes
+    raw_lock: Any
+    close_func: Callable[[int], None] = os.close
+    path_stat_func: Callable[..., os.stat_result] = os.stat
+    _taken: bool = False
+    _closed: bool = False
+
+    @property
+    def taken(self) -> bool:
+        return self._taken
+
+    def take(self) -> "TransferredLedgerSession":
+        if self._closed or self._taken:
+            raise LedgerAuthorityUnavailable("transferred ledger session is one-use")
+        self._taken = True
+        return self
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            self.close_func(self.fd)
+        finally:
+            self.raw_lock.__exit__(None, None, None)
+
+    def abort_if_unclaimed(self) -> None:
+        if not self._taken:
+            self.close()
+
+
 class LedgerWriter:
     """Session owner pins one canonical file object for scans and appends."""
 
@@ -265,11 +304,16 @@ class LedgerWriter:
         lock_factory: Callable[[], Any] | None = None,
         fsync_func: Callable[[int], None] = os.fsync,
         order_hook: Callable[[str], None] | None = None,
+        transferred_session: TransferredLedgerSession | None = None,
+        close_func: Callable[[int], None] = os.close,
     ):
         self.path = Path(path)
         self.lock_factory = lock_factory or (lambda: WindowsMandatoryLock(self.path.with_suffix(".lock")))
         self.fsync_func = fsync_func
         self.order_hook = order_hook or (lambda _: None)
+        self._transferred_session = transferred_session
+        self.close_func = close_func
+        self.path_stat_func = os.stat
         self._owned = False
         self._poisoned = False
         self._session_path: Path | None = None
@@ -285,39 +329,56 @@ class LedgerWriter:
             return
         lock = None
         lock_entered = False
-        try:
-            lock = self.lock_factory()
-            if lock is not None:
-                if not hasattr(lock, "__enter__"):
-                    raise RuntimeError("mandatory writer lock has no enter operation")
-                lock.__enter__()
-                lock_entered = True
-        except Exception as exc:
-            raise LedgerAuthorityUnavailable("LEDGER_SINGLE_WRITER_NOT_ENFORCEABLE") from exc
+        transferred = None
+        if self._transferred_session is not None:
+            try:
+                transferred = self._transferred_session.take()
+            except LedgerAuthorityUnavailable:
+                raise
+        else:
+            try:
+                lock = self.lock_factory()
+                if lock is not None:
+                    if not hasattr(lock, "__enter__"):
+                        raise RuntimeError("mandatory writer lock has no enter operation")
+                    lock.__enter__()
+                    lock_entered = True
+            except Exception as exc:
+                raise LedgerAuthorityUnavailable("LEDGER_SINGLE_WRITER_NOT_ENFORCEABLE") from exc
 
         try:
             self._owned = True
             self._poisoned = False
             self._session_path = self.path
-            flags = os.O_RDWR | getattr(os, "O_BINARY", 0)
-            try:
-                self._ledger_fd = os.open(self.path, flags)  # OPEN EXISTING only; never initialize.
-                descriptor_stat = os.fstat(self._ledger_fd)
-            except FileNotFoundError as exc:
-                raise LedgerAuthorityUnavailable("BINDING_AUTHORITY_UNAVAILABLE: ledger missing") from exc
-            except OSError as exc:
-                raise LedgerAuthorityUnavailable("BINDING_AUTHORITY_UNAVAILABLE: canonical ledger unavailable") from exc
-            if not stat.S_ISREG(descriptor_stat.st_mode):
-                raise LedgerAuthorityUnavailable("BINDING_AUTHORITY_UNAVAILABLE: canonical ledger is not a regular file")
-            self._session_identity = (descriptor_stat.st_dev, descriptor_stat.st_ino)
+            if transferred is not None:
+                self._ledger_fd = transferred.fd
+                self._session_identity = transferred.identity
+                self._session_bytes = transferred.session_bytes
+                self.path_stat_func = transferred.path_stat_func
+            else:
+                flags = os.O_RDWR | getattr(os, "O_BINARY", 0)
+                try:
+                    self._ledger_fd = os.open(self.path, flags)  # OPEN EXISTING only; never initialize.
+                    descriptor_stat = os.fstat(self._ledger_fd)
+                except FileNotFoundError as exc:
+                    raise LedgerAuthorityUnavailable("BINDING_AUTHORITY_UNAVAILABLE: ledger missing") from exc
+                except OSError as exc:
+                    raise LedgerAuthorityUnavailable("BINDING_AUTHORITY_UNAVAILABLE: canonical ledger unavailable") from exc
+                if not stat.S_ISREG(descriptor_stat.st_mode):
+                    raise LedgerAuthorityUnavailable("BINDING_AUTHORITY_UNAVAILABLE: canonical ledger is not a regular file")
+                self._session_identity = (descriptor_stat.st_dev, descriptor_stat.st_ino)
             self._verify_path_identity()
-            self._session_bytes = self._read_owned_bytes()
+            if transferred is None:
+                self._session_bytes = self._read_owned_bytes()
             self._verify_path_identity()
             yield
         finally:
             fd, self._ledger_fd = self._ledger_fd, None
             if fd is not None:
-                os.close(fd)
+                if transferred is not None:
+                    transferred.close()
+                else:
+                    self.close_func(fd)
             self._owned = False
             self._session_path = None
             self._session_identity = None
@@ -334,7 +395,7 @@ class LedgerWriter:
         if not self._owned or self._ledger_fd is None or self.path != self._session_path:
             raise LedgerAuthorityUnavailable("canonical ledger changed during owned session")
         try:
-            path_stat = os.stat(self.path, follow_symlinks=False)
+            path_stat = self.path_stat_func(self.path, follow_symlinks=False)
             descriptor_stat = os.fstat(self._ledger_fd)
         except OSError as exc:
             raise LedgerAuthorityUnavailable("canonical ledger path unavailable") from exc
