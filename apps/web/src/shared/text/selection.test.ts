@@ -448,6 +448,62 @@ describe('rangeToCanonical — M9 grapheme-safe authoring', () => {
   });
 });
 
+describe('R3 full-content integration after cumulative conversion', () => {
+  it('accepts a complete grapheme across runs in both directions and preserves legacy reverse mapping', () => {
+    const { root, version } = buildPanel('A👍🏽B', [
+      { id: 'legacy-modifier-split', start: 1, end: 2 },
+    ]);
+    expect(root.children).toHaveLength(3);
+    const start = runText(root, 1);
+    const end = runText(root, 2);
+    const range = rangeBetween(
+      { container: start, offset: 0 },
+      { container: end, offset: 2 },
+    );
+    expect(range.toString()).toBe('👍🏽');
+    for (const direction of ['forward', 'backward'] as const) {
+      const forward = direction === 'forward';
+      const selection: SelectionLike = {
+        rangeCount: 1, getRangeAt: () => range,
+        anchorNode: forward ? start : end, anchorOffset: forward ? 0 : 2,
+        focusNode: forward ? end : start, focusOffset: forward ? 2 : 0,
+      };
+      expect(selectionToCanonical(selection, root, version)).toEqual({
+        status: 'ok', textVersionId: 'tv-1', contentHash: 'hash-1',
+        start: 1, end: 3, quote: '👍🏽', direction,
+      });
+    }
+    const internal = rangeBetween(
+      { container: end, offset: 0 }, { container: end, offset: 2 },
+    );
+    expect(rangeToCanonical(internal, root, version)).toMatchObject({
+      status: 'error', code: 'INVALID_GRAPHEME_BOUNDARY',
+    });
+    const legacy = canonicalRangeToDomRange(root, version, 2, 3);
+    expect(legacy.status).toBe('ok');
+    if (legacy.status === 'ok') expect(legacy.range.toString()).toBe('🏽');
+  });
+
+  it('rejects late malformed segmentation even when both selected endpoints appeared earlier', () => {
+    const { root, version } = buildPanel('abc');
+    const text = runText(root, 0);
+    const range = rangeBetween(
+      { container: text, offset: 0 }, { container: text, offset: 1 },
+    );
+    class LateMalformedSegmenter {
+      segment() {
+        return [
+          { segment: 'a', index: 0 }, { segment: 'b', index: 1 }, { segment: 'x', index: 2 },
+        ];
+      }
+    }
+    vi.stubGlobal('Intl', { Segmenter: LateMalformedSegmenter });
+    expect(rangeToCanonical(range, root, version)).toMatchObject({
+      status: 'error', code: 'GRAPHEME_SEGMENTER_UNAVAILABLE',
+    });
+  });
+});
+
 describe('rangeToCanonical — fail-closed rejection', () => {
   it('rejects a collapsed selection (EMPTY_SELECTION)', () => {
     const { root, version } = buildPanel(EN_TEXT);
